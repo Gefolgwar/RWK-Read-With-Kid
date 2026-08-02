@@ -126,6 +126,17 @@ fun TopControlBar(
             }
         }
 
+        Text(
+            text = if (state.mode == RecognitionMode.FULL) {
+                "Full: Recognizes any word from the entire vocabulary."
+            } else {
+                "Grammar: Vocabulary limited to current and next sentence."
+            },
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 12.dp, bottom = 4.dp)
+        )
+
         Spacer(modifier = Modifier.height(8.dp))
 
         Row(verticalAlignment = Alignment.CenterVertically) {
