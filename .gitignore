@@ -1,9 +1,9 @@
 # Build outputs
-STT-Performance-Tester/build/
-STT-Performance-Tester/.gradle/
+build/
+.gradle/
 
 # Local properties
-STT-Performance-Tester/local.properties
+local.properties
 
 # IDE
 .idea/
