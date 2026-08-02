@@ -1,0 +1,16 @@
+# Build outputs
+STT-Performance-Tester/build/
+STT-Performance-Tester/.gradle/
+
+# Local properties
+STT-Performance-Tester/local.properties
+
+# IDE
+.idea/
+*.iml
+
+# Environment variables
+.env
+
+# Large model files
+model-uk/
