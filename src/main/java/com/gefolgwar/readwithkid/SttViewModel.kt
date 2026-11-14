@@ -1,13 +1,18 @@
 package com.gefolgwar.readwithkid
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import org.json.JSONException
+import org.json.JSONObject
 
 data class SttUiState(
-    val appState: AppState = AppState.IDLE,
+    val appState: AppState = AppState.LOADING_MODEL,
     val mode: RecognitionMode = RecognitionMode.FULL,
     val selectedExcerptIndex: Int = 0,
     val wordStatuses: List<WordStatus> = emptyList(),
@@ -37,6 +42,11 @@ class SttViewModel(
             override fun onModelLoaded() = handleModelLoaded()
         })
         initAligner()
+        engine.loadModel()
+    }
+
+    override fun onCleared() {
+        engine.release()
     }
 
     fun selectMode(mode: RecognitionMode) {
@@ -92,6 +102,7 @@ class SttViewModel(
     }
 
     private fun handleModelLoaded() {
+        if (_uiState.value.appState != AppState.LOADING_MODEL) return
         _uiState.update { it.copy(appState = AppState.IDLE) }
     }
 
@@ -112,7 +123,7 @@ class SttViewModel(
         tracker.recordHighlightEmit(highlightNs)
 
         updateWordStatuses()
-        _uiState.update { it.copy(rawLog = it.rawLog + "P: $text") }
+        appendRawLog("P: $text")
     }
 
     private fun handleFinal(json: String) {
@@ -140,13 +151,17 @@ class SttViewModel(
         tracker.recordHighlightEmit(highlightNs)
 
         updateWordStatuses()
-        _uiState.update { it.copy(rawLog = it.rawLog + "F: $text") }
+        appendRawLog("F: $text")
 
         checkSentenceBoundary()
     }
 
     private fun handleError(message: String) {
-        _uiState.update { it.copy(rawLog = it.rawLog + "E: $message") }
+        appendRawLog("E: $message")
+    }
+
+    private fun appendRawLog(line: String) {
+        _uiState.update { it.copy(rawLog = (it.rawLog + line).takeLast(MAX_RAW_LOG_LINES)) }
     }
 
     private fun checkSentenceBoundary() {
@@ -160,8 +175,7 @@ class SttViewModel(
             if (confirmed < wordCount) {
                 if (i != currentSentenceIdx) {
                     currentSentenceIdx = i
-                    engine.stop()
-                    engine.start(_uiState.value.mode, buildGrammar(i))
+                    engine.updateGrammar(buildGrammar(i))
                 }
                 return
             }
@@ -222,9 +236,16 @@ class SttViewModel(
     }
 
     companion object {
-        fun extractVoskText(json: String, key: String): String {
-            val pattern = """"$key"\s*:\s*"([^"]*)"""".toRegex()
-            return pattern.find(json)?.groupValues?.get(1) ?: ""
+        const val MAX_RAW_LOG_LINES = 200
+
+        fun factory(createEngine: () -> VoskEngine): ViewModelProvider.Factory = viewModelFactory {
+            initializer { SttViewModel(createEngine()) }
+        }
+
+        fun extractVoskText(json: String, key: String): String = try {
+            JSONObject(json).optString(key, "")
+        } catch (e: JSONException) {
+            ""
         }
     }
 }

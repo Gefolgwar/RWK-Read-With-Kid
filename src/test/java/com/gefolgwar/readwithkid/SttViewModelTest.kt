@@ -1,5 +1,7 @@
 package com.gefolgwar.readwithkid
 
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelStore
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
@@ -7,16 +9,87 @@ import org.junit.Test
 class SttViewModelTest {
 
     private lateinit var engine: FakeVoskEngine
+    private lateinit var store: ViewModelStore
     private lateinit var vm: SttViewModel
 
     @Before
     fun setup() {
         engine = FakeVoskEngine()
-        vm = SttViewModel(engine)
+        store = ViewModelStore()
+        vm = ViewModelProvider(store, SttViewModel.factory { engine })[SttViewModel::class.java]
+        engine.simulateModelLoaded()
     }
 
     @Test
-    fun `initial state is IDLE with first excerpt selected`() {
+    fun `initial state is LOADING_MODEL and model load requested once`() {
+        val freshEngine = FakeVoskEngine()
+        val freshVm = SttViewModel(freshEngine)
+        assertEquals(AppState.LOADING_MODEL, freshVm.uiState.value.appState)
+        assertEquals(1, freshEngine.loadCount)
+    }
+
+    @Test
+    fun `start before model is ready is ignored`() {
+        val freshEngine = FakeVoskEngine()
+        val freshVm = SttViewModel(freshEngine)
+        freshVm.start()
+        assertEquals(AppState.LOADING_MODEL, freshVm.uiState.value.appState)
+        assertEquals(0, freshEngine.startCount)
+    }
+
+    @Test
+    fun `start allowed once model is loaded`() {
+        val freshEngine = FakeVoskEngine()
+        val freshVm = SttViewModel(freshEngine)
+        freshEngine.simulateModelLoaded()
+        assertEquals(AppState.IDLE, freshVm.uiState.value.appState)
+        freshVm.start()
+        assertEquals(AppState.LISTENING, freshVm.uiState.value.appState)
+        assertEquals(1, freshEngine.startCount)
+    }
+
+    @Test
+    fun `late model loaded callback does not interrupt listening`() {
+        vm.start()
+        engine.simulateModelLoaded()
+        assertEquals(AppState.LISTENING, vm.uiState.value.appState)
+    }
+
+    @Test
+    fun `viewmodel is reused across recreation and model loads once`() {
+        val freshStore = ViewModelStore()
+        var enginesCreated = 0
+        val freshEngine = FakeVoskEngine()
+        val factory = SttViewModel.factory { enginesCreated++; freshEngine }
+
+        val first = ViewModelProvider(freshStore, factory)[SttViewModel::class.java]
+        // Simulates configuration change: a new provider over the same retained store
+        val second = ViewModelProvider(freshStore, factory)[SttViewModel::class.java]
+
+        assertSame(first, second)
+        assertEquals(1, enginesCreated)
+        assertEquals(1, freshEngine.loadCount)
+    }
+
+    @Test
+    fun `clearing viewmodel releases engine`() {
+        vm.start()
+        assertFalse(engine.released)
+        store.clear()
+        assertTrue(engine.released)
+    }
+
+    @Test
+    fun `raw log is bounded`() {
+        vm.start()
+        repeat(SttViewModel.MAX_RAW_LOG_LINES + 50) { engine.simulateError("err$it") }
+        val log = vm.uiState.value.rawLog
+        assertEquals(SttViewModel.MAX_RAW_LOG_LINES, log.size)
+        assertEquals("E: err${SttViewModel.MAX_RAW_LOG_LINES + 49}", log.last())
+    }
+
+    @Test
+    fun `initial state is IDLE with first excerpt selected after model load`() {
         val state = vm.uiState.value
         assertEquals(AppState.IDLE, state.appState)
         assertEquals(RecognitionMode.FULL, state.mode)
@@ -151,7 +224,7 @@ class SttViewModelTest {
     }
 
     @Test
-    fun `grammar rebuilt at sentence boundary in constrained mode`() {
+    fun `grammar updated at sentence boundary without restarting audio`() {
         vm.selectExcerpt(1) // Shevchenko: 2 sentences, 13+14 words
         vm.selectMode(RecognitionMode.GRAMMAR_CONSTRAINED)
         vm.start()
@@ -159,10 +232,18 @@ class SttViewModelTest {
         val initialStartCount = engine.startCount
 
         // Recognize all words of first sentence + first word of second sentence
-        // This crosses the sentence boundary and should trigger a grammar rebuild
+        // This crosses the sentence boundary and should trigger a grammar update
         engine.simulateFinal("як умру то поховайте мене на могилі серед степу широкого на вкраїні милій щоб")
 
-        assertTrue(engine.startCount > initialStartCount)
+        assertEquals(1, engine.grammarUpdateCount)
+        assertEquals(initialStartCount, engine.startCount)
+        assertEquals(0, engine.stopCount)
+        assertTrue(engine.started)
+        assertEquals(AppState.LISTENING, vm.uiState.value.appState)
+        val grammar = engine.lastGrammar!!
+        assertTrue(grammar.contains("ревучий"))
+        assertFalse(grammar.contains("поховайте"))
+        assertTrue(grammar.contains("[unk]"))
     }
 
     @Test
@@ -174,6 +255,7 @@ class SttViewModelTest {
         engine.simulateFinal("як умру то поховайте мене на могилі серед степу широкого на вкраїні милій")
 
         assertEquals(startCount, engine.startCount)
+        assertEquals(0, engine.grammarUpdateCount)
     }
 
     @Test
@@ -205,13 +287,18 @@ class SttViewModelTest {
     }
 
     @Test
-    fun `model loaded transitions to IDLE`() {
-        val freshEngine = FakeVoskEngine()
-        val freshVm = SttViewModel(freshEngine)
-        // ViewModel starts with IDLE by default
-        assertEquals(AppState.IDLE, freshVm.uiState.value.appState)
-        // Simulate model loaded
-        freshEngine.simulateModelLoaded()
-        assertEquals(AppState.IDLE, freshVm.uiState.value.appState)
+    fun `extractVoskText handles multiline vosk result with escaped quotes`() {
+        val json = """
+            {
+              "result" : [{"conf" : 1.0, "end" : 1.2, "start" : 0.6, "word" : "a"}],
+              "text" : "a \"b\""
+            }
+        """.trimIndent()
+        assertEquals("a \"b\"", SttViewModel.extractVoskText(json, "text"))
+    }
+
+    @Test
+    fun `extractVoskText returns empty for malformed json`() {
+        assertEquals("", SttViewModel.extractVoskText("""{"text":""", "text"))
     }
 }

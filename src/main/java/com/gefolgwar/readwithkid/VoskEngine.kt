@@ -1,7 +1,5 @@
 package com.gefolgwar.readwithkid
 
-import android.content.Context
-
 interface VoskEngineListener {
     fun onPartialResult(text: String)
     fun onResult(text: String)
@@ -10,8 +8,10 @@ interface VoskEngineListener {
 }
 
 interface VoskEngine {
-    fun init(context: Context)
+    fun loadModel()
     fun start(mode: RecognitionMode, grammar: List<String>? = null)
+    /** Swaps the grammar of a running recognition session without stopping audio capture. */
+    fun updateGrammar(grammar: List<String>)
     fun stop()
     fun pause(paused: Boolean)
     fun release()

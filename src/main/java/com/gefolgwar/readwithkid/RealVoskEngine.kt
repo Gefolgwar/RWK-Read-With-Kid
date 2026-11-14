@@ -11,28 +11,43 @@ import org.vosk.Model
 import org.vosk.Recognizer
 import java.io.File
 import java.io.FileOutputStream
+import java.util.concurrent.Executors
 
-class RealVoskEngine : VoskEngine {
+class RealVoskEngine(context: Context) : VoskEngine {
 
-    private var _listener: VoskEngineListener? = null
-    private var model: Model? = null
+    private val appContext = context.applicationContext
+    @Volatile private var _listener: VoskEngineListener? = null
+    @Volatile private var model: Model? = null
     private var recognizer: Recognizer? = null
     private var audioRecord: AudioRecord? = null
     private var recordingThread: Thread? = null
     @Volatile private var isRecording = false
     @Volatile private var isPaused = false
+    @Volatile private var released = false
     private val mainHandler = Handler(Looper.getMainLooper())
 
-    override fun init(context: Context) {
-        Thread {
+    // Single background thread for model loading, grammar recognizer creation and model release,
+    // so these never run on the main thread and never overlap.
+    private val worker = Executors.newSingleThreadExecutor()
+
+    // Guards [session] and [pendingRecognizer]: a grammar recognizer built for an old session is discarded.
+    private val lock = Any()
+    private var session = 0
+    private var pendingRecognizer: Recognizer? = null
+
+    override fun loadModel() {
+        worker.execute {
             try {
-                val modelDir = copyModelFromAssets(context)
-                model = Model(modelDir)
-                mainHandler.post { _listener?.onModelLoaded() }
+                val modelDir = ModelInstaller.install(
+                    File(appContext.filesDir, MODEL_ASSET_DIR),
+                    installedAppVersion()
+                ) { tmpDir -> copyAssetDir(appContext, MODEL_ASSET_DIR, tmpDir) }
+                model = Model(modelDir.absolutePath)
+                postToListener { it.onModelLoaded() }
             } catch (e: Exception) {
-                mainHandler.post { _listener?.onError("Model load failed: ${e.message}") }
+                postToListener { it.onError("Model load failed: ${e.message}") }
             }
-        }.start()
+        }
     }
 
     override fun start(mode: RecognitionMode, grammar: List<String>?) {
@@ -41,12 +56,16 @@ class RealVoskEngine : VoskEngine {
             return
         }
 
+        synchronized(lock) {
+            session++
+            pendingRecognizer?.close()
+            pendingRecognizer = null
+        }
         recognizer?.close()
         recognizer = if (mode == RecognitionMode.GRAMMAR_CONSTRAINED && grammar != null) {
-            val grammarJson = JSONArray(grammar).toString()
-            Recognizer(m, 16000.0f, grammarJson)
+            Recognizer(m, SAMPLE_RATE, JSONArray(grammar).toString())
         } else {
-            Recognizer(m, 16000.0f)
+            Recognizer(m, SAMPLE_RATE)
         }
 
         val bufferSize = AudioRecord.getMinBufferSize(
@@ -64,7 +83,7 @@ class RealVoskEngine : VoskEngine {
         )
 
         if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
-            mainHandler.post { _listener?.onError("AudioRecord init failed") }
+            postToListener { it.onError("AudioRecord init failed") }
             return
         }
 
@@ -75,6 +94,10 @@ class RealVoskEngine : VoskEngine {
         recordingThread = Thread {
             val buffer = ShortArray(bufferSize / 2)
             while (isRecording) {
+                takePendingRecognizer()?.let { next ->
+                    recognizer?.close()
+                    recognizer = next
+                }
                 if (isPaused) {
                     Thread.sleep(50)
                     continue
@@ -89,14 +112,30 @@ class RealVoskEngine : VoskEngine {
                     val rec = recognizer ?: continue
                     if (rec.acceptWaveForm(byteBuffer, byteBuffer.size)) {
                         val result = rec.result
-                        mainHandler.post { _listener?.onResult(result) }
+                        postToListener { it.onResult(result) }
                     } else {
                         val partial = rec.partialResult
-                        mainHandler.post { _listener?.onPartialResult(partial) }
+                        postToListener { it.onPartialResult(partial) }
                     }
                 }
             }
         }.apply { start() }
+    }
+
+    override fun updateGrammar(grammar: List<String>) {
+        val m = model ?: return
+        val requestedFor = synchronized(lock) { session }
+        worker.execute {
+            val next = Recognizer(m, SAMPLE_RATE, JSONArray(grammar).toString())
+            synchronized(lock) {
+                if (session == requestedFor) {
+                    pendingRecognizer?.close()
+                    pendingRecognizer = next
+                } else {
+                    next.close()
+                }
+            }
+        }
     }
 
     override fun stop() {
@@ -106,6 +145,11 @@ class RealVoskEngine : VoskEngine {
         audioRecord?.stop()
         audioRecord?.release()
         audioRecord = null
+        synchronized(lock) {
+            session++
+            pendingRecognizer?.close()
+            pendingRecognizer = null
+        }
         recognizer?.close()
         recognizer = null
     }
@@ -115,24 +159,36 @@ class RealVoskEngine : VoskEngine {
     }
 
     override fun release() {
+        released = true
         stop()
-        model?.close()
-        model = null
+        mainHandler.removeCallbacksAndMessages(null)
+        _listener = null
+        // Queued after any in-flight load or grammar build, so the model is never closed while in use.
+        worker.execute {
+            model?.close()
+            model = null
+        }
+        worker.shutdown()
     }
 
     override fun setListener(listener: VoskEngineListener) {
         _listener = listener
     }
 
-    private fun copyModelFromAssets(context: Context): String {
-        val modelDir = File(context.filesDir, "model-uk")
-        if (modelDir.exists() && modelDir.list()?.isNotEmpty() == true) {
-            return modelDir.absolutePath
-        }
-        modelDir.mkdirs()
-        copyAssetDir(context, "model-uk", modelDir)
-        return modelDir.absolutePath
+    private fun takePendingRecognizer(): Recognizer? = synchronized(lock) {
+        pendingRecognizer.also { pendingRecognizer = null }
     }
+
+    private fun postToListener(action: (VoskEngineListener) -> Unit) {
+        mainHandler.post {
+            if (!released) _listener?.let(action)
+        }
+    }
+
+    // Changes on every install/update of the app, so a newly bundled model is always re-copied.
+    @Suppress("DEPRECATION")
+    private fun installedAppVersion(): String =
+        appContext.packageManager.getPackageInfo(appContext.packageName, 0).lastUpdateTime.toString()
 
     private fun copyAssetDir(context: Context, assetPath: String, targetDir: File) {
         val assets = context.assets.list(assetPath) ?: return
@@ -159,5 +215,10 @@ class RealVoskEngine : VoskEngine {
                 }
             }
         }
+    }
+
+    private companion object {
+        const val MODEL_ASSET_DIR = "model-uk"
+        const val SAMPLE_RATE = 16000.0f
     }
 }
