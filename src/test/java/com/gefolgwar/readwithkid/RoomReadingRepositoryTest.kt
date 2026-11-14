@@ -36,7 +36,7 @@ class RoomReadingRepositoryTest {
 
     @Test
     fun `readings with their word lists survive reopening the database, oldest first`() {
-        val first = ReadingResult(6, 4, 30_000, listOf("раму", "будь-який"), listOf("читав"))
+        val first = ReadingResult(6, 4, 30_000, listOf("раму", "будь-який"), listOf("читав"), listOf("книжку", "раму"))
         val second = ReadingResult(6, 6, 20_000, emptyList(), emptyList())
         withDb { db ->
             val olya = db.children().saveChild(ChildProfile(name = "Оля", avatar = Avatar.RABBIT))
@@ -93,6 +93,47 @@ class RoomReadingRepositoryTest {
             assertEquals("Оля", olya.name)
             db.readings().saveReading(reading(olya.id, 1, readAt = 1, result = ReadingResult(3, 2, 3_000, listOf("раму"), emptyList())))
             assertEquals(listOf(listOf("раму")), db.readings().observeReadings().first().map { it.result.skippedWords })
+        }
+    }
+
+    @Test
+    fun `a database from before pronunciation help is upgraded, its readings had no help`() {
+        // A database as version 4 of the app left it.
+        context.openOrCreateDatabase(dbName, Context.MODE_PRIVATE, null).use { db ->
+            db.execSQL(
+                "CREATE TABLE `texts` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, " +
+                    "`rawText` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `language` TEXT NOT NULL DEFAULT 'UK')"
+            )
+            db.execSQL("CREATE TABLE `children` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `avatar` TEXT NOT NULL)")
+            db.execSQL(
+                "CREATE TABLE `assignments` (`childId` INTEGER NOT NULL, `textId` INTEGER NOT NULL, " +
+                    "PRIMARY KEY(`childId`, `textId`), " +
+                    "FOREIGN KEY(`childId`) REFERENCES `children`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE, " +
+                    "FOREIGN KEY(`textId`) REFERENCES `texts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)"
+            )
+            db.execSQL("CREATE INDEX `index_assignments_textId` ON `assignments` (`textId`)")
+            db.execSQL(
+                "CREATE TABLE `readings` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`childId` INTEGER NOT NULL, `textId` INTEGER NOT NULL, `textTitle` TEXT NOT NULL, " +
+                    "`readAt` INTEGER NOT NULL, `totalWords` INTEGER NOT NULL, `correctWords` INTEGER NOT NULL, " +
+                    "`durationMs` INTEGER NOT NULL, `skippedWords` TEXT NOT NULL, `retriedWords` TEXT NOT NULL, " +
+                    "FOREIGN KEY(`childId`) REFERENCES `children`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)"
+            )
+            db.execSQL("CREATE INDEX `index_readings_childId` ON `readings` (`childId`)")
+            db.execSQL("INSERT INTO children (name, avatar) VALUES ('Оля', 'RABBIT')")
+            db.execSQL(
+                "INSERT INTO readings (childId, textId, textTitle, readAt, totalWords, correctWords, durationMs, " +
+                    "skippedWords, retriedWords) VALUES (1, 1, 'Казка', 1, 3, 2, 3000, 'раму', '')"
+            )
+            db.version = 4
+        }
+
+        withDb { db ->
+            val old = db.readings().observeReadings().first().single()
+            assertEquals(ReadingResult(3, 2, 3_000, listOf("раму"), emptyList(), emptyList()), old.result)
+            val helped = ReadingResult(3, 3, 3_000, emptyList(), emptyList(), listOf("раму"))
+            db.readings().saveReading(reading(1, 1, readAt = 2, result = helped))
+            assertEquals(listOf(emptyList(), listOf("раму")), db.readings().observeReadings().first().map { it.result.helpedWords })
         }
     }
 }

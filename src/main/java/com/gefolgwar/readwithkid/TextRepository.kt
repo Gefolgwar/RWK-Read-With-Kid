@@ -56,7 +56,7 @@ abstract class TextDao : TextRepository {
 
 @Database(
     entities = [SavedText::class, ChildProfile::class, TextAssignment::class, ReadingRecord::class],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 @TypeConverters(WordListConverter::class)
@@ -75,7 +75,7 @@ abstract class AppDatabase : RoomDatabase() {
 
         fun build(context: Context, name: String): AppDatabase =
             Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, name)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build()
 
         /** Adds child profiles and text assignments; saved texts are kept. */
@@ -113,6 +113,13 @@ abstract class AppDatabase : RoomDatabase() {
                         "FOREIGN KEY(`childId`) REFERENCES `children`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)"
                 )
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_readings_childId` ON `readings` (`childId`)")
+            }
+        }
+
+        /** Adds the words said for the child; earlier readings had none. */
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `readings` ADD COLUMN `helpedWords` TEXT NOT NULL DEFAULT ''")
             }
         }
     }

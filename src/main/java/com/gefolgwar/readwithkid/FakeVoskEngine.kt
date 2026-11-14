@@ -21,6 +21,7 @@ class FakeVoskEngine : VoskEngine {
         lastMode = mode
         lastGrammar = grammar
         started = true
+        paused = false // as RealVoskEngine
         startCount++
     }
 

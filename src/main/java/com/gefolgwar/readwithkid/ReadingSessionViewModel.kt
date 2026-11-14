@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import androidx.room.ColumnInfo
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,7 +25,9 @@ data class ReadingResult(
     val durationMs: Long,
     val skippedWords: List<String>,
     /** Words read correctly after one or more wrong attempts. */
-    val retriedWords: List<String>
+    val retriedWords: List<String>,
+    /** Words the child tapped to hear them said. */
+    @ColumnInfo(defaultValue = "") val helpedWords: List<String> = emptyList()
 ) {
     /** Share of correctly read words, 0..1. */
     val accuracy: Float
@@ -45,18 +48,22 @@ data class ReadingUiState(
     /** Word the child is expected to read next, or -1. */
     val currentWordIndex: Int = -1,
     val result: ReadingResult? = null,
-    val recognitionError: Boolean = false
+    val recognitionError: Boolean = false,
+    /** Whether the child can tap a word to hear it: the phone has a voice for the language. */
+    val helpAvailable: Boolean = false
 )
 
 /**
  * Each text language has its own engine, created by [createEngine], and its own model, see [modelInstalled].
  * A finished reading of a child's text is saved to [readings], dated by [wallClockMs].
+ * Words the child taps are said by [pronunciation]; without it there is no help.
  */
 class ReadingSessionViewModel(
     private val createEngine: (TextLanguage) -> VoskEngine,
     private val mode: RecognitionMode = RecognitionMode.FULL,
     private val modelInstalled: (TextLanguage) -> Flow<Boolean> = { flowOf(true) },
     private val readings: ReadingRepository? = null,
+    private val pronunciation: PronunciationHelper? = null,
     private val wallClockMs: () -> Long = System::currentTimeMillis,
     private val clockMs: () -> Long = { System.nanoTime() / 1_000_000 }
 ) : ViewModel() {
@@ -70,6 +77,10 @@ class ReadingSessionViewModel(
     private var currentSentenceIdx = 0
     private var activeSinceMs = 0L
     private var elapsedMs = 0L
+    /** Indices of the words said for the child during this reading. */
+    private val helpedIndices = mutableSetOf<Int>()
+    /** Words asked to be said and not finished yet; the microphone is deaf meanwhile. */
+    private var wordsBeingSaid = 0
 
     private val listener = object : VoskEngineListener {
         override fun onPartialResult(text: String) = handlePartial(text)
@@ -79,6 +90,7 @@ class ReadingSessionViewModel(
     }
     private lateinit var engine: VoskEngine
     private var modelJob: Job? = null
+    private var voiceJob: Job? = null
 
     init {
         useLanguage(_uiState.value.language)
@@ -86,6 +98,7 @@ class ReadingSessionViewModel(
 
     override fun onCleared() {
         engine.release()
+        pronunciation?.release()
     }
 
     fun updateText(raw: String, language: TextLanguage = TextLanguage.UK, reading: ChildReading? = null) {
@@ -109,6 +122,12 @@ class ReadingSessionViewModel(
         modelJob = viewModelScope.launch {
             modelInstalled(language).collect { installed -> if (installed) loadModel() else handleModelMissing() }
         }
+        voiceJob?.cancel()
+        _uiState.update { it.copy(helpAvailable = false) }
+        val helper = pronunciation ?: return
+        voiceJob = viewModelScope.launch {
+            helper.voiceAvailable(language).collect { available -> _uiState.update { it.copy(helpAvailable = available) } }
+        }
     }
 
     fun start() {
@@ -116,6 +135,7 @@ class ReadingSessionViewModel(
         if (state.sessionState != SessionState.READY || state.text.words.isEmpty()) return
         aligner = WordAligner(state.text.words.map { it.normalized })
         elapsedMs = 0L
+        helpedIndices.clear()
         _uiState.update { it.copy(sessionState = SessionState.READING, result = null, recognitionError = false) }
         publishProgress()
         startEngine()
@@ -143,14 +163,14 @@ class ReadingSessionViewModel(
         aligner.commitTentative()
         publishProgress()
         val words = _uiState.value.text.words
-        // Without surrounding punctuation, e.g. "раму." -> "раму"
-        fun displayOf(indices: Set<Int>) = indices.sorted().map { words[it].display.trim { c -> !c.isLetterOrDigit() } }
+        fun displayOf(indices: Set<Int>) = indices.sorted().map { bare(words[it]) }
         val result = ReadingResult(
             totalWords = words.size,
             correctWords = aligner.matchedCount,
             durationMs = elapsedMs,
             skippedWords = displayOf(aligner.skippedIndices),
-            retriedWords = displayOf(aligner.retriedIndices)
+            retriedWords = displayOf(aligner.retriedIndices),
+            helpedWords = displayOf(helpedIndices)
         )
         _uiState.update { it.copy(sessionState = SessionState.FINISHED, result = result) }
         val reading = childReading ?: return
@@ -162,6 +182,20 @@ class ReadingSessionViewModel(
             result = result
         )
         viewModelScope.launch { readings?.saveReading(record) }
+    }
+
+    /** Says the word at [index] for the child during reading; it is listed in the result. */
+    fun sayWord(index: Int) {
+        val state = _uiState.value
+        val helper = pronunciation
+        if (!isActive() || !state.helpAvailable || helper == null) return
+        val word = state.text.words.getOrNull(index) ?: return
+        helpedIndices.add(index)
+        // The microphone must not take the spoken word for the child's reading.
+        if (wordsBeingSaid++ == 0) engine.pause(true)
+        helper.speak(bare(word), state.language) {
+            if (--wordsBeingSaid == 0) engine.pause(false)
+        }
     }
 
     fun closeResult() {
@@ -182,7 +216,12 @@ class ReadingSessionViewModel(
         } else {
             engine.start(mode)
         }
+        // Resumed while a word is still being said
+        if (wordsBeingSaid > 0) engine.pause(true)
     }
+
+    /** The word without surrounding punctuation, e.g. "раму." -> "раму". */
+    private fun bare(word: Word) = word.display.trim { !it.isLetterOrDigit() }
 
     private fun stopEngine() {
         engine.stop()
@@ -281,9 +320,17 @@ class ReadingSessionViewModel(
         fun factory(
             modelInstalled: (TextLanguage) -> Flow<Boolean> = { flowOf(true) },
             createReadings: () -> ReadingRepository? = { null },
+            createPronunciation: () -> PronunciationHelper? = { null },
             createEngine: (TextLanguage) -> VoskEngine
         ): ViewModelProvider.Factory = viewModelFactory {
-            initializer { ReadingSessionViewModel(createEngine, modelInstalled = modelInstalled, readings = createReadings()) }
+            initializer {
+                ReadingSessionViewModel(
+                    createEngine,
+                    modelInstalled = modelInstalled,
+                    readings = createReadings(),
+                    pronunciation = createPronunciation()
+                )
+            }
         }
 
         fun extractVoskText(json: String, key: String): String = try {

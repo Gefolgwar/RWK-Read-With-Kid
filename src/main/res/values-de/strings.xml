@@ -63,6 +63,7 @@
     <string name="pause">Pause</string>
     <string name="resume">Weiter</string>
     <string name="finish">Fertig</string>
+    <string name="reading_help_hint">Tippe auf ein Wort, um es zu hören</string>
 
     <string name="result_title">Ergebnis</string>
     <string name="result_accuracy">Genauigkeit</string>
@@ -72,6 +73,7 @@
     <string name="result_words">Richtig gelesen: %1$d von %2$d Wörtern</string>
     <string name="result_skipped">Ausgelassene Wörter</string>
     <string name="result_retried">Wörter mit mehreren Versuchen</string>
+    <string name="result_helped">Wörter mit Aussprachehilfe</string>
     <string name="result_back">Zurück zum Text</string>
 
     <string name="progress">Lesefortschritt</string>
@@ -82,6 +84,7 @@
     <string name="progress_repeated">Derselbe Text, erneut gelesen</string>
     <string name="progress_history">Alle Lesungen</string>
     <string name="progress_reading">%1$d %% · %2$d Wörter/Min.</string>
+    <string name="progress_helped">Aussprachehilfe: %1$s</string>
 
     <string name="models_title">Sprachmodelle</string>
     <string name="language_uk">Ukrainisch</string>

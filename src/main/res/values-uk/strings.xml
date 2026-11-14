@@ -63,6 +63,7 @@
     <string name="pause">Пауза</string>
     <string name="resume">Продовжити</string>
     <string name="finish">Готово</string>
+    <string name="reading_help_hint">Натисни на слово, щоб почути його</string>
 
     <string name="result_title">Результат</string>
     <string name="result_accuracy">Точність</string>
@@ -72,6 +73,7 @@
     <string name="result_words">Правильно прочитано: %1$d з %2$d слів</string>
     <string name="result_skipped">Пропущені слова</string>
     <string name="result_retried">Слова з кількома спробами</string>
+    <string name="result_helped">Слова з підказкою вимови</string>
     <string name="result_back">До тексту</string>
 
     <string name="progress">Прогрес читання</string>
@@ -82,6 +84,7 @@
     <string name="progress_repeated">Повторні читання тексту</string>
     <string name="progress_history">Усі читання</string>
     <string name="progress_reading">%1$d %% · %2$d слів/хв</string>
+    <string name="progress_helped">Підказка вимови: %1$s</string>
 
     <string name="models_title">Мовні моделі</string>
     <string name="language_uk">Українська</string>

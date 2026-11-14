@@ -29,10 +29,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,7 +46,9 @@ class MainActivity : ComponentActivity() {
     private fun models(language: TextLanguage) = SpeechModels.get(applicationContext, language)
     private val db by lazy { AppDatabase.get(applicationContext) }
     private val vm: ReadingSessionViewModel by viewModels {
-        ReadingSessionViewModel.factory({ models(it).installed }, { db.readings() }) { RealVoskEngine(models(it).directory) }
+        ReadingSessionViewModel.factory({ models(it).installed }, { db.readings() }, { TtsPronunciationHelper(applicationContext) }) {
+            RealVoskEngine(models(it).directory)
+        }
     }
     private val libraryVm: LibraryViewModel by viewModels {
         LibraryViewModel.factory({ db.texts() }, { db.children() })
@@ -183,7 +187,14 @@ fun ReadWithKidApp(
             state.sessionState == SessionState.FINISHED && result != null ->
                 ResultScreen(result, onClose = vm::closeResult, modifier = modifier)
             state.sessionState == SessionState.READING || state.sessionState == SessionState.PAUSED ->
-                ReadingScreen(state, onPause = vm::pause, onResume = vm::resume, onFinish = vm::finish, modifier = modifier)
+                ReadingScreen(
+                    state,
+                    onWordTap = vm::sayWord,
+                    onPause = vm::pause,
+                    onResume = vm::resume,
+                    onFinish = vm::finish,
+                    modifier = modifier
+                )
             title != null ->
                 ReadyToReadScreen(
                     title,
@@ -385,6 +396,7 @@ fun ErrorText(text: String) {
 @Composable
 fun ReadingScreen(
     state: ReadingUiState,
+    onWordTap: (Int) -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
     onFinish: () -> Unit,
@@ -407,12 +419,18 @@ fun ReadingScreen(
                     WordStatus.UNREAD -> null
                 }
             }
-            if (style != null) withStyle(style) { append(word.display) } else append(word.display)
+            val appendWord = { if (style != null) withStyle(style) { append(word.display) } else append(word.display) }
+            // Tapping a word says it, when the phone has a voice for the language
+            if (state.helpAvailable) withLink(LinkAnnotation.Clickable("word$index") { onWordTap(index) }) { appendWord() } else appendWord()
             if (index < words.lastIndex) append(" ")
         }
     }
 
     Column(modifier = modifier) {
+        if (state.helpAvailable) {
+            Text(stringResource(R.string.reading_help_hint), style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(8.dp))
+        }
         Text(
             text = annotated,
             fontSize = 30.sp,
@@ -470,6 +488,7 @@ fun ResultScreen(result: ReadingResult, onClose: () -> Unit, modifier: Modifier 
             )
             WordList(stringResource(R.string.result_skipped), result.skippedWords)
             WordList(stringResource(R.string.result_retried), result.retriedWords)
+            WordList(stringResource(R.string.result_helped), result.helpedWords)
         }
         Button(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.result_back))

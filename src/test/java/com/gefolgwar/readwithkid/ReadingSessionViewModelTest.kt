@@ -569,6 +569,150 @@ class ReadingSessionViewModelTest {
         assertEquals(18, result.wordsCorrectPerMinute)
     }
 
+    // --- pronunciation help ---
+
+    private fun helpVm(
+        pronunciation: PronunciationHelper,
+        readings: ReadingRepository? = null,
+        engines: MutableMap<TextLanguage, FakeVoskEngine> = mutableMapOf()
+    ): ReadingSessionViewModel {
+        val helpVm = ReadingSessionViewModel(
+            { FakeVoskEngine().also { engine -> engines[it] = engine; this.engine = engine } },
+            readings = readings,
+            pronunciation = pronunciation
+        ) { nowMs }
+        engine.simulateModelLoaded()
+        return helpVm
+    }
+
+    @Test
+    fun `a tapped word is said in the language of the text and saved with the reading`() {
+        val readings = InMemoryReadingRepository()
+        val helper = FakePronunciationHelper(TextLanguage.UK, TextLanguage.DE)
+        vm = helpVm(helper, readings)
+        vm.updateText(text, TextLanguage.UK, ChildReading(childId = 7, textId = 3, textTitle = "Казка"))
+        vm.start()
+        assertTrue(state.helpAvailable)
+
+        engine.simulateFinal("мама мила")
+        vm.sayWord(2) // "раму."
+        helper.finishSaying()
+        vm.sayWord(5) // "книжку."
+        helper.finishSaying()
+        vm.sayWord(2) // again
+        helper.finishSaying()
+        engine.simulateFinal("раму тато читав книжку")
+
+        assertEquals(listOf("раму" to TextLanguage.UK, "книжку" to TextLanguage.UK, "раму" to TextLanguage.UK), helper.said)
+        assertEquals(listOf("раму", "книжку"), state.result!!.helpedWords)
+        assertEquals(listOf("раму", "книжку"), readings.all.single().result.helpedWords)
+        // Help does not count against the reading
+        assertEquals(6, readings.all.single().result.correctWords)
+    }
+
+    @Test
+    fun `a German word is said in German`() {
+        val helper = FakePronunciationHelper(TextLanguage.UK, TextLanguage.DE)
+        val engines = mutableMapOf<TextLanguage, FakeVoskEngine>()
+        vm = helpVm(helper, engines = engines)
+        vm.updateText(germanText, TextLanguage.DE)
+        engines.getValue(TextLanguage.DE).simulateModelLoaded()
+        vm.start()
+        vm.sayWord(6) // "Straße."
+        assertEquals(listOf("Straße" to TextLanguage.DE), helper.said)
+    }
+
+    @Test
+    fun `the microphone does not hear the word while it is being said`() {
+        val helper = FakePronunciationHelper(TextLanguage.UK)
+        vm = helpVm(helper)
+        vm.updateText(text)
+        vm.start()
+
+        vm.sayWord(0)
+        assertTrue(engine.paused)
+        vm.sayWord(1) // a second tap before the first word is finished
+        helper.finishSaying()
+        assertFalse(engine.paused)
+        assertTrue(engine.started)
+    }
+
+    @Test
+    fun `resuming while a word is being said keeps the microphone deaf until it is finished`() {
+        val helper = FakePronunciationHelper(TextLanguage.UK)
+        vm = helpVm(helper)
+        vm.updateText(text)
+        vm.start()
+        vm.pause()
+        vm.sayWord(0)
+        vm.resume()
+        assertTrue(engine.paused)
+        helper.finishSaying()
+        assertFalse(engine.paused)
+    }
+
+    @Test
+    fun `help is hidden and does nothing when the phone has no voice for the language`() {
+        val helper = FakePronunciationHelper(TextLanguage.UK)
+        val engines = mutableMapOf<TextLanguage, FakeVoskEngine>()
+        vm = helpVm(helper, engines = engines)
+        vm.updateText(text)
+        assertTrue(state.helpAvailable)
+
+        vm.updateText(germanText, TextLanguage.DE)
+        assertFalse(state.helpAvailable)
+        engines.getValue(TextLanguage.DE).simulateModelLoaded()
+        vm.start()
+        vm.sayWord(0)
+        assertTrue(helper.said.isEmpty())
+        assertFalse(engines.getValue(TextLanguage.DE).paused)
+
+        // A voice installed later shows the help
+        helper.voices.getValue(TextLanguage.DE).value = true
+        assertTrue(state.helpAvailable)
+    }
+
+    @Test
+    fun `without a speech service there is no help`() {
+        vm.updateText(text)
+        vm.start()
+        vm.sayWord(0)
+        assertFalse(state.helpAvailable)
+        assertFalse(engine.paused)
+    }
+
+    @Test
+    fun `words are said only during reading, and a new reading starts without help`() {
+        val helper = FakePronunciationHelper(TextLanguage.UK)
+        vm = helpVm(helper)
+        vm.updateText(text)
+        vm.sayWord(0)
+        assertTrue(helper.said.isEmpty())
+
+        vm.start()
+        vm.sayWord(0)
+        helper.finishSaying()
+        vm.finish()
+        vm.sayWord(1)
+        assertEquals(1, helper.said.size)
+
+        vm.closeResult()
+        vm.start()
+        vm.finish()
+        assertEquals(emptyList<String>(), state.result!!.helpedWords)
+    }
+
+    @Test
+    fun `clearing viewmodel releases the speech service`() {
+        val store = ViewModelStore()
+        val helper = FakePronunciationHelper(TextLanguage.UK)
+        ViewModelProvider(store, ReadingSessionViewModel.factory(createPronunciation = { helper }) { FakeVoskEngine() })[
+            ReadingSessionViewModel::class.java
+        ]
+        store.clear()
+        assertTrue(helper.released)
+    }
+
     @Test
     fun `grammar uses words as written, not their normalized form`() {
         val engines = mutableMapOf<TextLanguage, FakeVoskEngine>()

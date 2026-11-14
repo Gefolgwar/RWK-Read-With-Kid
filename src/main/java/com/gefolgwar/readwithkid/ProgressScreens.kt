@@ -93,6 +93,12 @@ fun ProgressScreen(state: ProgressUiState, onBack: () -> Unit, modifier: Modifie
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(reading.textTitle, style = MaterialTheme.typography.titleMedium)
                         ReadingLine(dateFormat.format(Date(reading.readAt)), reading.result)
+                        if (reading.result.helpedWords.isNotEmpty()) {
+                            Text(
+                                stringResource(R.string.progress_helped, reading.result.helpedWords.joinToString(", ")),
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
                     }
                 }
             }
