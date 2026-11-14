@@ -1,4 +1,4 @@
-package com.gefolgwar.sttperformance
+package com.gefolgwar.readwithkid
 
 import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.MutableStateFlow

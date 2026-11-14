@@ -1,4 +1,4 @@
-package com.gefolgwar.sttperformance
+package com.gefolgwar.readwithkid
 
 import android.content.Context
 

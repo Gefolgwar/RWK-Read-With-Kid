@@ -1,4 +1,4 @@
-package com.gefolgwar.sttperformance
+package com.gefolgwar.readwithkid
 
 import org.junit.Assert.*
 import org.junit.Before
