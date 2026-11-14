@@ -10,6 +10,7 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
 import androidx.room.Update
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
@@ -53,10 +54,16 @@ abstract class TextDao : TextRepository {
     abstract override suspend fun delete(id: Long)
 }
 
-@Database(entities = [SavedText::class, ChildProfile::class, TextAssignment::class], version = 3, exportSchema = false)
+@Database(
+    entities = [SavedText::class, ChildProfile::class, TextAssignment::class, ReadingRecord::class],
+    version = 4,
+    exportSchema = false
+)
+@TypeConverters(WordListConverter::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun texts(): TextDao
     abstract fun children(): ChildDao
+    abstract fun readings(): ReadingDao
 
     companion object {
         @Volatile
@@ -68,7 +75,7 @@ abstract class AppDatabase : RoomDatabase() {
 
         fun build(context: Context, name: String): AppDatabase =
             Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, name)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build()
 
         /** Adds child profiles and text assignments; saved texts are kept. */
@@ -92,6 +99,20 @@ abstract class AppDatabase : RoomDatabase() {
         private val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE `texts` ADD COLUMN `language` TEXT NOT NULL DEFAULT 'UK'")
+            }
+        }
+
+        /** Adds saved readings; earlier data is kept. */
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `readings` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`childId` INTEGER NOT NULL, `textId` INTEGER NOT NULL, `textTitle` TEXT NOT NULL, " +
+                        "`readAt` INTEGER NOT NULL, `totalWords` INTEGER NOT NULL, `correctWords` INTEGER NOT NULL, " +
+                        "`durationMs` INTEGER NOT NULL, `skippedWords` TEXT NOT NULL, `retriedWords` TEXT NOT NULL, " +
+                        "FOREIGN KEY(`childId`) REFERENCES `children`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_readings_childId` ON `readings` (`childId`)")
             }
         }
     }

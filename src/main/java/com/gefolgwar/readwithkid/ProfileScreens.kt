@@ -80,6 +80,7 @@ fun ProfilesScreen(
     onAdd: () -> Unit,
     onEdit: (ChildProfile) -> Unit,
     onDelete: (ChildProfile) -> Unit,
+    onProgress: (ChildProfile) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -129,6 +130,9 @@ fun ProfilesScreen(
                             AvatarImage(child.avatar, 48.dp)
                             Spacer(Modifier.width(12.dp))
                             Text(child.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                            IconButton(onClick = { onProgress(child) }) {
+                                Icon(Icons.Default.Insights, contentDescription = stringResource(R.string.progress))
+                            }
                             IconButton(onClick = { onEdit(child) }) {
                                 Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.edit))
                             }

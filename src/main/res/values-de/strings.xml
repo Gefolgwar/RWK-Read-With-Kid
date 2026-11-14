@@ -73,6 +73,15 @@
     <string name="result_retried">Wörter mit mehreren Versuchen</string>
     <string name="result_back">Zurück zum Text</string>
 
+    <string name="progress">Lesefortschritt</string>
+    <string name="progress_empty">Noch keine Lesungen. Das Ergebnis jeder Lesung wird automatisch gespeichert.</string>
+    <string name="progress_chart">Im Verlauf</string>
+    <string name="progress_problem_words">Wörter zum Üben</string>
+    <string name="progress_problem_word">%1$s (%2$d)</string>
+    <string name="progress_repeated">Derselbe Text, erneut gelesen</string>
+    <string name="progress_history">Alle Lesungen</string>
+    <string name="progress_reading">%1$d %% · %2$d Wörter/Min.</string>
+
     <string name="models_title">Sprachmodelle</string>
     <string name="language_uk">Ukrainisch</string>
     <string name="language_de">Deutsch</string>

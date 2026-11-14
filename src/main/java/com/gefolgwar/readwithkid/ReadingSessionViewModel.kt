@@ -48,17 +48,24 @@ data class ReadingUiState(
     val recognitionError: Boolean = false
 )
 
-/** Each text language has its own engine, created by [createEngine], and its own model, see [modelInstalled]. */
+/**
+ * Each text language has its own engine, created by [createEngine], and its own model, see [modelInstalled].
+ * A finished reading of a child's text is saved to [readings], dated by [wallClockMs].
+ */
 class ReadingSessionViewModel(
     private val createEngine: (TextLanguage) -> VoskEngine,
     private val mode: RecognitionMode = RecognitionMode.FULL,
     private val modelInstalled: (TextLanguage) -> Flow<Boolean> = { flowOf(true) },
+    private val readings: ReadingRepository? = null,
+    private val wallClockMs: () -> Long = System::currentTimeMillis,
     private val clockMs: () -> Long = { System.nanoTime() / 1_000_000 }
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ReadingUiState())
     val uiState: StateFlow<ReadingUiState> = _uiState.asStateFlow()
 
+    /** Whose reading this is; null when a parent reads from the library, and then nothing is saved. */
+    private var childReading: ChildReading? = null
     private var aligner = WordAligner(emptyList())
     private var currentSentenceIdx = 0
     private var activeSinceMs = 0L
@@ -81,8 +88,9 @@ class ReadingSessionViewModel(
         engine.release()
     }
 
-    fun updateText(raw: String, language: TextLanguage = TextLanguage.UK) {
+    fun updateText(raw: String, language: TextLanguage = TextLanguage.UK, reading: ChildReading? = null) {
         if (isActive()) return
+        childReading = reading
         val languageChanged = language != _uiState.value.language
         _uiState.update {
             it.copy(rawText = raw, text = TextPreparation.prepare(raw), language = language, recognitionError = false)
@@ -145,6 +153,15 @@ class ReadingSessionViewModel(
             retriedWords = displayOf(aligner.retriedIndices)
         )
         _uiState.update { it.copy(sessionState = SessionState.FINISHED, result = result) }
+        val reading = childReading ?: return
+        val record = ReadingRecord(
+            childId = reading.childId,
+            textId = reading.textId,
+            textTitle = reading.textTitle,
+            readAt = wallClockMs(),
+            result = result
+        )
+        viewModelScope.launch { readings?.saveReading(record) }
     }
 
     fun closeResult() {
@@ -263,9 +280,10 @@ class ReadingSessionViewModel(
     companion object {
         fun factory(
             modelInstalled: (TextLanguage) -> Flow<Boolean> = { flowOf(true) },
+            createReadings: () -> ReadingRepository? = { null },
             createEngine: (TextLanguage) -> VoskEngine
         ): ViewModelProvider.Factory = viewModelFactory {
-            initializer { ReadingSessionViewModel(createEngine, modelInstalled = modelInstalled) }
+            initializer { ReadingSessionViewModel(createEngine, modelInstalled = modelInstalled, readings = createReadings()) }
         }
 
         fun extractVoskText(json: String, key: String): String = try {

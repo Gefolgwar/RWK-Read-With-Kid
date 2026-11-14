@@ -75,6 +75,15 @@
     <string name="result_retried">Words that took several attempts</string>
     <string name="result_back">Back to text</string>
 
+    <string name="progress">Reading progress</string>
+    <string name="progress_empty">No readings yet. The result of each reading is saved automatically.</string>
+    <string name="progress_chart">Over time</string>
+    <string name="progress_problem_words">Words to practise</string>
+    <string name="progress_problem_word">%1$s (%2$d)</string>
+    <string name="progress_repeated">Same text, read again</string>
+    <string name="progress_history">All readings</string>
+    <string name="progress_reading">%1$d%% · %2$d words/min</string>
+
     <string name="models_title">Speech models</string>
     <string name="language_uk">Ukrainian</string>
     <string name="language_de">German</string>

@@ -36,10 +36,10 @@ import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
     private fun models(language: TextLanguage) = SpeechModels.get(applicationContext, language)
-    private val vm: ReadingSessionViewModel by viewModels {
-        ReadingSessionViewModel.factory({ models(it).installed }) { RealVoskEngine(models(it).directory) }
-    }
     private val db by lazy { AppDatabase.get(applicationContext) }
+    private val vm: ReadingSessionViewModel by viewModels {
+        ReadingSessionViewModel.factory({ models(it).installed }, { db.readings() }) { RealVoskEngine(models(it).directory) }
+    }
     private val libraryVm: LibraryViewModel by viewModels {
         LibraryViewModel.factory({ db.texts() }, { db.children() })
     }
@@ -48,6 +48,9 @@ class MainActivity : ComponentActivity() {
     }
     private val childHomeVm: ChildHomeViewModel by viewModels {
         ChildHomeViewModel.factory({ db.texts() }, { db.children() })
+    }
+    private val progressVm: ProgressViewModel by viewModels {
+        ProgressViewModel.factory({ db.children() }, { db.readings() })
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -60,6 +63,7 @@ class MainActivity : ComponentActivity() {
                     libraryVm = libraryVm,
                     profilesVm = profilesVm,
                     childHomeVm = childHomeVm,
+                    progressVm = progressVm,
                     models = ::models,
                     onConfirmModel = { models(it).confirmDownload(this) }
                 )
@@ -80,6 +84,7 @@ fun ReadWithKidApp(
     libraryVm: LibraryViewModel,
     profilesVm: ProfilesViewModel,
     childHomeVm: ChildHomeViewModel,
+    progressVm: ProgressViewModel,
     models: (TextLanguage) -> ModelManager,
     onConfirmModel: (TextLanguage) -> Unit
 ) {
@@ -87,6 +92,7 @@ fun ReadWithKidApp(
     val library by libraryVm.uiState.collectAsState()
     val profiles by profilesVm.uiState.collectAsState()
     val childHome by childHomeVm.uiState.collectAsState()
+    val progress by progressVm.uiState.collectAsState()
     val modelStates = TextLanguage.entries.associateWith { models(it).state.collectAsState().value }
     // Model of the language of the text being read
     val model = modelStates.getValue(state.language)
@@ -96,8 +102,9 @@ fun ReadWithKidApp(
     var parentArea by rememberSaveable { mutableStateOf(false) }
     var showModels by rememberSaveable { mutableStateOf(false) }
     var showProfiles by rememberSaveable { mutableStateOf(false) }
-    val read = { text: SavedText ->
-        vm.updateText(text.rawText, text.language)
+    // A child's reading is saved for them; a parent's reading from the library is not.
+    val read = { text: SavedText, child: ChildProfile? ->
+        vm.updateText(text.rawText, text.language, child?.let { ChildReading(it.id, text.id, text.title) })
         readingTitle = text.title
     }
 
@@ -148,6 +155,8 @@ fun ReadWithKidApp(
                     onCancel = profilesVm::cancelEdit,
                     modifier = modifier
                 )
+            progress.child != null ->
+                ProgressScreen(progress, onBack = progressVm::close, modifier = modifier)
             showModels ->
                 ModelsScreen(
                     modelStates,
@@ -163,6 +172,7 @@ fun ReadWithKidApp(
                     onAdd = profilesVm::newProfile,
                     onEdit = profilesVm::edit,
                     onDelete = profilesVm::delete,
+                    onProgress = progressVm::open,
                     onBack = { showProfiles = false },
                     modifier = modifier
                 )
@@ -171,7 +181,7 @@ fun ReadWithKidApp(
                     library.texts,
                     library.assignedTo,
                     onAdd = libraryVm::newText,
-                    onRead = read,
+                    onRead = { read(it, null) },
                     onEdit = libraryVm::edit,
                     onDelete = libraryVm::delete,
                     onModels = { showModels = true },
@@ -184,7 +194,7 @@ fun ReadWithKidApp(
                     childHome,
                     onSelect = childHomeVm::select,
                     onBack = childHomeVm::back,
-                    onRead = read,
+                    onRead = { read(it, childHome.child) },
                     onParents = { parentArea = true },
                     modifier = modifier
                 )
