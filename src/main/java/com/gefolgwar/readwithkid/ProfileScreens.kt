@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -22,6 +23,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -110,7 +114,11 @@ fun ProfilesScreen(
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
             }
-            Text(stringResource(R.string.profiles_title), style = MaterialTheme.typography.titleLarge)
+            Text(
+                stringResource(R.string.profiles_title),
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.semantics { heading() }
+            )
         }
         Spacer(Modifier.height(8.dp))
         if (children.isEmpty()) {
@@ -167,7 +175,8 @@ fun ProfileEditorScreen(
     Column(modifier = modifier) {
         Text(
             stringResource(if (editor.id == 0L) R.string.new_profile_title else R.string.edit_profile_title),
-            style = MaterialTheme.typography.titleLarge
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.semantics { heading() }
         )
         Spacer(Modifier.height(8.dp))
         OutlinedTextField(
@@ -199,7 +208,8 @@ fun ProfileEditorScreen(
                                 color = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
                                 shape = CircleShape
                             )
-                            .clickable { onAvatarChange(avatar) }
+                            // TalkBack announces which avatar is chosen
+                            .selectable(selected, role = Role.RadioButton) { onAvatarChange(avatar) }
                     )
                 }
             }
@@ -299,8 +309,12 @@ private fun ChildTexts(
 
     Column(modifier = modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
+            IconButton(onClick = onBack, modifier = Modifier.size(64.dp)) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.back),
+                    modifier = Modifier.size(40.dp)
+                )
             }
             AvatarImage(child.avatar, 48.dp)
             Spacer(Modifier.width(12.dp))

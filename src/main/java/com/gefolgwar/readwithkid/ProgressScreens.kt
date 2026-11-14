@@ -17,6 +17,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.text.DateFormat
@@ -39,7 +41,7 @@ fun ProgressScreen(state: ProgressUiState, onBack: () -> Unit, modifier: Modifie
             }
             AvatarImage(child.avatar, 48.dp)
             Spacer(Modifier.width(12.dp))
-            Text(child.name, style = MaterialTheme.typography.headlineSmall)
+            Text(child.name, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
         }
         Spacer(Modifier.height(16.dp))
         if (readings.isEmpty()) {
@@ -110,7 +112,13 @@ private val ReadingResult.percent: Int get() = (accuracy * 100).roundToInt()
 
 @Composable
 private fun SectionTitle(title: String) {
-    Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp))
+    Text(
+        title,
+        style = MaterialTheme.typography.titleLarge,
+        modifier = Modifier
+            .padding(top = 8.dp)
+            .semantics { heading() }
+    )
 }
 
 @Composable
@@ -130,7 +138,8 @@ private fun ReadingLine(date: String, result: ReadingResult) {
 private fun LineChart(title: String, latest: String, values: List<Float>, maxValue: Float, color: Color) {
     val axisColor = MaterialTheme.colorScheme.outlineVariant
     Column(modifier = Modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        // TalkBack reads the title and the latest value together; the drawn line itself is skipped.
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.semantics(mergeDescendants = true) {}) {
             Text(title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
             Text(latest, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = color)
         }

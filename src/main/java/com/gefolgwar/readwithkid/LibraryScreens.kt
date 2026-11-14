@@ -27,6 +27,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
@@ -72,7 +74,9 @@ fun LibraryScreen(
             Text(
                 stringResource(R.string.library_title),
                 style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .weight(1f)
+                    .semantics { heading() }
             )
             IconButton(onClick = onProfiles) {
                 Icon(Icons.Default.Face, contentDescription = stringResource(R.string.profiles_title))
@@ -195,7 +199,8 @@ fun TextEditorScreen(
         ) {
             Text(
                 stringResource(if (editor.id == 0L) R.string.new_text_title else R.string.edit_text_title),
-                style = MaterialTheme.typography.titleLarge
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.semantics { heading() }
             )
             Spacer(Modifier.height(4.dp))
             Text(

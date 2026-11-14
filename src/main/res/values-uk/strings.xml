@@ -65,7 +65,10 @@
     <string name="finish">Готово</string>
     <string name="reading_help_hint">Натисни на слово, щоб почути його</string>
 
-    <string name="result_title">Результат</string>
+    <string name="result_praise_3">Чудово прочитано!</string>
+    <string name="result_praise_2">Молодець!</string>
+    <string name="result_praise_1">Гарна спроба! Так тримати!</string>
+    <string name="result_stars">Зірки: %1$d з %2$d</string>
     <string name="result_accuracy">Точність</string>
     <string name="result_wcpm">Правильних слів за хвилину</string>
     <string name="result_duration">Тривалість</string>

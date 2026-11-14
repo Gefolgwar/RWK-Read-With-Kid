@@ -21,6 +21,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 
@@ -76,7 +78,11 @@ fun OnboardingScreen(onDone: () -> Unit, modifier: Modifier = Modifier) {
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
         ) {
-            Text(stringResource(R.string.onboarding_title), style = MaterialTheme.typography.headlineMedium)
+            Text(
+                stringResource(R.string.onboarding_title),
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.semantics { heading() }
+            )
             OnboardingPoint(R.string.onboarding_what_title, R.string.onboarding_what)
             OnboardingPoint(R.string.onboarding_privacy_title, R.string.onboarding_privacy)
             OnboardingPoint(R.string.onboarding_parents_title, R.string.onboarding_parents)
@@ -124,7 +130,11 @@ fun SettingsScreen(
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
         ) {
-            Text(stringResource(R.string.ui_language_title), style = MaterialTheme.typography.titleMedium)
+            Text(
+                stringResource(R.string.ui_language_title),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.semantics { heading() }
+            )
             Column(Modifier.selectableGroup()) {
                 UiLanguage.entries.forEach { option ->
                     Row(
@@ -163,7 +173,7 @@ private fun ScreenHeader(title: Int, onBack: () -> Unit) {
         IconButton(onClick = onBack) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
         }
-        Text(stringResource(title), style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
     }
     Spacer(Modifier.height(8.dp))
 }

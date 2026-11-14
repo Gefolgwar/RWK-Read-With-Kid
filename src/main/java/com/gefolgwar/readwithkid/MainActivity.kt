@@ -14,25 +14,37 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
@@ -40,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
+import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
@@ -74,7 +87,7 @@ class MainActivity : ComponentActivity() {
         var onboardingDone by mutableStateOf(settings.onboardingDone)
 
         setContent {
-            MaterialTheme {
+            ReadWithKidTheme {
                 ReadWithKidApp(
                     vm = vm,
                     libraryVm = libraryVm,
@@ -338,7 +351,7 @@ fun ReadyToReadScreen(
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
         ) {
-            Text(title, style = MaterialTheme.typography.titleLarge)
+            Text(title, style = MaterialTheme.typography.headlineMedium)
             Spacer(Modifier.height(8.dp))
 
             when {
@@ -358,15 +371,23 @@ fun ReadyToReadScreen(
                 }
             }
 
-            TextPreview(state.text)
+            // Just the text the child is about to read, without the parent's sentence breakdown.
+            Spacer(Modifier.height(8.dp))
+            Text(state.rawText, style = MaterialTheme.typography.titleLarge)
         }
 
         Spacer(Modifier.height(8.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(onClick = onBack, modifier = Modifier.weight(1f)) {
-                Text(stringResource(R.string.back))
-            }
-            Button(
+            ChildButton(
+                Icons.AutoMirrored.Filled.ArrowBack,
+                stringResource(R.string.back),
+                onClick = onBack,
+                primary = false,
+                modifier = Modifier.weight(1f)
+            )
+            ChildButton(
+                Icons.Default.PlayArrow,
+                stringResource(R.string.start_reading),
                 onClick = {
                     if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
                         == PackageManager.PERMISSION_GRANTED
@@ -379,13 +400,29 @@ fun ReadyToReadScreen(
                 },
                 enabled = state.sessionState == SessionState.READY && state.text.words.isNotEmpty(),
                 modifier = Modifier.weight(1f)
-            ) {
-                Icon(Icons.Default.PlayArrow, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.start_reading))
-            }
+            )
         }
     }
+}
+
+/** A big button for the child's screens: a large icon and a short label; grows with the system font size. */
+@Composable
+fun ChildButton(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    primary: Boolean = true,
+    enabled: Boolean = true
+) {
+    val content: @Composable RowScope.() -> Unit = {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(32.dp))
+        Spacer(Modifier.width(12.dp))
+        Text(label, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
+    }
+    val big = modifier.heightIn(min = 72.dp)
+    if (primary) Button(onClick, big, enabled, content = content)
+    else OutlinedButton(onClick, big, enabled, content = content)
 }
 
 @Composable
@@ -407,9 +444,14 @@ fun ReadingScreen(
     val currentColor = Color(0xFFFFEB3B).copy(alpha = 0.6f)
     val skippedColor = Color(0xFFFF9800).copy(alpha = 0.35f)
     val words = state.text.words
+    // Where each word starts in the shown text, to find the line of the current word
+    val wordStarts = IntArray(words.size)
+    val scroll = rememberScrollState()
+    var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
 
     val annotated = buildAnnotatedString {
         words.forEachIndexed { index, word ->
+            wordStarts[index] = length
             val style = when {
                 index == state.currentWordIndex -> SpanStyle(background = currentColor, fontWeight = FontWeight.Bold)
                 else -> when (state.wordStatuses.getOrElse(index) { WordStatus.UNREAD }) {
@@ -426,43 +468,58 @@ fun ReadingScreen(
         }
     }
 
+    // Long texts follow the reading: when the current word moves to another line, that line is scrolled into view.
+    val currentLine = layout?.takeIf { state.currentWordIndex in wordStarts.indices }
+        ?.getLineForOffset(wordStarts[state.currentWordIndex])
+    LaunchedEffect(currentLine) {
+        val line = currentLine ?: return@LaunchedEffect
+        val lineTop = layout?.getLineTop(line) ?: return@LaunchedEffect
+        scroll.animateScrollTo(autoScrollTarget(lineTop, scroll.viewportSize))
+    }
+
     Column(modifier = modifier) {
         if (state.helpAvailable) {
-            Text(stringResource(R.string.reading_help_hint), style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(R.string.reading_help_hint), style = MaterialTheme.typography.bodyLarge)
             Spacer(Modifier.height(8.dp))
         }
+        // Andika comes from the theme's typography.
         Text(
             text = annotated,
             fontSize = 30.sp,
             lineHeight = 46.sp,
+            onTextLayout = { layout = it },
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scroll)
         )
         Spacer(Modifier.height(8.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             if (state.sessionState == SessionState.PAUSED) {
-                OutlinedButton(onClick = onResume, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.resume))
-                }
+                ChildButton(
+                    Icons.Default.PlayArrow,
+                    stringResource(R.string.resume),
+                    onClick = onResume,
+                    primary = false,
+                    modifier = Modifier.weight(1f)
+                )
             } else {
-                OutlinedButton(onClick = onPause, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.Pause, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.pause))
-                }
+                ChildButton(
+                    Icons.Default.Pause,
+                    stringResource(R.string.pause),
+                    onClick = onPause,
+                    primary = false,
+                    modifier = Modifier.weight(1f)
+                )
             }
-            Button(onClick = onFinish, modifier = Modifier.weight(1f)) {
-                Icon(Icons.Default.Check, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.finish))
-            }
+            ChildButton(Icons.Default.Check, stringResource(R.string.finish), onClick = onFinish, modifier = Modifier.weight(1f))
         }
     }
 }
+
+/** Scroll position that shows the line starting at [lineTop] a third of the way down a [viewportHeight] tall text. */
+fun autoScrollTarget(lineTop: Float, viewportHeight: Int): Int =
+    (lineTop - viewportHeight / 3f).roundToInt().coerceAtLeast(0)
 
 @Composable
 fun ResultScreen(result: ReadingResult, onClose: () -> Unit, modifier: Modifier = Modifier) {
@@ -473,7 +530,20 @@ fun ResultScreen(result: ReadingResult, onClose: () -> Unit, modifier: Modifier 
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
         ) {
-            Text(stringResource(R.string.result_title), style = MaterialTheme.typography.headlineMedium)
+            RewardStars(result.stars)
+            Spacer(Modifier.height(8.dp))
+            Text(
+                stringResource(
+                    when (result.stars) {
+                        3 -> R.string.result_praise_3
+                        2 -> R.string.result_praise_2
+                        else -> R.string.result_praise_1
+                    }
+                ),
+                style = MaterialTheme.typography.headlineMedium,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
             Spacer(Modifier.height(16.dp))
             ResultRow(
                 stringResource(R.string.result_accuracy),
@@ -490,8 +560,47 @@ fun ResultScreen(result: ReadingResult, onClose: () -> Unit, modifier: Modifier 
             WordList(stringResource(R.string.result_retried), result.retriedWords)
             WordList(stringResource(R.string.result_helped), result.helpedWords)
         }
-        Button(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.result_back))
+        Spacer(Modifier.height(8.dp))
+        ChildButton(
+            Icons.AutoMirrored.Filled.ArrowBack,
+            stringResource(R.string.result_back),
+            onClick = onClose,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+/** The reward: earned stars pop in one after another, the rest stay as outlines. */
+@Composable
+private fun RewardStars(stars: Int) {
+    val description = stringResource(R.string.result_stars, stars, ReadingResult.MAX_STARS)
+    Row(
+        horizontalArrangement = Arrangement.Center,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clearAndSetSemantics { contentDescription = description }
+    ) {
+        repeat(ReadingResult.MAX_STARS) { i ->
+            val earned = i < stars
+            val scale = remember { Animatable(if (earned) 0f else 1f) }
+            if (earned) {
+                LaunchedEffect(Unit) {
+                    delay(300L * i)
+                    scale.animateTo(1f, spring(dampingRatio = Spring.DampingRatioHighBouncy, stiffness = Spring.StiffnessLow))
+                }
+            }
+            Icon(
+                if (earned) Icons.Default.Star else Icons.Default.StarBorder,
+                contentDescription = null,
+                tint = if (earned) Color(0xFFFFA000) else MaterialTheme.colorScheme.outline,
+                modifier = Modifier
+                    .size(80.dp)
+                    // Scaled while drawing only, so the animation does not recompose the screen every frame.
+                    .graphicsLayer {
+                        scaleX = scale.value
+                        scaleY = scale.value
+                    }
+            )
         }
     }
 }

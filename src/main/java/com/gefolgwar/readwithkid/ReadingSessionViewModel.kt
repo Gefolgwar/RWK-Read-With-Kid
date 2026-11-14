@@ -36,6 +36,18 @@ data class ReadingResult(
     /** Words correct per minute (WCPM). */
     val wordsCorrectPerMinute: Int
         get() = if (durationMs <= 0) 0 else (correctWords * 60_000.0 / durationMs).roundToInt()
+
+    /** The child's reward, 1..[MAX_STARS]: every reading earns at least one star. */
+    val stars: Int
+        get() = when {
+            accuracy >= 0.9f -> 3
+            accuracy >= 0.7f -> 2
+            else -> 1
+        }
+
+    companion object {
+        const val MAX_STARS = 3
+    }
 }
 
 data class ReadingUiState(

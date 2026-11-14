@@ -67,7 +67,10 @@
     <string name="finish">Done</string>
     <string name="reading_help_hint">Tap a word to hear it</string>
 
-    <string name="result_title">Result</string>
+    <string name="result_praise_3">Excellent reading!</string>
+    <string name="result_praise_2">Well done!</string>
+    <string name="result_praise_1">Good try! Keep it up!</string>
+    <string name="result_stars">Stars: %1$d of %2$d</string>
     <string name="result_accuracy">Accuracy</string>
     <string name="result_wcpm">Words correct per minute</string>
     <string name="result_duration">Duration</string>
