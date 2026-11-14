@@ -2,12 +2,16 @@ package com.gefolgwar.readwithkid
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import org.json.JSONException
 import org.json.JSONObject
 import kotlin.math.roundToInt
@@ -44,6 +48,7 @@ data class ReadingUiState(
 class ReadingSessionViewModel(
     private val engine: VoskEngine,
     private val mode: RecognitionMode = RecognitionMode.FULL,
+    modelInstalled: Flow<Boolean> = flowOf(true),
     private val clockMs: () -> Long = { System.nanoTime() / 1_000_000 }
 ) : ViewModel() {
 
@@ -62,7 +67,9 @@ class ReadingSessionViewModel(
             override fun onError(message: String) = handleError()
             override fun onModelLoaded() = handleModelLoaded()
         })
-        engine.loadModel()
+        viewModelScope.launch {
+            modelInstalled.collect { installed -> if (installed) loadModel() else handleModelMissing() }
+        }
     }
 
     override fun onCleared() {
@@ -143,6 +150,18 @@ class ReadingSessionViewModel(
         elapsedMs += clockMs() - activeSinceMs
     }
 
+    private fun loadModel() {
+        val state = _uiState.value.sessionState
+        if (state != SessionState.LOADING_MODEL && state != SessionState.MODEL_MISSING) return
+        _uiState.update { it.copy(sessionState = SessionState.LOADING_MODEL) }
+        engine.loadModel()
+    }
+
+    private fun handleModelMissing() {
+        if (isActive()) return
+        _uiState.update { it.copy(sessionState = SessionState.MODEL_MISSING, result = null) }
+    }
+
     private fun handleModelLoaded() {
         if (_uiState.value.sessionState != SessionState.LOADING_MODEL) return
         _uiState.update { it.copy(sessionState = SessionState.READY) }
@@ -218,8 +237,11 @@ class ReadingSessionViewModel(
     }
 
     companion object {
-        fun factory(createEngine: () -> VoskEngine): ViewModelProvider.Factory = viewModelFactory {
-            initializer { ReadingSessionViewModel(createEngine()) }
+        fun factory(
+            modelInstalled: Flow<Boolean> = flowOf(true),
+            createEngine: () -> VoskEngine
+        ): ViewModelProvider.Factory = viewModelFactory {
+            initializer { ReadingSessionViewModel(createEngine(), modelInstalled = modelInstalled) }
         }
 
         fun extractVoskText(json: String, key: String): String = try {

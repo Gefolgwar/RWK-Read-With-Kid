@@ -1,0 +1,12 @@
+plugins {
+    id 'com.android.asset-pack'
+}
+
+// On-demand Play asset pack with the Ukrainian Vosk model (vosk-model-small-uk-v3-small, Apache 2.0).
+// The model zip is not in git: see README, section 1.
+assetPack {
+    packName = "model_uk"
+    dynamicDelivery {
+        deliveryType = "on-demand"
+    }
+}

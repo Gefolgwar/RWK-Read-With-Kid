@@ -2,10 +2,18 @@ package com.gefolgwar.readwithkid
 
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
+import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class ReadingSessionViewModelTest {
 
     private val text = "Мама мила раму. Тато читав книжку."
@@ -16,15 +24,60 @@ class ReadingSessionViewModelTest {
 
     @Before
     fun setup() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
         engine = FakeVoskEngine()
         nowMs = 0L
         vm = ReadingSessionViewModel(engine, clockMs = { nowMs })
         engine.simulateModelLoaded()
     }
 
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
+    }
+
     private val state get() = vm.uiState.value
 
     // --- model lifecycle ---
+
+    @Test
+    fun `missing model blocks reading and is loaded once downloaded`() {
+        val installed = MutableStateFlow(false)
+        val freshEngine = FakeVoskEngine()
+        val freshVm = ReadingSessionViewModel(freshEngine, modelInstalled = installed)
+        assertEquals(SessionState.MODEL_MISSING, freshVm.uiState.value.sessionState)
+        assertEquals(0, freshEngine.loadCount)
+
+        freshVm.updateText(text)
+        freshVm.start()
+        assertEquals(0, freshEngine.startCount)
+
+        installed.value = true
+        assertEquals(SessionState.LOADING_MODEL, freshVm.uiState.value.sessionState)
+        assertEquals(1, freshEngine.loadCount)
+        freshEngine.simulateModelLoaded()
+        assertEquals(SessionState.READY, freshVm.uiState.value.sessionState)
+    }
+
+    @Test
+    fun `deleted model blocks reading until it is downloaded again`() {
+        val installed = MutableStateFlow(true)
+        val freshEngine = FakeVoskEngine()
+        val freshVm = ReadingSessionViewModel(freshEngine, modelInstalled = installed)
+        freshEngine.simulateModelLoaded()
+        freshVm.updateText(text)
+
+        installed.value = false
+        assertEquals(SessionState.MODEL_MISSING, freshVm.uiState.value.sessionState)
+        freshVm.start()
+        assertEquals(0, freshEngine.startCount)
+
+        installed.value = true
+        assertEquals(2, freshEngine.loadCount)
+        freshEngine.simulateModelLoaded()
+        freshVm.start()
+        assertEquals(SessionState.READING, freshVm.uiState.value.sessionState)
+    }
 
     @Test
     fun `initial state is LOADING_MODEL and model load requested once`() {

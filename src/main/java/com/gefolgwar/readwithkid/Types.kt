@@ -6,6 +6,8 @@ enum class RecognitionMode {
 }
 
 enum class SessionState {
+    /** The speech model is not downloaded yet (or was deleted). */
+    MODEL_MISSING,
     LOADING_MODEL,
     MODEL_ERROR,
     READY,

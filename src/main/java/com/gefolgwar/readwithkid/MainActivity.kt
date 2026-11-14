@@ -35,8 +35,9 @@ import androidx.core.content.ContextCompat
 import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
+    private val ukModel by lazy { UkrainianModel.get(applicationContext) }
     private val vm: ReadingSessionViewModel by viewModels {
-        ReadingSessionViewModel.factory { RealVoskEngine(applicationContext) }
+        ReadingSessionViewModel.factory(ukModel.installed) { RealVoskEngine(ukModel.directory) }
     }
     private val libraryVm: LibraryViewModel by viewModels {
         LibraryViewModel.factory { AppDatabase.get(applicationContext).texts() }
@@ -47,7 +48,12 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MaterialTheme {
-                ReadWithKidApp(vm = vm, libraryVm = libraryVm)
+                ReadWithKidApp(
+                    vm = vm,
+                    libraryVm = libraryVm,
+                    models = ukModel,
+                    onConfirmModel = { ukModel.confirmDownload(this) }
+                )
             }
         }
     }
@@ -60,11 +66,18 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun ReadWithKidApp(vm: ReadingSessionViewModel, libraryVm: LibraryViewModel) {
+fun ReadWithKidApp(
+    vm: ReadingSessionViewModel,
+    libraryVm: LibraryViewModel,
+    models: ModelManager,
+    onConfirmModel: () -> Unit
+) {
     val state by vm.uiState.collectAsState()
     val library by libraryVm.uiState.collectAsState()
+    val model by models.state.collectAsState()
     // Title of the saved text chosen for reading, or null while the library is shown
     var readingTitle by rememberSaveable { mutableStateOf<String?>(null) }
+    var showModels by rememberSaveable { mutableStateOf(false) }
 
     Scaffold { padding ->
         val modifier = Modifier
@@ -80,7 +93,16 @@ fun ReadWithKidApp(vm: ReadingSessionViewModel, libraryVm: LibraryViewModel) {
             state.sessionState == SessionState.READING || state.sessionState == SessionState.PAUSED ->
                 ReadingScreen(state, onPause = vm::pause, onResume = vm::resume, onFinish = vm::finish, modifier = modifier)
             title != null ->
-                ReadyToReadScreen(title, state, onStart = vm::start, onBack = { readingTitle = null }, modifier = modifier)
+                ReadyToReadScreen(
+                    title,
+                    state,
+                    model,
+                    onStart = vm::start,
+                    onDownloadModel = models::download,
+                    onConfirmModel = onConfirmModel,
+                    onBack = { readingTitle = null },
+                    modifier = modifier
+                )
             editor != null ->
                 TextEditorScreen(
                     editor,
@@ -89,6 +111,15 @@ fun ReadWithKidApp(vm: ReadingSessionViewModel, libraryVm: LibraryViewModel) {
                     onImport = libraryVm::importTxt,
                     onSave = libraryVm::save,
                     onCancel = libraryVm::cancelEdit,
+                    modifier = modifier
+                )
+            showModels ->
+                ModelsScreen(
+                    model,
+                    onDownload = models::download,
+                    onConfirm = onConfirmModel,
+                    onDelete = models::delete,
+                    onBack = { showModels = false },
                     modifier = modifier
                 )
             else ->
@@ -101,6 +132,7 @@ fun ReadWithKidApp(vm: ReadingSessionViewModel, libraryVm: LibraryViewModel) {
                     },
                     onEdit = libraryVm::edit,
                     onDelete = libraryVm::delete,
+                    onModels = { showModels = true },
                     modifier = modifier
                 )
         }
@@ -111,7 +143,10 @@ fun ReadWithKidApp(vm: ReadingSessionViewModel, libraryVm: LibraryViewModel) {
 fun ReadyToReadScreen(
     title: String,
     state: ReadingUiState,
+    model: ModelState,
     onStart: () -> Unit,
+    onDownloadModel: () -> Unit,
+    onConfirmModel: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -155,6 +190,7 @@ fun ReadyToReadScreen(
             Spacer(Modifier.height(8.dp))
 
             when {
+                state.sessionState == SessionState.MODEL_MISSING -> ModelDownload(model, onDownloadModel, onConfirmModel)
                 state.sessionState == SessionState.LOADING_MODEL -> Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                     Spacer(Modifier.width(8.dp))

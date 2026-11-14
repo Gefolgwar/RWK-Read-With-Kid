@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,6 +35,7 @@ fun LibraryScreen(
     onRead: (SavedText) -> Unit,
     onEdit: (SavedText) -> Unit,
     onDelete: (SavedText) -> Unit,
+    onModels: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var pendingDelete by remember { mutableStateOf<SavedText?>(null) }
@@ -56,7 +58,16 @@ fun LibraryScreen(
     }
 
     Column(modifier = modifier) {
-        Text(stringResource(R.string.library_title), style = MaterialTheme.typography.titleLarge)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                stringResource(R.string.library_title),
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.weight(1f)
+            )
+            IconButton(onClick = onModels) {
+                Icon(Icons.Default.RecordVoiceOver, contentDescription = stringResource(R.string.models_title))
+            }
+        }
         Spacer(Modifier.height(8.dp))
         if (texts.isEmpty()) {
             Text(

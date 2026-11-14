@@ -1,6 +1,5 @@
 package com.gefolgwar.readwithkid
 
-import android.content.Context
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
@@ -10,12 +9,11 @@ import org.json.JSONArray
 import org.vosk.Model
 import org.vosk.Recognizer
 import java.io.File
-import java.io.FileOutputStream
 import java.util.concurrent.Executors
 
-class RealVoskEngine(context: Context) : VoskEngine {
+/** Loads the Vosk model from [modelDir], which must hold an installed model (see [ModelManager]). */
+class RealVoskEngine(private val modelDir: File) : VoskEngine {
 
-    private val appContext = context.applicationContext
     @Volatile private var _listener: VoskEngineListener? = null
     @Volatile private var model: Model? = null
     private var recognizer: Recognizer? = null
@@ -38,10 +36,9 @@ class RealVoskEngine(context: Context) : VoskEngine {
     override fun loadModel() {
         worker.execute {
             try {
-                val modelDir = ModelInstaller.install(
-                    File(appContext.filesDir, MODEL_ASSET_DIR),
-                    installedAppVersion()
-                ) { tmpDir -> copyAssetDir(appContext, MODEL_ASSET_DIR, tmpDir) }
+                // A model deleted and downloaded again is loaded anew
+                model?.close()
+                model = null
                 model = Model(modelDir.absolutePath)
                 postToListener { it.onModelLoaded() }
             } catch (e: Exception) {
@@ -185,40 +182,7 @@ class RealVoskEngine(context: Context) : VoskEngine {
         }
     }
 
-    // Changes on every install/update of the app, so a newly bundled model is always re-copied.
-    @Suppress("DEPRECATION")
-    private fun installedAppVersion(): String =
-        appContext.packageManager.getPackageInfo(appContext.packageName, 0).lastUpdateTime.toString()
-
-    private fun copyAssetDir(context: Context, assetPath: String, targetDir: File) {
-        val assets = context.assets.list(assetPath) ?: return
-        if (assets.isEmpty()) {
-            context.assets.open(assetPath).use { input ->
-                FileOutputStream(File(targetDir, "")).use { output ->
-                    input.copyTo(output)
-                }
-            }
-            return
-        }
-        for (asset in assets) {
-            val subAssetPath = "$assetPath/$asset"
-            val subList = context.assets.list(subAssetPath)
-            if (subList != null && subList.isNotEmpty()) {
-                val subDir = File(targetDir, asset)
-                subDir.mkdirs()
-                copyAssetDir(context, subAssetPath, subDir)
-            } else {
-                context.assets.open(subAssetPath).use { input ->
-                    FileOutputStream(File(targetDir, asset)).use { output ->
-                        input.copyTo(output)
-                    }
-                }
-            }
-        }
-    }
-
     private companion object {
-        const val MODEL_ASSET_DIR = "model-uk"
         const val SAMPLE_RATE = 16000.0f
     }
 }

@@ -34,6 +34,8 @@ android {
     buildFeatures {
         compose true
     }
+
+    assetPacks = [':model_uk']
 }
 
 kotlin {
@@ -58,6 +60,8 @@ dependencies {
 
     implementation 'androidx.room:room-runtime:2.8.5'
     ksp 'androidx.room:room-compiler:2.8.5'
+
+    implementation 'com.google.android.play:asset-delivery:2.3.0'
 
     implementation 'com.alphacephei:vosk-android:0.3.75@aar'
     implementation 'net.java.dev.jna:jna:5.18.1@aar'

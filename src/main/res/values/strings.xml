@@ -51,4 +51,21 @@
     <string name="result_skipped">Skipped words</string>
     <string name="result_retried">Words that took several attempts</string>
     <string name="result_back">Back to text</string>
+
+    <string name="models_title">Speech models</string>
+    <string name="model_uk_name">Ukrainian</string>
+    <string name="model_offer">To read in Ukrainian, the app needs a speech model (%1$s). It is downloaded once; after that, reading works offline.</string>
+    <string name="model_offer_unknown_size">To read in Ukrainian, the app needs a speech model. It is downloaded once; after that, reading works offline.</string>
+    <string name="model_download">Download</string>
+    <string name="model_retry">Try again</string>
+    <string name="model_downloading">Downloading: %1$s of %2$s</string>
+    <string name="model_needs_confirmation">The download is waiting for Wi-Fi or your permission.</string>
+    <string name="model_confirm">Continue download</string>
+    <string name="model_unpacking">Preparing the speech model…</string>
+    <string name="model_error_network">No internet connection. Connect to the internet and try again.</string>
+    <string name="model_error_storage">Not enough free space on this phone. Free up some space and try again.</string>
+    <string name="model_error_failed">The download failed. Please try again.</string>
+    <string name="model_installed">Installed · %1$s · %2$s</string>
+    <string name="model_delete_title">Delete speech model?</string>
+    <string name="model_delete_message">To read in Ukrainian again, the model will have to be downloaded again.</string>
 </resources>

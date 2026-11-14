@@ -23,7 +23,12 @@ object ModelInstaller {
         modelDir.deleteRecursively()
         check(tmpDir.mkdirs()) { "Cannot create $tmpDir" }
 
-        copyInto(tmpDir)
+        try {
+            copyInto(tmpDir)
+        } catch (e: Exception) {
+            tmpDir.deleteRecursively()
+            throw e
+        }
         File(tmpDir, MARKER_FILE).writeText(version)
         check(tmpDir.renameTo(modelDir)) { "Cannot move $tmpDir to $modelDir" }
         return modelDir

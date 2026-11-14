@@ -40,6 +40,7 @@ class ModelInstallerTest {
         }
         assertFalse(ModelInstaller.isReady(modelDir, "v1"))
         assertFalse(modelDir.exists())
+        assertFalse(File(tmp.root, "model-uk.tmp").exists())
 
         ModelInstaller.install(modelDir, "v1", ::copyFiles)
         assertTrue(ModelInstaller.isReady(modelDir, "v1"))

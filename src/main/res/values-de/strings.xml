@@ -49,4 +49,21 @@
     <string name="result_skipped">Ausgelassene Wörter</string>
     <string name="result_retried">Wörter mit mehreren Versuchen</string>
     <string name="result_back">Zurück zum Text</string>
+
+    <string name="models_title">Sprachmodelle</string>
+    <string name="model_uk_name">Ukrainisch</string>
+    <string name="model_offer">Zum Lesen auf Ukrainisch braucht die App ein Sprachmodell (%1$s). Es wird einmal heruntergeladen; danach funktioniert das Lesen offline.</string>
+    <string name="model_offer_unknown_size">Zum Lesen auf Ukrainisch braucht die App ein Sprachmodell. Es wird einmal heruntergeladen; danach funktioniert das Lesen offline.</string>
+    <string name="model_download">Herunterladen</string>
+    <string name="model_retry">Erneut versuchen</string>
+    <string name="model_downloading">Download: %1$s von %2$s</string>
+    <string name="model_needs_confirmation">Der Download wartet auf WLAN oder Ihre Erlaubnis.</string>
+    <string name="model_confirm">Download fortsetzen</string>
+    <string name="model_unpacking">Sprachmodell wird vorbereitet…</string>
+    <string name="model_error_network">Keine Internetverbindung. Verbinden Sie sich mit dem Internet und versuchen Sie es erneut.</string>
+    <string name="model_error_storage">Nicht genug freier Speicher auf diesem Telefon. Geben Sie Speicher frei und versuchen Sie es erneut.</string>
+    <string name="model_error_failed">Der Download ist fehlgeschlagen. Bitte versuchen Sie es erneut.</string>
+    <string name="model_installed">Installiert · %1$s · %2$s</string>
+    <string name="model_delete_title">Sprachmodell löschen?</string>
+    <string name="model_delete_message">Um wieder auf Ukrainisch zu lesen, muss das Modell erneut heruntergeladen werden.</string>
 </resources>
