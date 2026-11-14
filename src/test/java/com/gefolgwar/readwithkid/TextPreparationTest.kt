@@ -85,4 +85,31 @@ class TextPreparationTest {
     fun `normalize keeps inner hyphen`() {
         assertEquals("будь-який", TextPreparation.normalize("будь-який,"))
     }
+
+    // --- hard-to-recognise parts ---
+
+    @Test
+    fun `ordinary text has no warnings`() {
+        val warnings = TextPreparation.findHardParts("— Привіт, «кіт»! Сім'я за́мок, будь-який (так)… Größe: „Ja“; Я і A.")
+        assertTrue(warnings.isEmpty)
+    }
+
+    @Test
+    fun `digits are reported without surrounding punctuation`() {
+        val warnings = TextPreparation.findHardParts("У 2024 році було 5, а стало 10.")
+        assertEquals(listOf("2024", "5", "10"), warnings.digits)
+        assertFalse(warnings.isEmpty)
+    }
+
+    @Test
+    fun `all-caps words and dotted abbreviations are reported`() {
+        val warnings = TextPreparation.findHardParts("США, ЗСУ і т.д. Die DB fährt z.B. heute. ЗСУ")
+        assertEquals(listOf("США", "ЗСУ", "т.д.", "DB", "z.B."), warnings.abbreviations)
+    }
+
+    @Test
+    fun `symbols are reported once each`() {
+        val warnings = TextPreparation.findHardParts("50% & 20 € + 3 = № 7 @ кіт # кіт %")
+        assertEquals(listOf("%", "&", "€", "+", "=", "№", "@", "#"), warnings.symbols)
+    }
 }

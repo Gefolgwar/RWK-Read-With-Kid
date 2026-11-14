@@ -2,6 +2,7 @@ plugins {
     id 'com.android.application' version '9.5.1'
     id 'org.jetbrains.kotlin.android' version '2.4.21' apply false
     id 'org.jetbrains.kotlin.plugin.compose' version '2.4.21'
+    id 'com.google.devtools.ksp' version '2.3.14'
 }
 
 android {
@@ -55,6 +56,9 @@ dependencies {
     implementation 'androidx.compose.material:material-icons-extended'
     debugImplementation 'androidx.compose.ui:ui-tooling'
 
+    implementation 'androidx.room:room-runtime:2.8.5'
+    ksp 'androidx.room:room-compiler:2.8.5'
+
     implementation 'com.alphacephei:vosk-android:0.3.75@aar'
     implementation 'net.java.dev.jna:jna:5.18.1@aar'
 
@@ -62,4 +66,7 @@ dependencies {
     testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1'
     // Real org.json for JVM unit tests (android.jar only ships stubs)
     testImplementation 'org.json:json:20240303'
+    // Real Room database in JVM unit tests
+    testImplementation 'org.robolectric:robolectric:4.18'
+    testImplementation 'androidx.test:core:1.7.0'
 }

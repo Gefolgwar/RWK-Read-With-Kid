@@ -9,6 +9,15 @@ data class PreparedText(val sentences: List<List<Word>>) {
     val words: List<Word> = sentences.flatten()
 }
 
+/** Parts of a text that speech recognition handles poorly; parents should write them out as words. */
+data class TextWarnings(
+    val digits: List<String>,
+    val abbreviations: List<String>,
+    val symbols: List<String>
+) {
+    val isEmpty: Boolean get() = digits.isEmpty() && abbreviations.isEmpty() && symbols.isEmpty()
+}
+
 object TextPreparation {
     private val PARAGRAPH_BREAK = Regex("\\n[\\s\\u00A0]*\\n")
     // After . ! ? … optionally followed by closing quotes/brackets
@@ -24,6 +33,30 @@ object TextPreparation {
             .map(::toWords)
             .filter { it.isNotEmpty() }
         return PreparedText(sentences)
+    }
+
+    // e.g. "т.д.", "z.B."
+    private val DOTTED_ABBREVIATION = Regex("\\p{L}{1,3}\\.\\p{L}{1,3}\\.?")
+    private const val ORDINARY_PUNCTUATION = ".,!?…:;-‐–—'’‘`\"«»„“”‚()[]"
+
+    fun findHardParts(raw: String): TextWarnings {
+        val digits = linkedSetOf<String>()
+        val abbreviations = linkedSetOf<String>()
+        val symbols = linkedSetOf<String>()
+        for (token in raw.split(WHITESPACE)) {
+            if (token.isEmpty()) continue
+            if (token.any { it.isDigit() }) digits += token.trim { !it.isLetterOrDigit() }
+            val core = token.trim { !it.isLetterOrDigit() && it != '.' }
+            val word = core.trim('.')
+            when {
+                DOTTED_ABBREVIATION.matches(core) -> abbreviations += core
+                word.count { it.isLetter() } >= 2 && word.filter { it.isLetter() }.all { it.isUpperCase() } -> abbreviations += word
+            }
+            token.filterNot {
+                it.isLetterOrDigit() || Character.getType(it) == Character.NON_SPACING_MARK.toInt() || it in ORDINARY_PUNCTUATION
+            }.forEach { symbols += it.toString() }
+        }
+        return TextWarnings(digits.toList(), abbreviations.toList(), symbols.toList())
     }
 
     fun normalize(word: String): String =

@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -37,13 +38,16 @@ class MainActivity : ComponentActivity() {
     private val vm: ReadingSessionViewModel by viewModels {
         ReadingSessionViewModel.factory { RealVoskEngine(applicationContext) }
     }
+    private val libraryVm: LibraryViewModel by viewModels {
+        LibraryViewModel.factory { AppDatabase.get(applicationContext).texts() }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         setContent {
             MaterialTheme {
-                ReadWithKidApp(vm = vm)
+                ReadWithKidApp(vm = vm, libraryVm = libraryVm)
             }
         }
     }
@@ -56,8 +60,11 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun ReadWithKidApp(vm: ReadingSessionViewModel) {
+fun ReadWithKidApp(vm: ReadingSessionViewModel, libraryVm: LibraryViewModel) {
     val state by vm.uiState.collectAsState()
+    val library by libraryVm.uiState.collectAsState()
+    // Title of the saved text chosen for reading, or null while the library is shown
+    var readingTitle by rememberSaveable { mutableStateOf<String?>(null) }
 
     Scaffold { padding ->
         val modifier = Modifier
@@ -65,27 +72,54 @@ fun ReadWithKidApp(vm: ReadingSessionViewModel) {
             .padding(padding)
             .padding(16.dp)
         val result = state.result
+        val editor = library.editor
+        val title = readingTitle
         when {
             state.sessionState == SessionState.FINISHED && result != null ->
                 ResultScreen(result, onClose = vm::closeResult, modifier = modifier)
             state.sessionState == SessionState.READING || state.sessionState == SessionState.PAUSED ->
                 ReadingScreen(state, onPause = vm::pause, onResume = vm::resume, onFinish = vm::finish, modifier = modifier)
+            title != null ->
+                ReadyToReadScreen(title, state, onStart = vm::start, onBack = { readingTitle = null }, modifier = modifier)
+            editor != null ->
+                TextEditorScreen(
+                    editor,
+                    onTitleChange = libraryVm::updateTitle,
+                    onRawTextChange = libraryVm::updateRawText,
+                    onImport = libraryVm::importTxt,
+                    onSave = libraryVm::save,
+                    onCancel = libraryVm::cancelEdit,
+                    modifier = modifier
+                )
             else ->
-                TextInputScreen(state, onTextChange = vm::updateText, onStart = vm::start, modifier = modifier)
+                LibraryScreen(
+                    library.texts,
+                    onAdd = libraryVm::newText,
+                    onRead = { text ->
+                        vm.updateText(text.rawText)
+                        readingTitle = text.title
+                    },
+                    onEdit = libraryVm::edit,
+                    onDelete = libraryVm::delete,
+                    modifier = modifier
+                )
         }
     }
 }
 
 @Composable
-fun TextInputScreen(
+fun ReadyToReadScreen(
+    title: String,
     state: ReadingUiState,
-    onTextChange: (String) -> Unit,
     onStart: () -> Unit,
+    onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     var showRationale by remember { mutableStateOf(false) }
     var permissionDenied by rememberSaveable { mutableStateOf(false) }
+
+    BackHandler(onBack = onBack)
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -117,15 +151,7 @@ fun TextInputScreen(
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
         ) {
-            Text(stringResource(R.string.input_title), style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.height(8.dp))
-            OutlinedTextField(
-                value = state.rawText,
-                onValueChange = onTextChange,
-                placeholder = { Text(stringResource(R.string.input_hint)) },
-                minLines = 5,
-                modifier = Modifier.fillMaxWidth()
-            )
+            Text(title, style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(8.dp))
 
             when {
@@ -139,45 +165,37 @@ fun TextInputScreen(
                 permissionDenied -> ErrorText(stringResource(R.string.mic_permission_denied))
             }
 
-            if (state.text.words.isNotEmpty()) {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    stringResource(R.string.input_summary, state.text.sentences.size, state.text.words.size),
-                    style = MaterialTheme.typography.titleSmall
-                )
-                state.text.sentences.forEachIndexed { i, sentence ->
-                    Text(
-                        "${i + 1}. " + sentence.joinToString(" · ") { it.display },
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                }
-            }
+            TextPreview(state.text)
         }
 
         Spacer(Modifier.height(8.dp))
-        Button(
-            onClick = {
-                if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
-                    == PackageManager.PERMISSION_GRANTED
-                ) {
-                    onStart()
-                } else {
-                    showRationale = true
-                }
-            },
-            enabled = state.sessionState == SessionState.READY && state.text.words.isNotEmpty(),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Icon(Icons.Default.PlayArrow, contentDescription = null)
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.start_reading))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedButton(onClick = onBack, modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.back))
+            }
+            Button(
+                onClick = {
+                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
+                        == PackageManager.PERMISSION_GRANTED
+                    ) {
+                        onStart()
+                    } else {
+                        showRationale = true
+                    }
+                },
+                enabled = state.sessionState == SessionState.READY && state.text.words.isNotEmpty(),
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(Icons.Default.PlayArrow, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.start_reading))
+            }
         }
     }
 }
 
 @Composable
-private fun ErrorText(text: String) {
+fun ErrorText(text: String) {
     Text(text, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
 }
 

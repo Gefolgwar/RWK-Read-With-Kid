@@ -2,7 +2,29 @@
 <resources>
     <string name="app_name" translatable="false">Read With Kid</string>
 
-    <string name="input_title">Text to read</string>
+    <string name="library_title">My texts</string>
+    <string name="library_empty">No texts yet. Add the first one.</string>
+    <string name="add_text">Add text</string>
+    <string name="read">Read</string>
+    <string name="edit">Edit</string>
+    <string name="delete">Delete</string>
+    <string name="delete_text_title">Delete text?</string>
+    <string name="delete_text_message">“%1$s” will be deleted permanently.</string>
+    <string name="back">Back</string>
+
+    <string name="new_text_title">New text</string>
+    <string name="edit_text_title">Edit text</string>
+    <string name="private_use_note">Texts are for private use within your family only. They are stored on this phone and never shared.</string>
+    <string name="text_title_label">Title</string>
+    <string name="paste">Paste</string>
+    <string name="import_txt">Import .txt</string>
+    <string name="import_error">The file could not be read.</string>
+    <string name="save">Save</string>
+    <string name="hard_parts_title">These parts are hard to recognise. Better write them out as words:</string>
+    <string name="hard_parts_digits">Digits: %1$s</string>
+    <string name="hard_parts_abbreviations">Abbreviations: %1$s</string>
+    <string name="hard_parts_symbols">Symbols: %1$s</string>
+
     <string name="input_hint">Paste or type a text</string>
     <string name="input_summary">Sentences: %1$d · Words: %2$d</string>
     <string name="model_loading">Loading speech model…</string>

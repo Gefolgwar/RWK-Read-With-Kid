@@ -1,6 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="input_title">Text zum Lesen</string>
+    <string name="library_title">Meine Texte</string>
+    <string name="library_empty">Noch keine Texte. Fügen Sie den ersten hinzu.</string>
+    <string name="add_text">Text hinzufügen</string>
+    <string name="read">Lesen</string>
+    <string name="edit">Bearbeiten</string>
+    <string name="delete">Löschen</string>
+    <string name="delete_text_title">Text löschen?</string>
+    <string name="delete_text_message">„%1$s“ wird endgültig gelöscht.</string>
+    <string name="back">Zurück</string>
+
+    <string name="new_text_title">Neuer Text</string>
+    <string name="edit_text_title">Text bearbeiten</string>
+    <string name="private_use_note">Texte sind nur für den privaten Gebrauch in der Familie bestimmt. Sie werden auf diesem Telefon gespeichert und nie weitergegeben.</string>
+    <string name="text_title_label">Titel</string>
+    <string name="paste">Einfügen</string>
+    <string name="import_txt">.txt importieren</string>
+    <string name="import_error">Die Datei konnte nicht gelesen werden.</string>
+    <string name="save">Speichern</string>
+    <string name="hard_parts_title">Diese Stellen sind schwer zu erkennen. Schreiben Sie sie besser als Wörter aus:</string>
+    <string name="hard_parts_digits">Ziffern: %1$s</string>
+    <string name="hard_parts_abbreviations">Abkürzungen: %1$s</string>
+    <string name="hard_parts_symbols">Symbole: %1$s</string>
+
     <string name="input_hint">Text einfügen oder eingeben</string>
     <string name="input_summary">Sätze: %1$d · Wörter: %2$d</string>
     <string name="model_loading">Sprachmodell wird geladen…</string>
