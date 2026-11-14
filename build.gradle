@@ -35,7 +35,7 @@ android {
         compose true
     }
 
-    assetPacks = [':model_uk']
+    assetPacks = [':model_uk', ':model_de']
 }
 
 kotlin {

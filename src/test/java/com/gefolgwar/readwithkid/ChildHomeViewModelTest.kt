@@ -112,7 +112,7 @@ class ChildHomeViewModelTest {
         val olya = addChild("Оля", Avatar.RABBIT)
         addText("Казка", "Мама мила раму. Тато читав книжку.", olya)
         val engine = FakeVoskEngine()
-        val reading = ReadingSessionViewModel(engine)
+        val reading = ReadingSessionViewModel({ engine })
         engine.simulateModelLoaded()
 
         vm.select(olya)

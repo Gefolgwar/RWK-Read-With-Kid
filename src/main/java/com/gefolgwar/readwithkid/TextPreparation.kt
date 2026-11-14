@@ -20,12 +20,15 @@ data class TextWarnings(
 
 object TextPreparation {
     private val PARAGRAPH_BREAK = Regex("\\n[\\s\\u00A0]*\\n")
-    // After . ! ? … optionally followed by closing quotes/brackets
-    private val SENTENCE_END = Regex("(?<=[.!?…][»\"”)]{0,2})[\\s\\u00A0]+")
+    // After . ! ? … optionally followed by closing quotes/brackets (German closes with “ and ‘)
+    private val SENTENCE_END = Regex("(?<=[.!?…][»\"”“‘)]{0,2})[\\s\\u00A0]+")
     private val WHITESPACE = Regex("[\\s\\u00A0]+")
     private val APOSTROPHES = Regex("['ʼ’‘`]")
-    // Also drops combining marks such as the stress mark U+0301
-    private val NOT_WORD_CHAR = Regex("[^\\p{L}\\p{N}-]")
+    // Also drops combining marks such as the stress mark U+0301, and hyphens:
+    // a hyphenated word may be recognised as its parts ("Baden-Württemberg" -> "baden württemberg").
+    private val NOT_WORD_CHAR = Regex("[^\\p{L}\\p{N}]")
+    // German: ß and ss are the same; umlauts match their ae/oe/ue spelling.
+    private val GERMAN_SPELLING = listOf("ß" to "ss", "ä" to "ae", "ö" to "oe", "ü" to "ue")
 
     fun prepare(raw: String): PreparedText {
         val sentences = raw.split(PARAGRAPH_BREAK)
@@ -60,11 +63,31 @@ object TextPreparation {
     }
 
     fun normalize(word: String): String =
-        Normalizer.normalize(word, Normalizer.Form.NFC)
-            .lowercase()
-            .replace(APOSTROPHES, "")
-            .replace(NOT_WORD_CHAR, "")
-            .trim('-')
+        GERMAN_SPELLING.fold(
+            Normalizer.normalize(word, Normalizer.Form.NFC)
+                .lowercase()
+                .replace(APOSTROPHES, "")
+                .replace(NOT_WORD_CHAR, "")
+        ) { result, (from, to) -> result.replace(from, to) }
+
+    /** Suggests the language from the alphabet: mostly Cyrillic is Ukrainian, mostly Latin is German; null without letters. */
+    fun detectLanguage(raw: String): TextLanguage? {
+        var cyrillic = 0
+        var latin = 0
+        for (c in raw) {
+            if (!c.isLetter()) continue
+            when (Character.UnicodeScript.of(c.code)) {
+                Character.UnicodeScript.CYRILLIC -> cyrillic++
+                Character.UnicodeScript.LATIN -> latin++
+                else -> Unit
+            }
+        }
+        return when {
+            cyrillic == 0 && latin == 0 -> null
+            cyrillic >= latin -> TextLanguage.UK
+            else -> TextLanguage.DE
+        }
+    }
 
     /** Punctuation-only tokens (e.g. a dash) are not words: they stay attached to a neighbouring word for display. */
     private fun toWords(sentence: String): List<Word> {

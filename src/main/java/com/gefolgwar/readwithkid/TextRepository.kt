@@ -1,6 +1,7 @@
 package com.gefolgwar.readwithkid
 
 import android.content.Context
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
@@ -20,7 +21,8 @@ data class SavedText(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val title: String,
     val rawText: String,
-    val createdAt: Long
+    val createdAt: Long,
+    @ColumnInfo(defaultValue = "UK") val language: TextLanguage = TextLanguage.UK
 )
 
 interface TextRepository {
@@ -51,7 +53,7 @@ abstract class TextDao : TextRepository {
     abstract override suspend fun delete(id: Long)
 }
 
-@Database(entities = [SavedText::class, ChildProfile::class, TextAssignment::class], version = 2, exportSchema = false)
+@Database(entities = [SavedText::class, ChildProfile::class, TextAssignment::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun texts(): TextDao
     abstract fun children(): ChildDao
@@ -66,7 +68,7 @@ abstract class AppDatabase : RoomDatabase() {
 
         fun build(context: Context, name: String): AppDatabase =
             Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, name)
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
 
         /** Adds child profiles and text assignments; saved texts are kept. */
@@ -83,6 +85,13 @@ abstract class AppDatabase : RoomDatabase() {
                         "FOREIGN KEY(`textId`) REFERENCES `texts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)"
                 )
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_assignments_textId` ON `assignments` (`textId`)")
+            }
+        }
+
+        /** Adds the language of each text; texts saved before were Ukrainian. */
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `texts` ADD COLUMN `language` TEXT NOT NULL DEFAULT 'UK'")
             }
         }
     }

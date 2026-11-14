@@ -35,9 +35,9 @@ import androidx.core.content.ContextCompat
 import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
-    private val ukModel by lazy { UkrainianModel.get(applicationContext) }
+    private fun models(language: TextLanguage) = SpeechModels.get(applicationContext, language)
     private val vm: ReadingSessionViewModel by viewModels {
-        ReadingSessionViewModel.factory(ukModel.installed) { RealVoskEngine(ukModel.directory) }
+        ReadingSessionViewModel.factory({ models(it).installed }) { RealVoskEngine(models(it).directory) }
     }
     private val db by lazy { AppDatabase.get(applicationContext) }
     private val libraryVm: LibraryViewModel by viewModels {
@@ -60,8 +60,8 @@ class MainActivity : ComponentActivity() {
                     libraryVm = libraryVm,
                     profilesVm = profilesVm,
                     childHomeVm = childHomeVm,
-                    models = ukModel,
-                    onConfirmModel = { ukModel.confirmDownload(this) }
+                    models = ::models,
+                    onConfirmModel = { models(it).confirmDownload(this) }
                 )
             }
         }
@@ -80,14 +80,16 @@ fun ReadWithKidApp(
     libraryVm: LibraryViewModel,
     profilesVm: ProfilesViewModel,
     childHomeVm: ChildHomeViewModel,
-    models: ModelManager,
-    onConfirmModel: () -> Unit
+    models: (TextLanguage) -> ModelManager,
+    onConfirmModel: (TextLanguage) -> Unit
 ) {
     val state by vm.uiState.collectAsState()
     val library by libraryVm.uiState.collectAsState()
     val profiles by profilesVm.uiState.collectAsState()
     val childHome by childHomeVm.uiState.collectAsState()
-    val model by models.state.collectAsState()
+    val modelStates = TextLanguage.entries.associateWith { models(it).state.collectAsState().value }
+    // Model of the language of the text being read
+    val model = modelStates.getValue(state.language)
     // Title of the saved text chosen for reading, or null while a list is shown
     var readingTitle by rememberSaveable { mutableStateOf<String?>(null) }
     // The parent area (library, profiles, models); the child's start screen otherwise
@@ -95,7 +97,7 @@ fun ReadWithKidApp(
     var showModels by rememberSaveable { mutableStateOf(false) }
     var showProfiles by rememberSaveable { mutableStateOf(false) }
     val read = { text: SavedText ->
-        vm.updateText(text.rawText)
+        vm.updateText(text.rawText, text.language)
         readingTitle = text.title
     }
 
@@ -119,8 +121,8 @@ fun ReadWithKidApp(
                     state,
                     model,
                     onStart = vm::start,
-                    onDownloadModel = models::download,
-                    onConfirmModel = onConfirmModel,
+                    onDownloadModel = { models(state.language).download() },
+                    onConfirmModel = { onConfirmModel(state.language) },
                     onBack = { readingTitle = null },
                     modifier = modifier
                 )
@@ -129,6 +131,7 @@ fun ReadWithKidApp(
                     editor,
                     library.children,
                     onTitleChange = libraryVm::updateTitle,
+                    onLanguageChange = libraryVm::chooseLanguage,
                     onToggleChild = libraryVm::toggleChild,
                     onRawTextChange = libraryVm::updateRawText,
                     onImport = libraryVm::importTxt,
@@ -147,10 +150,10 @@ fun ReadWithKidApp(
                 )
             showModels ->
                 ModelsScreen(
-                    model,
-                    onDownload = models::download,
+                    modelStates,
+                    onDownload = { models(it).download() },
                     onConfirm = onConfirmModel,
-                    onDelete = models::delete,
+                    onDelete = { models(it).delete() },
                     onBack = { showModels = false },
                     modifier = modifier
                 )
@@ -240,7 +243,8 @@ fun ReadyToReadScreen(
             Spacer(Modifier.height(8.dp))
 
             when {
-                state.sessionState == SessionState.MODEL_MISSING -> ModelDownload(model, onDownloadModel, onConfirmModel)
+                state.sessionState == SessionState.MODEL_MISSING ->
+                    ModelDownload(state.language, model, onDownloadModel, onConfirmModel)
                 state.sessionState == SessionState.LOADING_MODEL -> Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                     Spacer(Modifier.width(8.dp))

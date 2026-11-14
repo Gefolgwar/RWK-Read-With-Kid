@@ -22,3 +22,6 @@ enum class WordStatus {
     CONFIRMED,
     SKIPPED
 }
+
+/** Language of a text; chooses the speech model. Stored by name. */
+enum class TextLanguage { UK, DE }

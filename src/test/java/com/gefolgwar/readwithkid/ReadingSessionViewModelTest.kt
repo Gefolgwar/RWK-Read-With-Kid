@@ -27,7 +27,7 @@ class ReadingSessionViewModelTest {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         engine = FakeVoskEngine()
         nowMs = 0L
-        vm = ReadingSessionViewModel(engine, clockMs = { nowMs })
+        vm = ReadingSessionViewModel({ engine }, clockMs = { nowMs })
         engine.simulateModelLoaded()
     }
 
@@ -44,7 +44,7 @@ class ReadingSessionViewModelTest {
     fun `missing model blocks reading and is loaded once downloaded`() {
         val installed = MutableStateFlow(false)
         val freshEngine = FakeVoskEngine()
-        val freshVm = ReadingSessionViewModel(freshEngine, modelInstalled = installed)
+        val freshVm = ReadingSessionViewModel({ freshEngine }, modelInstalled = { installed })
         assertEquals(SessionState.MODEL_MISSING, freshVm.uiState.value.sessionState)
         assertEquals(0, freshEngine.loadCount)
 
@@ -63,7 +63,7 @@ class ReadingSessionViewModelTest {
     fun `deleted model blocks reading until it is downloaded again`() {
         val installed = MutableStateFlow(true)
         val freshEngine = FakeVoskEngine()
-        val freshVm = ReadingSessionViewModel(freshEngine, modelInstalled = installed)
+        val freshVm = ReadingSessionViewModel({ freshEngine }, modelInstalled = { installed })
         freshEngine.simulateModelLoaded()
         freshVm.updateText(text)
 
@@ -82,7 +82,7 @@ class ReadingSessionViewModelTest {
     @Test
     fun `initial state is LOADING_MODEL and model load requested once`() {
         val freshEngine = FakeVoskEngine()
-        val freshVm = ReadingSessionViewModel(freshEngine)
+        val freshVm = ReadingSessionViewModel({ freshEngine })
         assertEquals(SessionState.LOADING_MODEL, freshVm.uiState.value.sessionState)
         assertEquals(1, freshEngine.loadCount)
     }
@@ -90,7 +90,7 @@ class ReadingSessionViewModelTest {
     @Test
     fun `start before model is ready is ignored`() {
         val freshEngine = FakeVoskEngine()
-        val freshVm = ReadingSessionViewModel(freshEngine)
+        val freshVm = ReadingSessionViewModel({ freshEngine })
         freshVm.updateText(text)
         freshVm.start()
         assertEquals(SessionState.LOADING_MODEL, freshVm.uiState.value.sessionState)
@@ -100,7 +100,7 @@ class ReadingSessionViewModelTest {
     @Test
     fun `model load error shows MODEL_ERROR and blocks reading`() {
         val freshEngine = FakeVoskEngine()
-        val freshVm = ReadingSessionViewModel(freshEngine)
+        val freshVm = ReadingSessionViewModel({ freshEngine })
         freshEngine.simulateError("Model load failed: no such dir")
         assertEquals(SessionState.MODEL_ERROR, freshVm.uiState.value.sessionState)
 
@@ -381,7 +381,7 @@ class ReadingSessionViewModelTest {
     @Test
     fun `grammar mode updates grammar at sentence boundary without restarting audio`() {
         engine = FakeVoskEngine()
-        val grammarVm = ReadingSessionViewModel(engine, RecognitionMode.GRAMMAR_CONSTRAINED) { nowMs }
+        val grammarVm = ReadingSessionViewModel({ engine }, RecognitionMode.GRAMMAR_CONSTRAINED) { nowMs }
         engine.simulateModelLoaded()
         grammarVm.updateText("Мама мила раму. Тато читав книжку. Кіт спав.")
         grammarVm.start()
@@ -427,5 +427,100 @@ class ReadingSessionViewModelTest {
             }
         """.trimIndent()
         assertEquals("a \"b\"", ReadingSessionViewModel.extractVoskText(json, "text"))
+    }
+
+    // --- language of the text ---
+
+    private val germanText = "Die kleine Katze läuft über die Straße. Sie heißt Mimi."
+
+    @Test
+    fun `German text starts a new engine with the German model and releases the Ukrainian one`() {
+        val engines = mutableMapOf<TextLanguage, FakeVoskEngine>()
+        val installed = mapOf(TextLanguage.UK to MutableStateFlow(true), TextLanguage.DE to MutableStateFlow(false))
+        val freshVm = ReadingSessionViewModel(
+            { FakeVoskEngine().also { engine -> engines[it] = engine } },
+            modelInstalled = { installed.getValue(it) }
+        )
+        val uk = engines.getValue(TextLanguage.UK)
+        uk.simulateModelLoaded()
+
+        freshVm.updateText(germanText, TextLanguage.DE)
+        assertTrue(uk.released)
+        assertEquals(TextLanguage.DE, freshVm.uiState.value.language)
+        // The German model is not downloaded yet, even though the Ukrainian one is
+        assertEquals(SessionState.MODEL_MISSING, freshVm.uiState.value.sessionState)
+
+        installed.getValue(TextLanguage.DE).value = true
+        val de = engines.getValue(TextLanguage.DE)
+        assertEquals(1, de.loadCount)
+        de.simulateModelLoaded()
+        assertEquals(SessionState.READY, freshVm.uiState.value.sessionState)
+
+        // The Ukrainian model's availability no longer affects the session
+        installed.getValue(TextLanguage.UK).value = false
+        assertEquals(SessionState.READY, freshVm.uiState.value.sessionState)
+    }
+
+    @Test
+    fun `text in the same language keeps the engine and its model`() {
+        var created = 0
+        val freshEngine = FakeVoskEngine()
+        val freshVm = ReadingSessionViewModel({ created++; freshEngine })
+        freshVm.updateText(text, TextLanguage.UK)
+        freshVm.updateText("Кіт спав.", TextLanguage.UK)
+        assertEquals(1, created)
+        assertEquals(1, freshEngine.loadCount)
+        assertFalse(freshEngine.released)
+    }
+
+    @Test
+    fun `clearing viewmodel releases the engine of the current language`() {
+        val store = ViewModelStore()
+        val engines = mutableListOf<FakeVoskEngine>()
+        val freshVm = ViewModelProvider(store, ReadingSessionViewModel.factory { FakeVoskEngine().also(engines::add) })[
+            ReadingSessionViewModel::class.java
+        ]
+        freshVm.updateText(germanText, TextLanguage.DE)
+        store.clear()
+        assertTrue(engines.all { it.released })
+    }
+
+    @Test
+    fun `German reading with capitals, ß, umlauts, repeats and a skip gives a result`() {
+        val engines = mutableMapOf<TextLanguage, FakeVoskEngine>()
+        val freshVm = ReadingSessionViewModel({ FakeVoskEngine().also { engine -> engines[it] = engine } }) { nowMs }
+        freshVm.updateText(germanText, TextLanguage.DE)
+        val de = engines.getValue(TextLanguage.DE)
+        de.simulateModelLoaded()
+        freshVm.start()
+
+        de.simulateFinal("die die katze lauft läuft ü ber die strasse") // repeat, skip "kleine", self-correction, syllables, ss
+        nowMs = 30_000
+        de.simulateFinal("sie heisst mimi")
+
+        val s = freshVm.uiState.value
+        assertEquals(SessionState.FINISHED, s.sessionState)
+        val result = s.result!!
+        assertEquals(10, result.totalWords)
+        assertEquals(9, result.correctWords)
+        assertEquals(listOf("kleine"), result.skippedWords)
+        assertEquals(listOf("läuft"), result.retriedWords)
+        assertEquals(18, result.wordsCorrectPerMinute)
+    }
+
+    @Test
+    fun `grammar uses words as written, not their normalized form`() {
+        val engines = mutableMapOf<TextLanguage, FakeVoskEngine>()
+        val grammarVm = ReadingSessionViewModel(
+            { FakeVoskEngine().also { engine -> engines[it] = engine } },
+            RecognitionMode.GRAMMAR_CONSTRAINED
+        ) { nowMs }
+        grammarVm.updateText("Die große Straße in Baden-Württemberg.", TextLanguage.DE)
+        engines.getValue(TextLanguage.DE).simulateModelLoaded()
+        grammarVm.start()
+        assertEquals(
+            listOf("die", "große", "straße", "in", "baden-württemberg", "[unk]"),
+            engines.getValue(TextLanguage.DE).lastGrammar
+        )
     }
 }

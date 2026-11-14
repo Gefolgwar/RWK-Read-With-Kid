@@ -15,3 +15,4 @@ local.properties
 # Large model files
 model-uk/
 model_uk/src/main/assets/
+model_de/src/main/assets/

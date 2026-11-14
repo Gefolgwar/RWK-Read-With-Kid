@@ -3,6 +3,8 @@ package com.gefolgwar.readwithkid
 import android.text.format.Formatter
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
@@ -16,16 +18,31 @@ import androidx.compose.ui.unit.dp
 @Composable
 private fun fileSize(bytes: Long): String = Formatter.formatShortFileSize(LocalContext.current, bytes)
 
-/** Offers the model download and shows its progress and errors. Shows nothing once installed. */
+/** Name of the language, e.g. "German". */
+val TextLanguage.nameRes: Int
+    get() = when (this) {
+        TextLanguage.UK -> R.string.language_uk
+        TextLanguage.DE -> R.string.language_de
+    }
+
+/** The language as in "to read in German". */
+private val TextLanguage.readInRes: Int
+    get() = when (this) {
+        TextLanguage.UK -> R.string.read_in_uk
+        TextLanguage.DE -> R.string.read_in_de
+    }
+
+/** Offers the download of the [language] model and shows its progress and errors. Shows nothing once installed. */
 @Composable
-fun ModelDownload(model: ModelState, onDownload: () -> Unit, onConfirm: () -> Unit) {
+fun ModelDownload(language: TextLanguage, model: ModelState, onDownload: () -> Unit, onConfirm: () -> Unit) {
+    val readIn = stringResource(language.readInRes)
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         when (model) {
             ModelState.Checking, is ModelState.Installed -> Unit
             is ModelState.NotInstalled -> {
                 Text(
-                    if (model.downloadBytes != null) stringResource(R.string.model_offer, fileSize(model.downloadBytes))
-                    else stringResource(R.string.model_offer_unknown_size),
+                    if (model.downloadBytes != null) stringResource(R.string.model_offer, readIn, fileSize(model.downloadBytes))
+                    else stringResource(R.string.model_offer_unknown_size, readIn),
                     style = MaterialTheme.typography.bodyMedium
                 )
                 when (model.error) {
@@ -68,30 +85,30 @@ fun ModelDownload(model: ModelState, onDownload: () -> Unit, onConfirm: () -> Un
 
 @Composable
 fun ModelsScreen(
-    model: ModelState,
-    onDownload: () -> Unit,
-    onConfirm: () -> Unit,
-    onDelete: () -> Unit,
+    models: Map<TextLanguage, ModelState>,
+    onDownload: (TextLanguage) -> Unit,
+    onConfirm: (TextLanguage) -> Unit,
+    onDelete: (TextLanguage) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var confirmDelete by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf<TextLanguage?>(null) }
 
     BackHandler(onBack = onBack)
 
-    if (confirmDelete) {
+    confirmDelete?.let { language ->
         AlertDialog(
-            onDismissRequest = { confirmDelete = false },
+            onDismissRequest = { confirmDelete = null },
             title = { Text(stringResource(R.string.model_delete_title)) },
-            text = { Text(stringResource(R.string.model_delete_message)) },
+            text = { Text(stringResource(R.string.model_delete_message, stringResource(language.readInRes))) },
             confirmButton = {
                 TextButton(onClick = {
-                    confirmDelete = false
-                    onDelete()
+                    confirmDelete = null
+                    onDelete(language)
                 }) { Text(stringResource(R.string.delete)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.cancel)) }
+                TextButton(onClick = { confirmDelete = null }) { Text(stringResource(R.string.cancel)) }
             }
         )
     }
@@ -99,25 +116,34 @@ fun ModelsScreen(
     Column(modifier = modifier) {
         Text(stringResource(R.string.models_title), style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(8.dp))
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(R.string.model_uk_name), style = MaterialTheme.typography.titleMedium)
-                if (model is ModelState.Installed) {
-                    Text(
-                        stringResource(R.string.model_installed, model.version, fileSize(model.sizeBytes)),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    OutlinedButton(onClick = { confirmDelete = true }) {
-                        Icon(Icons.Default.Delete, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.delete))
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+        ) {
+            models.forEach { (language, model) ->
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(stringResource(language.nameRes), style = MaterialTheme.typography.titleMedium)
+                        if (model is ModelState.Installed) {
+                            Text(
+                                stringResource(R.string.model_installed, model.version, fileSize(model.sizeBytes)),
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            OutlinedButton(onClick = { confirmDelete = language }) {
+                                Icon(Icons.Default.Delete, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text(stringResource(R.string.delete))
+                            }
+                        } else {
+                            ModelDownload(language, model, { onDownload(language) }, { onConfirm(language) })
+                        }
                     }
-                } else {
-                    ModelDownload(model, onDownload, onConfirm)
                 }
             }
         }
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.height(8.dp))
         OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.back))
         }

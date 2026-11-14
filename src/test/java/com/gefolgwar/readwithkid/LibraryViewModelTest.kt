@@ -245,7 +245,7 @@ class LibraryViewModelTest {
         addText("Перший", "Один два.")
         addText("Другий", "Мама мила раму. Тато читав книжку.")
         val engine = FakeVoskEngine()
-        val reading = ReadingSessionViewModel(engine)
+        val reading = ReadingSessionViewModel({ engine })
         engine.simulateModelLoaded()
 
         val chosen = state.texts.first { it.title == "Другий" }
@@ -254,5 +254,70 @@ class LibraryViewModelTest {
 
         assertEquals(SessionState.READING, reading.uiState.value.sessionState)
         assertEquals(6, reading.uiState.value.text.words.size)
+    }
+
+    // --- language of the text ---
+
+    @Test
+    fun `language is suggested from the alphabet and saved with the text`() {
+        vm.newText()
+        assertEquals(TextLanguage.UK, editor.language)
+        assertNull(editor.detectedLanguage)
+
+        vm.updateRawText("Die kleine Katze läuft über die Straße.")
+        assertEquals(TextLanguage.DE, editor.language)
+        assertNull(editor.chosenLanguage)
+
+        vm.updateRawText("Мама мила раму.")
+        assertEquals(TextLanguage.UK, editor.language)
+
+        vm.updateRawText("Der Hund heißt Бровко und spielt gern.")
+        assertEquals(TextLanguage.DE, editor.language)
+
+        vm.updateTitle("Hund")
+        vm.save()
+        assertEquals(TextLanguage.DE, state.texts.single().language)
+    }
+
+    @Test
+    fun `parent can change the suggested language`() {
+        vm.newText()
+        vm.updateTitle("Ім'я")
+        vm.updateRawText("Anna")
+        assertEquals(TextLanguage.DE, editor.language)
+
+        vm.chooseLanguage(TextLanguage.UK)
+        vm.updateRawText("Anna und Max")
+        assertEquals(TextLanguage.UK, editor.language)
+        vm.save()
+
+        val saved = state.texts.single()
+        assertEquals(TextLanguage.UK, saved.language)
+        vm.edit(saved)
+        assertEquals(TextLanguage.UK, editor.chosenLanguage)
+    }
+
+    @Test
+    fun `editing a text whose language matches its alphabet keeps following the alphabet`() {
+        addText("Katze", "Die Katze schläft.")
+        vm.edit(state.texts.single())
+        assertEquals(TextLanguage.DE, editor.language)
+        assertNull(editor.chosenLanguage)
+    }
+
+    @Test
+    fun `a German text is read with the German model`() {
+        addText("Katze", "Die Katze schläft.")
+        val engines = mutableMapOf<TextLanguage, FakeVoskEngine>()
+        val reading = ReadingSessionViewModel({ FakeVoskEngine().also { engine -> engines[it] = engine } })
+
+        val text = state.texts.single()
+        reading.updateText(text.rawText, text.language)
+        engines.getValue(TextLanguage.DE).simulateModelLoaded()
+        reading.start()
+
+        assertEquals(TextLanguage.DE, reading.uiState.value.language)
+        assertEquals(SessionState.READING, reading.uiState.value.sessionState)
+        assertTrue(engines.getValue(TextLanguage.DE).started)
     }
 }

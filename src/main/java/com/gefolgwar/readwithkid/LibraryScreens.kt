@@ -161,6 +161,7 @@ fun TextEditorScreen(
     editor: TextEditorState,
     children: List<ChildProfile>,
     onTitleChange: (String) -> Unit,
+    onLanguageChange: (TextLanguage) -> Unit,
     onToggleChild: (ChildProfile) -> Unit,
     onRawTextChange: (String) -> Unit,
     onImport: (fileName: String?, content: String) -> Unit,
@@ -231,6 +232,8 @@ fun TextEditorScreen(
             }
             if (importFailed) ErrorText(stringResource(R.string.import_error))
             Spacer(Modifier.height(8.dp))
+            LanguageChoice(editor, onLanguageChange)
+            Spacer(Modifier.height(8.dp))
             ChildAssignment(children, editor.childIds, onToggleChild)
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(
@@ -257,6 +260,28 @@ fun TextEditorScreen(
                 Text(stringResource(R.string.save))
             }
         }
+    }
+}
+
+/** Language of the text: suggested from its alphabet, the parent can change it. */
+@Composable
+private fun LanguageChoice(editor: TextEditorState, onChange: (TextLanguage) -> Unit) {
+    Text(stringResource(R.string.text_language_label), style = MaterialTheme.typography.titleSmall)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TextLanguage.entries.forEach { language ->
+            FilterChip(
+                selected = language == editor.language,
+                onClick = { onChange(language) },
+                label = { Text(stringResource(language.nameRes)) }
+            )
+        }
+    }
+    if (editor.chosenLanguage == null && editor.detectedLanguage != null) {
+        Text(
+            stringResource(R.string.text_language_detected),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = 'Read-With-Kid'
 include ':model_uk'
+include ':model_de'

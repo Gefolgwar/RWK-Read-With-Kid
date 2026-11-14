@@ -69,21 +69,28 @@ class PlayModelPack(context: Context, private val packName: String, private val 
     }
 }
 
-/** The Ukrainian model (Apache 2.0), delivered by the on-demand asset pack `model_uk`. */
-object UkrainianModel {
-    const val VERSION = "vosk-model-small-uk-v3-small"
+/**
+ * One speech model per text language (both Apache 2.0), each delivered by its own on-demand asset pack:
+ * `model_uk` and `model_de`.
+ */
+object SpeechModels {
+    fun version(language: TextLanguage): String = when (language) {
+        TextLanguage.UK -> "vosk-model-small-uk-v3-small"
+        TextLanguage.DE -> "vosk-model-small-de-0.15"
+    }
 
-    @Volatile
-    private var instance: ModelManager? = null
+    private val instances = mutableMapOf<TextLanguage, ModelManager>()
 
-    fun get(context: Context): ModelManager = instance ?: synchronized(this) {
-        instance ?: context.applicationContext.let { app ->
+    fun get(context: Context, language: TextLanguage): ModelManager = synchronized(this) {
+        instances.getOrPut(language) {
+            val app = context.applicationContext
+            val code = language.name.lowercase()
             ModelManager(
-                directory = File(app.filesDir, "model-uk"),
-                version = VERSION,
-                pack = PlayModelPack(app, packName = "model_uk", zipName = "$VERSION.zip"),
+                directory = File(app.filesDir, "model-$code"),
+                version = version(language),
+                pack = PlayModelPack(app, packName = "model_$code", zipName = "${version(language)}.zip"),
                 scope = MainScope()
             )
-        }.also { instance = it }
+        }
     }
 }

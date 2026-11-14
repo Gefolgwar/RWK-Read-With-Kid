@@ -20,10 +20,14 @@ data class TextEditorState(
     val title: String = "",
     val rawText: String = "",
     /** Children the text is assigned to. */
-    val childIds: Set<Long> = emptySet()
+    val childIds: Set<Long> = emptySet(),
+    /** Language the parent picked, or null while it follows the alphabet of the text. */
+    val chosenLanguage: TextLanguage? = null
 ) {
     val preview: PreparedText = TextPreparation.prepare(rawText)
     val warnings: TextWarnings = TextPreparation.findHardParts(rawText)
+    val detectedLanguage: TextLanguage? = TextPreparation.detectLanguage(rawText)
+    val language: TextLanguage get() = chosenLanguage ?: detectedLanguage ?: TextLanguage.UK
     val canSave: Boolean get() = title.isNotBlank() && preview.words.isNotEmpty()
 }
 
@@ -63,8 +67,12 @@ class LibraryViewModel(
 
     fun edit(text: SavedText) {
         val childIds = uiState.value.assignedTo[text.id].orEmpty().map { it.id }.toSet()
-        editor.value = TextEditorState(text.id, text.createdAt, text.title, text.rawText, childIds)
+        // A stored language the alphabet would suggest anyway keeps following the text.
+        val chosen = text.language.takeIf { it != TextPreparation.detectLanguage(text.rawText) }
+        editor.value = TextEditorState(text.id, text.createdAt, text.title, text.rawText, childIds, chosen)
     }
+
+    fun chooseLanguage(language: TextLanguage) = editor.update { it?.copy(chosenLanguage = language) }
 
     /** Assigns the edited text to the child, or takes it away again. */
     fun toggleChild(child: ChildProfile) = editor.update { current ->
@@ -94,7 +102,8 @@ class LibraryViewModel(
             id = current.id,
             title = current.title.trim(),
             rawText = current.rawText.trim(),
-            createdAt = if (current.id == 0L) clockMs() else current.createdAt
+            createdAt = if (current.id == 0L) clockMs() else current.createdAt,
+            language = current.language
         )
         editor.value = null
         viewModelScope.launch {

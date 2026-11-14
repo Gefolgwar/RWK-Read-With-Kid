@@ -339,4 +339,68 @@ class WordAlignerTest {
         assertEquals(emptySet<Int>(), aligner.skippedIndices)
         assertEquals(emptySet<Int>(), aligner.retriedIndices)
     }
+
+    // --- German children's reading ---
+
+    private val german = TextPreparation.prepare("Die kleine Katze läuft über die große Straße nach Baden-Württemberg.")
+        .words.map { it.display }
+
+    private fun readGerman(vararg finals: String) = WordAligner(german).apply { finals.forEach { processFinal(it.split(" ")) } }
+
+    private fun WordAligner.assertClean(lastIndex: Int) {
+        assertEquals(lastIndex, confirmedIndex)
+        assertEquals(lastIndex + 1, matchedCount)
+        assertEquals(emptySet<Int>(), skippedIndices)
+        assertEquals(emptySet<Int>(), retriedIndices)
+    }
+
+    @Test
+    fun `German nouns written with capitals match lowercase speech`() {
+        readGerman("die kleine katze läuft").assertClean(3)
+        readGerman("DIE KLEINE KATZE").assertClean(2)
+    }
+
+    @Test
+    fun `German ß and ss are the same`() {
+        readGerman("die kleine katze läuft über die grosse strasse").assertClean(7)
+        WordAligner(listOf("Strasse", "heisst", "STRAẞE")).apply { processFinal(listOf("straße", "heißt", "straße")) }.assertClean(2)
+    }
+
+    @Test
+    fun `German umlauts match composed, decomposed and ae-oe-ue spelling`() {
+        // Text with decomposed umlauts (a + U+0308), speech with composed ones
+        WordAligner(listOf("läuft", "über", "größe")).apply { processFinal(listOf("läuft", "über", "größe")) }
+            .assertClean(2)
+        // Text typed without umlauts
+        WordAligner(listOf("laeuft", "ueber", "groesse")).apply { processFinal(listOf("läuft", "über", "größe")) }.assertClean(2)
+        readGerman("die kleine katze laeuft ueber").assertClean(4)
+    }
+
+    @Test
+    fun `umlaut and plain vowel stay different words`() {
+        val aligner = WordAligner(listOf("schön", "Tag"))
+        aligner.processFinal(listOf("schon"))
+        assertEquals(-1, aligner.confirmedIndex)
+    }
+
+    @Test
+    fun `German hyphenated word matches whole or as its spoken parts`() {
+        val upToNach = "die kleine katze läuft über die große straße nach"
+        readGerman("$upToNach baden württemberg").assertClean(9)
+        readGerman("$upToNach baden-württemberg").assertClean(9)
+        readGerman("$upToNach badenwürttemberg").assertClean(9)
+    }
+
+    @Test
+    fun `German repeats and syllables are not errors`() {
+        readGerman("die die kleine kat ze katze läuft ü ber", "über die gro ße").assertClean(6)
+    }
+
+    @Test
+    fun `German self-correction and skip are recorded`() {
+        val aligner = readGerman("die kleine katze lauft läuft die große")
+        assertEquals(6, aligner.confirmedIndex)
+        assertEquals(setOf(3), aligner.retriedIndices)
+        assertEquals(setOf(4), aligner.skippedIndices)
+    }
 }

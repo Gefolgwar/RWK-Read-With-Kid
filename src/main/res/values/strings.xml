@@ -37,6 +37,8 @@
     <string name="edit_text_title">Edit text</string>
     <string name="private_use_note">Texts are for private use within your family only. They are stored on this phone and never shared.</string>
     <string name="text_title_label">Title</string>
+    <string name="text_language_label">Language of the text</string>
+    <string name="text_language_detected">Suggested from the alphabet of the text. You can change it.</string>
     <string name="paste">Paste</string>
     <string name="import_txt">Import .txt</string>
     <string name="import_error">The file could not be read.</string>
@@ -74,9 +76,12 @@
     <string name="result_back">Back to text</string>
 
     <string name="models_title">Speech models</string>
-    <string name="model_uk_name">Ukrainian</string>
-    <string name="model_offer">To read in Ukrainian, the app needs a speech model (%1$s). It is downloaded once; after that, reading works offline.</string>
-    <string name="model_offer_unknown_size">To read in Ukrainian, the app needs a speech model. It is downloaded once; after that, reading works offline.</string>
+    <string name="language_uk">Ukrainian</string>
+    <string name="language_de">German</string>
+    <string name="read_in_uk">in Ukrainian</string>
+    <string name="read_in_de">in German</string>
+    <string name="model_offer">To read %1$s, the app needs a speech model (%2$s). It is downloaded once; after that, reading works offline.</string>
+    <string name="model_offer_unknown_size">To read %1$s, the app needs a speech model. It is downloaded once; after that, reading works offline.</string>
     <string name="model_download">Download</string>
     <string name="model_retry">Try again</string>
     <string name="model_downloading">Downloading: %1$s of %2$s</string>
@@ -88,5 +93,5 @@
     <string name="model_error_failed">The download failed. Please try again.</string>
     <string name="model_installed">Installed · %1$s · %2$s</string>
     <string name="model_delete_title">Delete speech model?</string>
-    <string name="model_delete_message">To read in Ukrainian again, the model will have to be downloaded again.</string>
+    <string name="model_delete_message">To read %1$s again, the model will have to be downloaded again.</string>
 </resources>

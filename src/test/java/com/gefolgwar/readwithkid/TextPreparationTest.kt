@@ -82,8 +82,23 @@ class TextPreparationTest {
     }
 
     @Test
-    fun `normalize keeps inner hyphen`() {
-        assertEquals("будь-який", TextPreparation.normalize("будь-який,"))
+    fun `normalize drops hyphens so a hyphenated word matches its spoken parts`() {
+        assertEquals("будьякий", TextPreparation.normalize("будь-який,"))
+        assertEquals("badenwuerttemberg", TextPreparation.normalize("Baden-Württemberg."))
+    }
+
+    @Test
+    fun `German closing quotes end a sentence`() {
+        val text = TextPreparation.prepare("Er rief: „Halt!“ Dann lief er. Sie sagte ‚Ja.‘ Gut")
+        assertEquals(4, text.sentences.size)
+        assertEquals("„Halt!“", text.sentences[0].last().display)
+    }
+
+    @Test
+    fun `language is detected from the alphabet`() {
+        assertEquals(TextLanguage.UK, TextPreparation.detectLanguage("Мама мила раму."))
+        assertEquals(TextLanguage.DE, TextPreparation.detectLanguage("Die Straße ist groß."))
+        assertNull(TextPreparation.detectLanguage("123 — 456!"))
     }
 
     // --- hard-to-recognise parts ---

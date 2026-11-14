@@ -55,4 +55,43 @@ class RoomTextRepositoryTest {
         val texts = withRepository { it.observeAll().first() }
         assertEquals(listOf(SavedText(texts.single().id, "Нова", "Новий.", 1)), texts)
     }
+
+    @Test
+    fun `language of a text survives reopening the database`() {
+        withRepository { repo ->
+            repo.save(SavedText(title = "Katze", rawText = "Die Katze schläft.", createdAt = 1, language = TextLanguage.DE))
+            repo.save(SavedText(title = "Кіт", rawText = "Кіт спить.", createdAt = 2))
+        }
+
+        val texts = withRepository { it.observeAll().first() }
+        assertEquals(listOf(TextLanguage.UK, TextLanguage.DE), texts.map { it.language })
+    }
+
+    @Test
+    fun `texts saved before languages existed are Ukrainian after the upgrade`() {
+        // A database as version 2 of the app left it: texts without a language.
+        context.openOrCreateDatabase(dbName, Context.MODE_PRIVATE, null).use { db ->
+            db.execSQL(
+                "CREATE TABLE `texts` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, " +
+                    "`rawText` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)"
+            )
+            db.execSQL(
+                "CREATE TABLE `children` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`name` TEXT NOT NULL, `avatar` TEXT NOT NULL)"
+            )
+            db.execSQL(
+                "CREATE TABLE `assignments` (`childId` INTEGER NOT NULL, `textId` INTEGER NOT NULL, " +
+                    "PRIMARY KEY(`childId`, `textId`), " +
+                    "FOREIGN KEY(`childId`) REFERENCES `children`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE, " +
+                    "FOREIGN KEY(`textId`) REFERENCES `texts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)"
+            )
+            db.execSQL("CREATE INDEX `index_assignments_textId` ON `assignments` (`textId`)")
+            db.execSQL("INSERT INTO texts (title, rawText, createdAt) VALUES ('Казка', 'Жив собі кіт.', 1)")
+            db.version = 2
+        }
+
+        val text = withRepository { it.observeAll().first().single() }
+        assertEquals("Казка", text.title)
+        assertEquals(TextLanguage.UK, text.language)
+    }
 }

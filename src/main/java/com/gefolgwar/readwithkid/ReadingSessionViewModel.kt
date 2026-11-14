@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,6 +39,8 @@ data class ReadingUiState(
     val sessionState: SessionState = SessionState.LOADING_MODEL,
     val rawText: String = "",
     val text: PreparedText = PreparedText(emptyList()),
+    /** Language of the text; the session uses its speech model. */
+    val language: TextLanguage = TextLanguage.UK,
     val wordStatuses: List<WordStatus> = emptyList(),
     /** Word the child is expected to read next, or -1. */
     val currentWordIndex: Int = -1,
@@ -45,10 +48,11 @@ data class ReadingUiState(
     val recognitionError: Boolean = false
 )
 
+/** Each text language has its own engine, created by [createEngine], and its own model, see [modelInstalled]. */
 class ReadingSessionViewModel(
-    private val engine: VoskEngine,
+    private val createEngine: (TextLanguage) -> VoskEngine,
     private val mode: RecognitionMode = RecognitionMode.FULL,
-    modelInstalled: Flow<Boolean> = flowOf(true),
+    private val modelInstalled: (TextLanguage) -> Flow<Boolean> = { flowOf(true) },
     private val clockMs: () -> Long = { System.nanoTime() / 1_000_000 }
 ) : ViewModel() {
 
@@ -60,25 +64,43 @@ class ReadingSessionViewModel(
     private var activeSinceMs = 0L
     private var elapsedMs = 0L
 
+    private val listener = object : VoskEngineListener {
+        override fun onPartialResult(text: String) = handlePartial(text)
+        override fun onResult(text: String) = handleFinal(text)
+        override fun onError(message: String) = handleError()
+        override fun onModelLoaded() = handleModelLoaded()
+    }
+    private lateinit var engine: VoskEngine
+    private var modelJob: Job? = null
+
     init {
-        engine.setListener(object : VoskEngineListener {
-            override fun onPartialResult(text: String) = handlePartial(text)
-            override fun onResult(text: String) = handleFinal(text)
-            override fun onError(message: String) = handleError()
-            override fun onModelLoaded() = handleModelLoaded()
-        })
-        viewModelScope.launch {
-            modelInstalled.collect { installed -> if (installed) loadModel() else handleModelMissing() }
-        }
+        useLanguage(_uiState.value.language)
     }
 
     override fun onCleared() {
         engine.release()
     }
 
-    fun updateText(raw: String) {
+    fun updateText(raw: String, language: TextLanguage = TextLanguage.UK) {
         if (isActive()) return
-        _uiState.update { it.copy(rawText = raw, text = TextPreparation.prepare(raw), recognitionError = false) }
+        val languageChanged = language != _uiState.value.language
+        _uiState.update {
+            it.copy(rawText = raw, text = TextPreparation.prepare(raw), language = language, recognitionError = false)
+        }
+        if (languageChanged) {
+            engine.release()
+            useLanguage(language)
+        }
+    }
+
+    /** Creates the engine for [language] and loads its model once the model is installed. */
+    private fun useLanguage(language: TextLanguage) {
+        modelJob?.cancel()
+        engine = createEngine(language).apply { setListener(listener) }
+        _uiState.update { it.copy(sessionState = SessionState.LOADING_MODEL, result = null) }
+        modelJob = viewModelScope.launch {
+            modelInstalled(language).collect { installed -> if (installed) loadModel() else handleModelMissing() }
+        }
     }
 
     fun start() {
@@ -230,18 +252,20 @@ class ReadingSessionViewModel(
 
     private fun buildGrammar(sentenceIndex: Int): List<String> {
         val sentences = _uiState.value.text.sentences
+        // As written, not normalized: the recognizer only knows real spellings such as "schöne" or "будь-який".
+        fun spelling(word: Word) = word.display.lowercase().trim { !it.isLetterOrDigit() }
         val words = mutableSetOf<String>()
-        sentences.getOrNull(sentenceIndex)?.forEach { words.add(it.normalized) }
-        sentences.getOrNull(sentenceIndex + 1)?.forEach { words.add(it.normalized) }
+        sentences.getOrNull(sentenceIndex)?.forEach { words.add(spelling(it)) }
+        sentences.getOrNull(sentenceIndex + 1)?.forEach { words.add(spelling(it)) }
         return words.toList() + "[unk]"
     }
 
     companion object {
         fun factory(
-            modelInstalled: Flow<Boolean> = flowOf(true),
-            createEngine: () -> VoskEngine
+            modelInstalled: (TextLanguage) -> Flow<Boolean> = { flowOf(true) },
+            createEngine: (TextLanguage) -> VoskEngine
         ): ViewModelProvider.Factory = viewModelFactory {
-            initializer { ReadingSessionViewModel(createEngine(), modelInstalled = modelInstalled) }
+            initializer { ReadingSessionViewModel(createEngine, modelInstalled = modelInstalled) }
         }
 
         fun extractVoskText(json: String, key: String): String = try {
