@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="input_title">Text zum Lesen</string>
+    <string name="input_hint">Text einfügen oder eingeben</string>
+    <string name="input_summary">Sätze: %1$d · Wörter: %2$d</string>
+    <string name="model_loading">Sprachmodell wird geladen…</string>
+    <string name="model_error">Das Sprachmodell konnte nicht geladen werden. Bitte starten Sie die App neu.</string>
+    <string name="recognition_error">Die Spracherkennung wurde wegen eines Fehlers beendet. Bitte versuchen Sie es erneut.</string>
+    <string name="start_reading">Lesen starten</string>
+
+    <string name="mic_permission_title">Mikrofonzugriff</string>
+    <string name="mic_permission_rationale">Um das Lesen zu verfolgen, hört die App dem Kind über das Mikrofon zu. Die Sprache wird nur auf diesem Telefon erkannt; Audio wird nie gespeichert oder übertragen.</string>
+    <string name="mic_permission_continue">Weiter</string>
+    <string name="mic_permission_denied">Ohne Mikrofonzugriff ist Lesen nicht möglich.</string>
+    <string name="cancel">Abbrechen</string>
+
+    <string name="pause">Pause</string>
+    <string name="resume">Weiter</string>
+    <string name="finish">Fertig</string>
+
+    <string name="result_title">Ergebnis</string>
+    <string name="result_accuracy">Genauigkeit</string>
+    <string name="result_wcpm">Richtige Wörter pro Minute</string>
+    <string name="result_duration">Dauer</string>
+    <string name="result_percent">%1$d %%</string>
+    <string name="result_words">Richtig gelesen: %1$d von %2$d Wörtern</string>
+    <string name="result_back">Zurück zum Text</string>
+</resources>

@@ -5,12 +5,13 @@ enum class RecognitionMode {
     GRAMMAR_CONSTRAINED
 }
 
-enum class AppState {
-    IDLE,
+enum class SessionState {
     LOADING_MODEL,
-    LISTENING,
+    MODEL_ERROR,
+    READY,
+    READING,
     PAUSED,
-    STOPPED
+    FINISHED
 }
 
 enum class WordStatus {

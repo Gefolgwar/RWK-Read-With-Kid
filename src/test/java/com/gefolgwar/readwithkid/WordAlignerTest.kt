@@ -144,4 +144,43 @@ class WordAlignerTest {
         alignerUkr.processFinal(listOf("східнослов'янської", "групи"))
         assertEquals(1, alignerUkr.confirmedIndex)
     }
+
+    @Test
+    fun `different apostrophe forms in text and speech match`() {
+        val alignerUkr = WordAligner(listOf("сімʼя", "м’яч"))
+        alignerUkr.processFinal(listOf("сім'я", "м'яч"))
+        assertEquals(1, alignerUkr.confirmedIndex)
+    }
+
+    @Test
+    fun `matchedCount excludes words skipped by look-ahead`() {
+        aligner.processFinal(listOf("україна", "суверенна"))
+        assertEquals(2, aligner.confirmedIndex)
+        assertEquals(2, aligner.matchedCount)
+    }
+
+    @Test
+    fun `commitTentative accepts the latest partial`() {
+        aligner.processFinal(listOf("україна"))
+        aligner.processPartial(listOf("є", "суверенна"))
+        aligner.commitTentative()
+        assertEquals(2, aligner.confirmedIndex)
+        assertEquals(-1, aligner.tentativeIndex)
+        assertEquals(3, aligner.matchedCount)
+    }
+
+    @Test
+    fun `commitTentative without partial changes nothing`() {
+        aligner.processFinal(listOf("україна", "є"))
+        aligner.commitTentative()
+        assertEquals(1, aligner.confirmedIndex)
+        assertEquals(2, aligner.matchedCount)
+    }
+
+    @Test
+    fun `reset clears matched count`() {
+        aligner.processFinal(listOf("україна", "є"))
+        aligner.reset()
+        assertEquals(0, aligner.matchedCount)
+    }
 }

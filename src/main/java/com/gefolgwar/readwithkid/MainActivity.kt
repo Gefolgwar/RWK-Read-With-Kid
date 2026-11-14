@@ -1,50 +1,40 @@
 package com.gefolgwar.readwithkid
 
 import android.Manifest
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
-import androidx.activity.viewModels
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
-    private val vm: SttViewModel by viewModels {
-        SttViewModel.factory { RealVoskEngine(applicationContext) }
+    private val vm: ReadingSessionViewModel by viewModels {
+        ReadingSessionViewModel.factory { RealVoskEngine(applicationContext) }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -52,282 +42,240 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MaterialTheme {
-                SttScreen(vm = vm)
+                ReadWithKidApp(vm = vm)
             }
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // The microphone must never stay on in the background; rotation keeps reading going.
+        if (!isChangingConfigurations) vm.pause()
+    }
+}
+
+@Composable
+fun ReadWithKidApp(vm: ReadingSessionViewModel) {
+    val state by vm.uiState.collectAsState()
+
+    Scaffold { padding ->
+        val modifier = Modifier
+            .fillMaxSize()
+            .padding(padding)
+            .padding(16.dp)
+        val result = state.result
+        when {
+            state.sessionState == SessionState.FINISHED && result != null ->
+                ResultScreen(result, onClose = vm::closeResult, modifier = modifier)
+            state.sessionState == SessionState.READING || state.sessionState == SessionState.PAUSED ->
+                ReadingScreen(state, onPause = vm::pause, onResume = vm::resume, onFinish = vm::finish, modifier = modifier)
+            else ->
+                TextInputScreen(state, onTextChange = vm::updateText, onStart = vm::start, modifier = modifier)
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SttScreen(vm: SttViewModel) {
-    val state by vm.uiState.collectAsState()
+fun TextInputScreen(
+    state: ReadingUiState,
+    onTextChange: (String) -> Unit,
+    onStart: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val context = LocalContext.current
+    var showRationale by remember { mutableStateOf(false) }
+    var permissionDenied by rememberSaveable { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        if (granted) vm.start()
-        else Toast.makeText(context, "Microphone permission required", Toast.LENGTH_SHORT).show()
+        permissionDenied = !granted
+        if (granted) onStart()
     }
 
-    val sheetState = rememberBottomSheetScaffoldState()
+    if (showRationale) {
+        AlertDialog(
+            onDismissRequest = { showRationale = false },
+            title = { Text(stringResource(R.string.mic_permission_title)) },
+            text = { Text(stringResource(R.string.mic_permission_rationale)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showRationale = false
+                    permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                }) { Text(stringResource(R.string.mic_permission_continue)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRationale = false }) { Text(stringResource(R.string.cancel)) }
+            }
+        )
+    }
 
-    BottomSheetScaffold(
-        scaffoldState = sheetState,
-        sheetPeekHeight = 56.dp,
-        sheetContent = {
-            BottomSheetContent(state, vm, context)
-        }
-    ) { padding ->
+    Column(modifier = modifier) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
         ) {
-            TopControlBar(state, vm, context, permissionLauncher)
-            StatsBar(state)
-            TextDisplay(
-                state = state,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
+            Text(stringResource(R.string.input_title), style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = state.rawText,
+                onValueChange = onTextChange,
+                placeholder = { Text(stringResource(R.string.input_hint)) },
+                minLines = 5,
+                modifier = Modifier.fillMaxWidth()
             )
-        }
-    }
-}
+            Spacer(Modifier.height(8.dp))
 
-@Composable
-fun TopControlBar(
-    state: SttUiState,
-    vm: SttViewModel,
-    context: Context,
-    permissionLauncher: androidx.activity.result.ActivityResultLauncher<String>
-) {
-    val isRunning = state.appState == AppState.LISTENING || state.appState == AppState.PAUSED
-    val isLoading = state.appState == AppState.LOADING_MODEL
+            when {
+                state.sessionState == SessionState.LOADING_MODEL -> Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.model_loading), style = MaterialTheme.typography.bodyMedium)
+                }
+                state.sessionState == SessionState.MODEL_ERROR -> ErrorText(stringResource(R.string.model_error))
+                state.recognitionError -> ErrorText(stringResource(R.string.recognition_error))
+                permissionDenied -> ErrorText(stringResource(R.string.mic_permission_denied))
+            }
 
-    Column(modifier = Modifier.padding(12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            RecognitionMode.entries.forEach { mode ->
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(end = 8.dp)
-                ) {
-                    RadioButton(
-                        selected = state.mode == mode,
-                        onClick = { vm.selectMode(mode) },
-                        enabled = !isRunning && !isLoading
-                    )
+            if (state.text.words.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    stringResource(R.string.input_summary, state.text.sentences.size, state.text.words.size),
+                    style = MaterialTheme.typography.titleSmall
+                )
+                state.text.sentences.forEachIndexed { i, sentence ->
                     Text(
-                        text = if (mode == RecognitionMode.FULL) "Full" else "Grammar",
-                        style = MaterialTheme.typography.bodySmall
+                        "${i + 1}. " + sentence.joinToString(" · ") { it.display },
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = 4.dp)
                     )
                 }
             }
         }
 
-        Text(
-            text = if (state.mode == RecognitionMode.FULL) {
-                "Full: Recognizes any word from the entire vocabulary."
-            } else {
-                "Grammar: Vocabulary limited to current and next sentence."
+        Spacer(Modifier.height(8.dp))
+        Button(
+            onClick = {
+                if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
+                    == PackageManager.PERMISSION_GRANTED
+                ) {
+                    onStart()
+                } else {
+                    showRationale = true
+                }
             },
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 12.dp, bottom = 4.dp)
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            var expanded by remember { mutableStateOf(false) }
-            val excerpts = TextExcerpts.excerpts
-
-            Box {
-                OutlinedButton(
-                    onClick = { expanded = true },
-                    enabled = !isRunning && !isLoading
-                ) {
-                    Text(
-                        excerpts[state.selectedExcerptIndex].title,
-                        maxLines = 1,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                    excerpts.forEachIndexed { index, excerpt ->
-                        DropdownMenuItem(
-                            text = { Text(excerpt.title) },
-                            onClick = {
-                                vm.selectExcerpt(index)
-                                expanded = false
-                            }
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            when (state.appState) {
-                AppState.IDLE, AppState.STOPPED -> {
-                    IconButton(onClick = {
-                        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
-                            == PackageManager.PERMISSION_GRANTED
-                        ) {
-                            vm.start()
-                        } else {
-                            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                        }
-                    }) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = "Start")
-                    }
-                }
-                AppState.LISTENING -> {
-                    IconButton(onClick = { vm.pause() }) {
-                        Icon(Icons.Default.Pause, contentDescription = "Pause")
-                    }
-                    IconButton(onClick = { vm.stop() }) {
-                        Icon(Icons.Default.Stop, contentDescription = "Stop")
-                    }
-                }
-                AppState.PAUSED -> {
-                    IconButton(onClick = { vm.resume() }) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = "Resume")
-                    }
-                    IconButton(onClick = { vm.stop() }) {
-                        Icon(Icons.Default.Stop, contentDescription = "Stop")
-                    }
-                }
-                AppState.LOADING_MODEL -> {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                }
-            }
+            enabled = state.sessionState == SessionState.READY && state.text.words.isNotEmpty(),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(Icons.Default.PlayArrow, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.start_reading))
         }
     }
 }
 
 @Composable
-fun StatsBar(state: SttUiState) {
-    val avgMs = "%.0f".format(state.stats.avgInterWordMs)
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text(
-            text = "${state.wordsMatched}/${state.totalWords} words | ${avgMs}ms avg",
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-            style = MaterialTheme.typography.bodyMedium
-        )
-    }
+private fun ErrorText(text: String) {
+    Text(text, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
 }
 
 @Composable
-fun TextDisplay(state: SttUiState, modifier: Modifier = Modifier) {
-    val excerpt = TextExcerpts.excerpts[state.selectedExcerptIndex]
-    val words = excerpt.words
-
-    val confirmedColor = Color(0xFF4CAF50).copy(alpha = 0.3f)
-    val tentativeColor = Color(0xFFFFEB3B).copy(alpha = 0.4f)
+fun ReadingScreen(
+    state: ReadingUiState,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
+    onFinish: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val readColor = Color(0xFF4CAF50).copy(alpha = 0.3f)
+    val tentativeColor = Color(0xFF4CAF50).copy(alpha = 0.15f)
+    val currentColor = Color(0xFFFFEB3B).copy(alpha = 0.6f)
+    val words = state.text.words
 
     val annotated = buildAnnotatedString {
         words.forEachIndexed { index, word ->
-            val status = state.wordStatuses.getOrElse(index) { WordStatus.UNREAD }
-            when (status) {
-                WordStatus.CONFIRMED -> {
-                    withStyle(SpanStyle(
-                        background = confirmedColor,
-                        textDecoration = TextDecoration.Underline
-                    )) {
-                        append(word)
-                    }
-                }
-                WordStatus.TENTATIVE -> {
-                    withStyle(SpanStyle(background = tentativeColor)) {
-                        append(word)
-                    }
-                }
-                WordStatus.UNREAD -> {
-                    append(word)
+            val style = when {
+                index == state.currentWordIndex -> SpanStyle(background = currentColor, fontWeight = FontWeight.Bold)
+                else -> when (state.wordStatuses.getOrElse(index) { WordStatus.UNREAD }) {
+                    WordStatus.CONFIRMED -> SpanStyle(background = readColor)
+                    WordStatus.TENTATIVE -> SpanStyle(background = tentativeColor)
+                    WordStatus.UNREAD -> null
                 }
             }
+            if (style != null) withStyle(style) { append(word.display) } else append(word.display)
             if (index < words.lastIndex) append(" ")
         }
     }
 
-    Box(
-        modifier = modifier
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState())
-    ) {
+    Column(modifier = modifier) {
         Text(
             text = annotated,
-            fontSize = 22.sp,
-            lineHeight = 36.sp
+            fontSize = 30.sp,
+            lineHeight = 46.sp,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
         )
+        Spacer(Modifier.height(8.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (state.sessionState == SessionState.PAUSED) {
+                OutlinedButton(onClick = onResume, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.resume))
+                }
+            } else {
+                OutlinedButton(onClick = onPause, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Default.Pause, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.pause))
+                }
+            }
+            Button(onClick = onFinish, modifier = Modifier.weight(1f)) {
+                Icon(Icons.Default.Check, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.finish))
+            }
+        }
     }
 }
 
 @Composable
-fun BottomSheetContent(state: SttUiState, vm: SttViewModel, context: Context) {
-    Column(
+fun ResultScreen(result: ReadingResult, onClose: () -> Unit, modifier: Modifier = Modifier) {
+    val totalSeconds = result.durationMs / 1000
+    Column(modifier = modifier) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(stringResource(R.string.result_title), style = MaterialTheme.typography.headlineMedium)
+            Spacer(Modifier.height(16.dp))
+            ResultRow(
+                stringResource(R.string.result_accuracy),
+                stringResource(R.string.result_percent, (result.accuracy * 100).roundToInt())
+            )
+            ResultRow(stringResource(R.string.result_wcpm), result.wordsCorrectPerMinute.toString())
+            ResultRow(stringResource(R.string.result_duration), "%d:%02d".format(totalSeconds / 60, totalSeconds % 60))
+            Spacer(Modifier.height(8.dp))
+            Text(
+                stringResource(R.string.result_words, result.correctWords, result.totalWords),
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+        Button(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.result_back))
+        }
+    }
+}
+
+@Composable
+private fun ResultRow(label: String, value: String) {
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                "Details",
-                style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.weight(1f)
-            )
-            IconButton(onClick = {
-                val report = vm.generateReport()
-                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                clipboard.setPrimaryClip(ClipData.newPlainText("STT Report", report))
-                Toast.makeText(context, "Report copied", Toast.LENGTH_SHORT).show()
-            }) {
-                Icon(Icons.Default.ContentCopy, contentDescription = "Copy Report")
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        val stats = state.stats
-        Text("Partials/sec: ${"%.2f".format(stats.partialsPerSecond)}", style = MaterialTheme.typography.bodySmall)
-        Text("Utterance→final: ${"%.1f".format(stats.avgUtteranceToFinalMs)} ms", style = MaterialTheme.typography.bodySmall)
-        Text("Callback→highlight: ${"%.0f".format(stats.avgCallbackToHighlightNs)} ns", style = MaterialTheme.typography.bodySmall)
-        Text("Inter-word: ${"%.1f".format(stats.avgInterWordMs)} ms", style = MaterialTheme.typography.bodySmall)
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Text("Raw Output", style = MaterialTheme.typography.titleSmall)
-        Spacer(modifier = Modifier.height(4.dp))
-
-        val listState = rememberLazyListState()
-        LaunchedEffect(state.rawLog.size) {
-            if (state.rawLog.isNotEmpty()) {
-                listState.animateScrollToItem(state.rawLog.lastIndex)
-            }
-        }
-
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 300.dp)
-        ) {
-            items(state.rawLog) { line ->
-                Text(
-                    text = line,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontSize = 11.sp
-                )
-            }
-        }
+        Text(label, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+        Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
     }
 }

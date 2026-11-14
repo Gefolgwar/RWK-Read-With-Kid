@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="input_title">Текст для читання</string>
+    <string name="input_hint">Вставте або наберіть текст</string>
+    <string name="input_summary">Речень: %1$d · Слів: %2$d</string>
+    <string name="model_loading">Завантаження мовної моделі…</string>
+    <string name="model_error">Не вдалося завантажити мовну модель. Перезапустіть застосунок.</string>
+    <string name="recognition_error">Розпізнавання мовлення зупинилося через помилку. Спробуйте ще раз.</string>
+    <string name="start_reading">Почати читання</string>
+
+    <string name="mic_permission_title">Доступ до мікрофона</string>
+    <string name="mic_permission_rationale">Щоб стежити за читанням, застосунок слухає дитину через мікрофон. Мовлення розпізнається лише на цьому телефоні; аудіо ніде не зберігається і нікуди не передається.</string>
+    <string name="mic_permission_continue">Продовжити</string>
+    <string name="mic_permission_denied">Без доступу до мікрофона читання неможливе.</string>
+    <string name="cancel">Скасувати</string>
+
+    <string name="pause">Пауза</string>
+    <string name="resume">Продовжити</string>
+    <string name="finish">Готово</string>
+
+    <string name="result_title">Результат</string>
+    <string name="result_accuracy">Точність</string>
+    <string name="result_wcpm">Правильних слів за хвилину</string>
+    <string name="result_duration">Тривалість</string>
+    <string name="result_percent">%1$d %%</string>
+    <string name="result_words">Правильно прочитано: %1$d з %2$d слів</string>
+    <string name="result_back">До тексту</string>
+</resources>

@@ -1,4 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Read With Kid</string>
+    <string name="app_name" translatable="false">Read With Kid</string>
+
+    <string name="input_title">Text to read</string>
+    <string name="input_hint">Paste or type a text</string>
+    <string name="input_summary">Sentences: %1$d · Words: %2$d</string>
+    <string name="model_loading">Loading speech model…</string>
+    <string name="model_error">The speech model could not be loaded. Please restart the app.</string>
+    <string name="recognition_error">Speech recognition stopped because of an error. Please try again.</string>
+    <string name="start_reading">Start reading</string>
+
+    <string name="mic_permission_title">Microphone access</string>
+    <string name="mic_permission_rationale">To follow the reading, the app listens to the child through the microphone. Speech is recognised on this phone only; audio is never saved or sent anywhere.</string>
+    <string name="mic_permission_continue">Continue</string>
+    <string name="mic_permission_denied">Reading is not possible without microphone access.</string>
+    <string name="cancel">Cancel</string>
+
+    <string name="pause">Pause</string>
+    <string name="resume">Continue</string>
+    <string name="finish">Done</string>
+
+    <string name="result_title">Result</string>
+    <string name="result_accuracy">Accuracy</string>
+    <string name="result_wcpm">Words correct per minute</string>
+    <string name="result_duration">Duration</string>
+    <string name="result_percent">%1$d%%</string>
+    <string name="result_words">Correctly read: %1$d of %2$d words</string>
+    <string name="result_back">Back to text</string>
 </resources>
