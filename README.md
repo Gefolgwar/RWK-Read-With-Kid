@@ -95,6 +95,35 @@ java -jar bundletool.jar install-apks --apks=build\read-with-kid.apks
 
 ---
 
+## 4. Релізна збірка для Google Play
+
+Release-збірка стискається R8 (правила для JNA і Vosk — у `proguard-rules.pro`) і підписується upload-ключем власника. Ключ і паролі не зберігаються в git.
+
+1. Один раз згенеруйте upload-ключ і збережіть його (та паролі) у надійному місці поза репозиторієм:
+   ```powershell
+   keytool -genkeypair -v -keystore C:\keys\rwk-upload.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000
+   ```
+2. Вкажіть параметри ключа одним зі способів:
+   - файл `keystore.properties` у корені проєкту (він у `.gitignore`):
+     ```properties
+     storeFile=C:/keys/rwk-upload.jks
+     storePassword=...
+     keyAlias=upload
+     keyPassword=...
+     ```
+   - або змінні середовища `RWK_UPLOAD_STORE_FILE`, `RWK_UPLOAD_STORE_PASSWORD`, `RWK_UPLOAD_KEY_ALIAS`, `RWK_UPLOAD_KEY_PASSWORD`.
+
+   Без цих параметрів release-збірка виходить непідписаною, і Google Play її не прийме.
+3. Покладіть архіви моделей (розділ 1) і зберіть App Bundle з asset pack `model_uk` і `model_de`:
+   ```powershell
+   .\gradlew bundleRelease
+   ```
+   Результат: `build/outputs/bundle/release/Read-With-Kid-release.aab`.
+
+Перед завантаженням нової версії збільште `versionCode` (і за потреби `versionName`) у `build.gradle`.
+
+---
+
 ## Як користуватися
 
 1. Запустіть застосунок на телефоні. Якщо мовна модель ще не завантажена, на екрані тексту для читання застосунок запропонує її завантажити: видно розмір, прогрес завантаження і зрозуміле повідомлення, якщо немає інтернету чи бракує місця. Після цього читання працює без інтернету.

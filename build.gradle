@@ -20,9 +20,35 @@ android {
         }
     }
 
+    // Play upload key: read from keystore.properties (not in git) or environment variables.
+    // Without them the release build is left unsigned. See README, section 4.
+    def keystoreProps = new Properties()
+    def keystorePropsFile = rootProject.file('keystore.properties')
+    if (keystorePropsFile.exists()) {
+        keystorePropsFile.withInputStream { keystoreProps.load(it) }
+    }
+    def uploadKey = { String prop, String env -> keystoreProps.getProperty(prop) ?: System.getenv(env) }
+    def uploadStoreFile = uploadKey('storeFile', 'RWK_UPLOAD_STORE_FILE')
+
+    signingConfigs {
+        if (uploadStoreFile) {
+            upload {
+                storeFile rootProject.file(uploadStoreFile)
+                storePassword uploadKey('storePassword', 'RWK_UPLOAD_STORE_PASSWORD')
+                keyAlias uploadKey('keyAlias', 'RWK_UPLOAD_KEY_ALIAS')
+                keyPassword uploadKey('keyPassword', 'RWK_UPLOAD_KEY_PASSWORD')
+            }
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig signingConfigs.debug
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (uploadStoreFile) {
+                signingConfig signingConfigs.upload
+            }
         }
     }
 

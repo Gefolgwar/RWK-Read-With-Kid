@@ -16,3 +16,8 @@ local.properties
 model-uk/
 model_uk/src/main/assets/
 model_de/src/main/assets/
+
+# Release signing (upload key)
+keystore.properties
+*.jks
+*.keystore
