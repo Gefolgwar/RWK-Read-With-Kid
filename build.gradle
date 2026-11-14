@@ -62,6 +62,13 @@ android {
     }
 
     assetPacks = [':model_uk', ':model_de']
+
+    // The app language can be chosen in settings, so every phone needs the strings of all languages.
+    bundle {
+        language {
+            enableSplit = false
+        }
+    }
 }
 
 kotlin {

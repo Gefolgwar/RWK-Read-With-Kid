@@ -1,8 +1,13 @@
 package com.gefolgwar.readwithkid
 
 import android.Manifest
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -32,6 +37,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
@@ -53,8 +59,15 @@ class MainActivity : ComponentActivity() {
         ProgressViewModel.factory({ db.children() }, { db.readings() })
     }
 
+    private val settings by lazy { AppSettings(applicationContext) }
+
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(newBase.withUiLanguage(AppSettings(newBase).uiLanguage))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        var onboardingDone by mutableStateOf(settings.onboardingDone)
 
         setContent {
             MaterialTheme {
@@ -65,7 +78,18 @@ class MainActivity : ComponentActivity() {
                     childHomeVm = childHomeVm,
                     progressVm = progressVm,
                     models = ::models,
-                    onConfirmModel = { models(it).confirmDownload(this) }
+                    onConfirmModel = { models(it).confirmDownload(this) },
+                    onboardingDone = onboardingDone,
+                    onOnboardingDone = {
+                        settings.onboardingDone = true
+                        onboardingDone = true
+                    },
+                    uiLanguage = settings.uiLanguage,
+                    onUiLanguageChange = {
+                        settings.uiLanguage = it
+                        // Recreating reloads every screen's strings in the new language.
+                        recreate()
+                    }
                 )
             }
         }
@@ -86,8 +110,13 @@ fun ReadWithKidApp(
     childHomeVm: ChildHomeViewModel,
     progressVm: ProgressViewModel,
     models: (TextLanguage) -> ModelManager,
-    onConfirmModel: (TextLanguage) -> Unit
+    onConfirmModel: (TextLanguage) -> Unit,
+    onboardingDone: Boolean,
+    onOnboardingDone: () -> Unit,
+    uiLanguage: UiLanguage,
+    onUiLanguageChange: (UiLanguage) -> Unit
 ) {
+    val context = LocalContext.current
     val state by vm.uiState.collectAsState()
     val library by libraryVm.uiState.collectAsState()
     val profiles by profilesVm.uiState.collectAsState()
@@ -102,10 +131,41 @@ fun ReadWithKidApp(
     var parentArea by rememberSaveable { mutableStateOf(false) }
     var showModels by rememberSaveable { mutableStateOf(false) }
     var showProfiles by rememberSaveable { mutableStateOf(false) }
+    var showSettings by rememberSaveable { mutableStateOf(false) }
+    var showPrivacy by rememberSaveable { mutableStateOf(false) }
+    var showLicenses by rememberSaveable { mutableStateOf(false) }
+    // What to do once the parental gate is passed; the gate is shown while this is set.
+    var afterGate by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val openUrl = { url: String ->
+        afterGate = {
+            try {
+                context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
+            } catch (_: ActivityNotFoundException) {
+                // No browser on the phone: nothing to open.
+            }
+        }
+    }
+    val openAppSettings = {
+        afterGate = {
+            context.startActivity(
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+            )
+        }
+    }
     // A child's reading is saved for them; a parent's reading from the library is not.
     val read = { text: SavedText, child: ChildProfile? ->
         vm.updateText(text.rawText, text.language, child?.let { ChildReading(it.id, text.id, text.title) })
         readingTitle = text.title
+    }
+
+    afterGate?.let { action ->
+        ParentalGateDialog(
+            onPassed = {
+                afterGate = null
+                action()
+            },
+            onDismiss = { afterGate = null }
+        )
     }
 
     Scaffold { padding ->
@@ -118,6 +178,8 @@ fun ReadWithKidApp(
         val profileEditor = profiles.editor
         val title = readingTitle
         when {
+            !onboardingDone ->
+                OnboardingScreen(onDone = onOnboardingDone, modifier = modifier)
             state.sessionState == SessionState.FINISHED && result != null ->
                 ResultScreen(result, onClose = vm::closeResult, modifier = modifier)
             state.sessionState == SessionState.READING || state.sessionState == SessionState.PAUSED ->
@@ -130,6 +192,7 @@ fun ReadWithKidApp(
                     onStart = vm::start,
                     onDownloadModel = { models(state.language).download() },
                     onConfirmModel = { onConfirmModel(state.language) },
+                    onOpenAppSettings = openAppSettings,
                     onBack = { readingTitle = null },
                     modifier = modifier
                 )
@@ -166,6 +229,20 @@ fun ReadWithKidApp(
                     onBack = { showModels = false },
                     modifier = modifier
                 )
+            showPrivacy ->
+                PrivacyPolicyScreen(onOpenPublicPage = openUrl, onBack = { showPrivacy = false }, modifier = modifier)
+            showLicenses ->
+                LicensesScreen(onBack = { showLicenses = false }, modifier = modifier)
+            showSettings ->
+                SettingsScreen(
+                    uiLanguage,
+                    onLanguageChange = { if (it != uiLanguage) onUiLanguageChange(it) },
+                    onModels = { showModels = true },
+                    onPrivacy = { showPrivacy = true },
+                    onLicenses = { showLicenses = true },
+                    onBack = { showSettings = false },
+                    modifier = modifier
+                )
             showProfiles ->
                 ProfilesScreen(
                     profiles.children,
@@ -184,7 +261,7 @@ fun ReadWithKidApp(
                     onRead = { read(it, null) },
                     onEdit = libraryVm::edit,
                     onDelete = libraryVm::delete,
-                    onModels = { showModels = true },
+                    onSettings = { showSettings = true },
                     onProfiles = { showProfiles = true },
                     onBack = { parentArea = false },
                     modifier = modifier
@@ -195,7 +272,7 @@ fun ReadWithKidApp(
                     onSelect = childHomeVm::select,
                     onBack = childHomeVm::back,
                     onRead = { read(it, childHome.child) },
-                    onParents = { parentArea = true },
+                    onParents = { afterGate = { parentArea = true } },
                     modifier = modifier
                 )
         }
@@ -210,6 +287,7 @@ fun ReadyToReadScreen(
     onStart: () -> Unit,
     onDownloadModel: () -> Unit,
     onConfirmModel: () -> Unit,
+    onOpenAppSettings: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -262,7 +340,11 @@ fun ReadyToReadScreen(
                 }
                 state.sessionState == SessionState.MODEL_ERROR -> ErrorText(stringResource(R.string.model_error))
                 state.recognitionError -> ErrorText(stringResource(R.string.recognition_error))
-                permissionDenied -> ErrorText(stringResource(R.string.mic_permission_denied))
+                // Once denied, Android may no longer ask, so the parent is shown how to allow it in the phone settings.
+                permissionDenied -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ErrorText(stringResource(R.string.mic_permission_denied))
+                    OutlinedButton(onClick = onOpenAppSettings) { Text(stringResource(R.string.mic_open_settings)) }
+                }
             }
 
             TextPreview(state.text)
@@ -278,6 +360,7 @@ fun ReadyToReadScreen(
                     if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
                         == PackageManager.PERMISSION_GRANTED
                     ) {
+                        permissionDenied = false
                         onStart()
                     } else {
                         showRationale = true

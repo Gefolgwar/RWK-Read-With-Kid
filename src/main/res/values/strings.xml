@@ -58,7 +58,8 @@
     <string name="mic_permission_title">Microphone access</string>
     <string name="mic_permission_rationale">To follow the reading, the app listens to the child through the microphone. Speech is recognised on this phone only; audio is never saved or sent anywhere.</string>
     <string name="mic_permission_continue">Continue</string>
-    <string name="mic_permission_denied">Reading is not possible without microphone access.</string>
+    <string name="mic_permission_denied">Reading is not possible without microphone access. To allow it, open the phone settings for this app, then Permissions → Microphone → Allow.</string>
+    <string name="mic_open_settings">Open phone settings</string>
     <string name="cancel">Cancel</string>
 
     <string name="pause">Pause</string>
@@ -103,4 +104,35 @@
     <string name="model_installed">Installed · %1$s · %2$s</string>
     <string name="model_delete_title">Delete speech model?</string>
     <string name="model_delete_message">To read %1$s again, the model will have to be downloaded again.</string>
+
+    <string name="parental_gate_title">For adults</string>
+    <string name="parental_gate_question">To continue, solve: %1$d × %2$d = ?</string>
+    <string name="parental_gate_answer">Answer</string>
+    <string name="parental_gate_wrong">Wrong answer. Here is a new question.</string>
+    <string name="parental_gate_confirm">Continue</string>
+
+    <string name="onboarding_title">Welcome!</string>
+    <string name="onboarding_what_title">What the app does</string>
+    <string name="onboarding_what">You add a text: a page from homework, a favourite story, an exercise from the teacher. Your child reads it aloud, the app follows along word by word and then shows how it went: accuracy, reading speed and words to practise.</string>
+    <string name="onboarding_privacy_title">Audio never leaves the phone</string>
+    <string name="onboarding_privacy">Speech is recognised on this phone, without the internet. Audio is never recorded, saved or sent anywhere. Texts, profiles and results also stay on this phone.</string>
+    <string name="onboarding_parents_title">For parents</string>
+    <string name="onboarding_parents">Texts, children\'s profiles, progress and settings are in the parent area, protected by a question for adults. When reading starts for the first time, the app asks for access to the microphone.</string>
+    <string name="onboarding_start">Get started</string>
+
+    <string name="settings_title">Settings</string>
+    <string name="ui_language_title">App language</string>
+    <string name="ui_language_system">Phone language</string>
+    <string name="ui_language_uk" translatable="false">Українська</string>
+    <string name="ui_language_de" translatable="false">Deutsch</string>
+    <string name="ui_language_en" translatable="false">English</string>
+
+    <string name="privacy_title">Privacy policy</string>
+    <string name="privacy_open_public_page">Open on the web</string>
+    <!-- Public privacy policy page (ticket 16). The "Open on the web" button is hidden while this is empty. -->
+    <string name="privacy_policy_url" translatable="false"></string>
+    <string name="privacy_policy">Read With Kid helps children practise reading aloud. The app is built so that no personal data leaves your phone.\n\nMicrophone and audio. While a child reads, the app listens through the microphone and recognises speech on this phone. Audio is processed in memory only: it is never recorded, saved or sent anywhere.\n\nData on the phone. The texts you add, children\'s profiles (name or nickname and avatar) and reading results are stored only in the app on this phone. They are not backed up and not shared with anyone. You can delete them in the app at any time; uninstalling the app deletes all of them.\n\nInternet. The app goes online only to download speech models through Google Play; Google\'s privacy policy applies to these downloads. The app contains no advertising, no analytics and no tracking, and it collects no data, neither for us nor for third parties.\n\nChildren. The app is meant for children together with their parents. Texts, profiles, progress and settings are protected by a question for adults.\n\nChanges. If this policy changes, the new version will be shown in the app.</string>
+
+    <string name="licenses_title">Open-source licences</string>
+    <string name="licenses_intro">The app is built with open-source software and speech models. Their licences are reproduced below in their original English wording.</string>
 </resources>

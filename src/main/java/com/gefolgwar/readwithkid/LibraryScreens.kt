@@ -20,7 +20,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.RecordVoiceOver
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -38,7 +38,7 @@ fun LibraryScreen(
     onRead: (SavedText) -> Unit,
     onEdit: (SavedText) -> Unit,
     onDelete: (SavedText) -> Unit,
-    onModels: () -> Unit,
+    onSettings: () -> Unit,
     onProfiles: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
@@ -77,8 +77,8 @@ fun LibraryScreen(
             IconButton(onClick = onProfiles) {
                 Icon(Icons.Default.Face, contentDescription = stringResource(R.string.profiles_title))
             }
-            IconButton(onClick = onModels) {
-                Icon(Icons.Default.RecordVoiceOver, contentDescription = stringResource(R.string.models_title))
+            IconButton(onClick = onSettings) {
+                Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings_title))
             }
         }
         Spacer(Modifier.height(8.dp))
