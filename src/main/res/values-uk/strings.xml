@@ -24,5 +24,7 @@
     <string name="result_duration">Тривалість</string>
     <string name="result_percent">%1$d %%</string>
     <string name="result_words">Правильно прочитано: %1$d з %2$d слів</string>
+    <string name="result_skipped">Пропущені слова</string>
+    <string name="result_retried">Слова з кількома спробами</string>
     <string name="result_back">До тексту</string>
 </resources>

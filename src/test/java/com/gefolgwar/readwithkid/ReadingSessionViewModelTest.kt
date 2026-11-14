@@ -149,16 +149,39 @@ class ReadingSessionViewModelTest {
     }
 
     @Test
-    fun `skipped word is highlighted as passed but not counted as correct`() {
+    fun `skipped word is marked skipped, lowers accuracy and is listed in result`() {
         vm.updateText(text)
         vm.start()
+        engine.simulateFinal("мама мила тато") // "раму." skipped
+        assertEquals(WordStatus.SKIPPED, state.wordStatuses[2])
+        assertEquals(WordStatus.CONFIRMED, state.wordStatuses[3])
+        assertEquals(4, state.currentWordIndex)
+
         nowMs = 30_000
-        engine.simulateFinal("мама раму тато читав книжку") // "мила" skipped
+        engine.simulateFinal("читав книжку")
 
         val result = state.result!!
         assertEquals(5, result.correctWords)
         assertEquals(5f / 6, result.accuracy, 0.0001f)
         assertEquals(10, result.wordsCorrectPerMinute)
+        assertEquals(listOf("раму"), result.skippedWords)
+        assertEquals(emptyList<String>(), result.retriedWords)
+    }
+
+    @Test
+    fun `repeats, syllables and self-correction keep accuracy at 100 percent`() {
+        vm.updateText(text)
+        vm.start()
+        engine.simulateFinal("мама мама мила ра му") // repeat, syllables
+        engine.simulateFinal("тато читала читав") // self-correction
+        engine.simulateFinal("читав книжку") // repeat after a pause
+
+        assertEquals(SessionState.FINISHED, state.sessionState)
+        val result = state.result!!
+        assertEquals(6, result.correctWords)
+        assertEquals(1f, result.accuracy, 0.0001f)
+        assertEquals(emptyList<String>(), result.skippedWords)
+        assertEquals(listOf("читав"), result.retriedWords)
     }
 
     @Test

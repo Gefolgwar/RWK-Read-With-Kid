@@ -24,5 +24,7 @@
     <string name="result_duration">Dauer</string>
     <string name="result_percent">%1$d %%</string>
     <string name="result_words">Richtig gelesen: %1$d von %2$d Wörtern</string>
+    <string name="result_skipped">Ausgelassene Wörter</string>
+    <string name="result_retried">Wörter mit mehreren Versuchen</string>
     <string name="result_back">Zurück zum Text</string>
 </resources>

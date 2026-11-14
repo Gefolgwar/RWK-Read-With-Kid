@@ -26,6 +26,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -191,6 +192,7 @@ fun ReadingScreen(
     val readColor = Color(0xFF4CAF50).copy(alpha = 0.3f)
     val tentativeColor = Color(0xFF4CAF50).copy(alpha = 0.15f)
     val currentColor = Color(0xFFFFEB3B).copy(alpha = 0.6f)
+    val skippedColor = Color(0xFFFF9800).copy(alpha = 0.35f)
     val words = state.text.words
 
     val annotated = buildAnnotatedString {
@@ -200,6 +202,7 @@ fun ReadingScreen(
                 else -> when (state.wordStatuses.getOrElse(index) { WordStatus.UNREAD }) {
                     WordStatus.CONFIRMED -> SpanStyle(background = readColor)
                     WordStatus.TENTATIVE -> SpanStyle(background = tentativeColor)
+                    WordStatus.SKIPPED -> SpanStyle(background = skippedColor, textDecoration = TextDecoration.LineThrough)
                     WordStatus.UNREAD -> null
                 }
             }
@@ -246,7 +249,11 @@ fun ReadingScreen(
 fun ResultScreen(result: ReadingResult, onClose: () -> Unit, modifier: Modifier = Modifier) {
     val totalSeconds = result.durationMs / 1000
     Column(modifier = modifier) {
-        Column(modifier = Modifier.weight(1f)) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+        ) {
             Text(stringResource(R.string.result_title), style = MaterialTheme.typography.headlineMedium)
             Spacer(Modifier.height(16.dp))
             ResultRow(
@@ -260,11 +267,21 @@ fun ResultScreen(result: ReadingResult, onClose: () -> Unit, modifier: Modifier 
                 stringResource(R.string.result_words, result.correctWords, result.totalWords),
                 style = MaterialTheme.typography.bodyMedium
             )
+            WordList(stringResource(R.string.result_skipped), result.skippedWords)
+            WordList(stringResource(R.string.result_retried), result.retriedWords)
         }
         Button(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.result_back))
         }
     }
+}
+
+@Composable
+private fun WordList(title: String, words: List<String>) {
+    if (words.isEmpty()) return
+    Spacer(Modifier.height(16.dp))
+    Text(title, style = MaterialTheme.typography.titleMedium)
+    Text(words.joinToString(", "), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 4.dp))
 }
 
 @Composable

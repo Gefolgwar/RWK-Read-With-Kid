@@ -183,4 +183,160 @@ class WordAlignerTest {
         aligner.reset()
         assertEquals(0, aligner.matchedCount)
     }
+
+    // --- children's reading ---
+
+    private fun read(vararg finals: String) = finals.forEach { aligner.processFinal(it.split(" ")) }
+
+    private fun assertCleanReading(lastIndex: Int) {
+        assertEquals(lastIndex, aligner.confirmedIndex)
+        assertEquals(lastIndex + 1, aligner.matchedCount)
+        assertEquals(emptySet<Int>(), aligner.skippedIndices)
+        assertEquals(emptySet<Int>(), aligner.retriedIndices)
+    }
+
+    @Test
+    fun `repeated word is not an error`() {
+        read("україна україна є є суверенна")
+        assertCleanReading(2)
+    }
+
+    @Test
+    fun `re-reading the last few words is not an error`() {
+        read("україна є суверенна україна є суверенна і")
+        assertCleanReading(3)
+    }
+
+    @Test
+    fun `repeat in a separate final is not an error`() {
+        read("україна є", "є", "суверенна")
+        assertCleanReading(2)
+    }
+
+    @Test
+    fun `word read by syllables is matched`() {
+        read("україна є су ве рен на")
+        assertCleanReading(2)
+    }
+
+    @Test
+    fun `syllables split across finals are matched`() {
+        read("україна є су ве", "рен на і")
+        assertCleanReading(3)
+    }
+
+    @Test
+    fun `syllables in a partial show the word once complete`() {
+        read("україна є")
+        aligner.processPartial(listOf("су", "ве"))
+        assertEquals(WordStatus.UNREAD, aligner.getWordStatus(2))
+        aligner.processPartial(listOf("су", "ве", "рен", "на"))
+        assertEquals(WordStatus.TENTATIVE, aligner.getWordStatus(2))
+    }
+
+    @Test
+    fun `partial word before the whole word is not an error`() {
+        read("україна є су суверенна")
+        assertCleanReading(2)
+    }
+
+    @Test
+    fun `repeating the previous word by syllables is not an error`() {
+        read("україна у кра ї на є")
+        assertCleanReading(1)
+    }
+
+    @Test
+    fun `self-correction counts as read with several attempts`() {
+        read("україна є суворна суверенна і")
+        assertEquals(3, aligner.confirmedIndex)
+        assertEquals(4, aligner.matchedCount)
+        assertEquals(setOf(2), aligner.retriedIndices)
+        assertEquals(WordStatus.CONFIRMED, aligner.getWordStatus(2))
+    }
+
+    @Test
+    fun `self-correction across finals counts as several attempts`() {
+        read("україна є суворна", "суверенна")
+        assertEquals(2, aligner.confirmedIndex)
+        assertEquals(setOf(2), aligner.retriedIndices)
+    }
+
+    @Test
+    fun `self-correction after a pause in a partial`() {
+        read("україна є")
+        aligner.processPartial(listOf("суворна", "суверенна"))
+        aligner.commitTentative()
+        assertEquals(setOf(2), aligner.retriedIndices)
+        assertEquals(3, aligner.matchedCount)
+    }
+
+    @Test
+    fun `wrong word followed by a skip does not mark several attempts`() {
+        read("україна суворна суверенна")
+        assertEquals(setOf(1), aligner.skippedIndices)
+        assertEquals(emptySet<Int>(), aligner.retriedIndices)
+    }
+
+    @Test
+    fun `skipped word is moved past and marked skipped`() {
+        read("україна суверенна і")
+        assertEquals(3, aligner.confirmedIndex)
+        assertEquals(3, aligner.matchedCount)
+        assertEquals(setOf(1), aligner.skippedIndices)
+        assertEquals(WordStatus.SKIPPED, aligner.getWordStatus(1))
+        assertEquals(WordStatus.CONFIRMED, aligner.getWordStatus(2))
+    }
+
+    @Test
+    fun `two skipped words are accepted when the next word confirms the jump`() {
+        read("україна і незалежна")
+        assertEquals(4, aligner.confirmedIndex)
+        assertEquals(setOf(1, 2), aligner.skippedIndices)
+    }
+
+    @Test
+    fun `two skipped words confirmed by the next final`() {
+        read("україна і", "незалежна")
+        assertEquals(4, aligner.confirmedIndex)
+        assertEquals(setOf(1, 2), aligner.skippedIndices)
+    }
+
+    @Test
+    fun `chance match two words ahead does not jump`() {
+        // "і" happens to be 2 words ahead of "є", but what follows does not continue the text there
+        read("україна і демократична")
+        assertEquals(0, aligner.confirmedIndex)
+        assertEquals(emptySet<Int>(), aligner.skippedIndices)
+    }
+
+    @Test
+    fun `chance match far ahead does not jump`() {
+        read("україна держава")
+        assertEquals(0, aligner.confirmedIndex)
+        assertEquals(WordStatus.UNREAD, aligner.getWordStatus(1))
+    }
+
+    @Test
+    fun `unconfirmed jump at the end of a partial is not shown`() {
+        read("україна")
+        aligner.processPartial(listOf("і"))
+        assertEquals(WordStatus.UNREAD, aligner.getWordStatus(1))
+        assertEquals(WordStatus.UNREAD, aligner.getWordStatus(3))
+    }
+
+    @Test
+    fun `unread words after the last read word are not skipped`() {
+        read("україна є")
+        assertEquals(emptySet<Int>(), aligner.skippedIndices)
+        assertEquals(WordStatus.UNREAD, aligner.getWordStatus(2))
+    }
+
+    @Test
+    fun `reset clears skipped and retried words`() {
+        read("україна суворна суверенна", "незалежнааа і")
+        aligner.reset()
+        assertEquals(emptySet<Int>(), aligner.skippedIndices)
+        assertEquals(emptySet<Int>(), aligner.retriedIndices)
+    }
 }

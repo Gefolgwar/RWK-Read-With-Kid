@@ -16,7 +16,10 @@ data class ReadingResult(
     val totalWords: Int,
     val correctWords: Int,
     /** Reading time without pauses. */
-    val durationMs: Long
+    val durationMs: Long,
+    val skippedWords: List<String>,
+    /** Words read correctly after one or more wrong attempts. */
+    val retriedWords: List<String>
 ) {
     /** Share of correctly read words, 0..1. */
     val accuracy: Float
@@ -102,10 +105,15 @@ class ReadingSessionViewModel(
         if (state == SessionState.READING) stopEngine()
         aligner.commitTentative()
         publishProgress()
+        val words = _uiState.value.text.words
+        // Without surrounding punctuation, e.g. "раму." -> "раму"
+        fun displayOf(indices: Set<Int>) = indices.sorted().map { words[it].display.trim { c -> !c.isLetterOrDigit() } }
         val result = ReadingResult(
-            totalWords = _uiState.value.text.words.size,
+            totalWords = words.size,
             correctWords = aligner.matchedCount,
-            durationMs = elapsedMs
+            durationMs = elapsedMs,
+            skippedWords = displayOf(aligner.skippedIndices),
+            retriedWords = displayOf(aligner.retriedIndices)
         )
         _uiState.update { it.copy(sessionState = SessionState.FINISHED, result = result) }
     }

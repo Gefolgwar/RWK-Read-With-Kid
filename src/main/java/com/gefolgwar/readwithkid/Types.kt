@@ -17,5 +17,6 @@ enum class SessionState {
 enum class WordStatus {
     UNREAD,
     TENTATIVE,
-    CONFIRMED
+    CONFIRMED,
+    SKIPPED
 }
