@@ -2,6 +2,27 @@
 <resources>
     <string name="app_name" translatable="false">Read With Kid</string>
 
+    <string name="child_home_title">Who is reading?</string>
+    <string name="child_home_no_profiles">No profiles yet. Ask a parent to create yours.</string>
+    <string name="child_texts_empty">No texts for you yet. Ask a parent to add one.</string>
+    <string name="parents">For parents</string>
+
+    <string name="profiles_title">Children</string>
+    <string name="profiles_empty">No child profiles yet. Add the first one.</string>
+    <string name="add_profile">Add child</string>
+    <string name="new_profile_title">New child</string>
+    <string name="edit_profile_title">Edit child</string>
+    <string name="profile_name_label">Name or nickname</string>
+    <string name="profile_avatar_label">Avatar</string>
+    <string name="avatar_option">Avatar %1$d</string>
+    <string name="delete_profile_title">Delete profile?</string>
+    <string name="delete_profile_message">The profile “%1$s” and all of its data will be deleted permanently.</string>
+
+    <string name="assign_title">Who reads this text</string>
+    <string name="assign_no_children">Add a child profile to assign this text.</string>
+    <string name="text_assigned_to">For: %1$s</string>
+    <string name="text_not_assigned">Not assigned to any child yet</string>
+
     <string name="library_title">My texts</string>
     <string name="library_empty">No texts yet. Add the first one.</string>
     <string name="add_text">Add text</string>

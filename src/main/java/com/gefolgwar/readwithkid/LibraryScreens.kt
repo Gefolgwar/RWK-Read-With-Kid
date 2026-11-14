@@ -12,10 +12,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RecordVoiceOver
@@ -31,14 +33,19 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun LibraryScreen(
     texts: List<SavedText>,
+    assignedTo: Map<Long, List<ChildProfile>>,
     onAdd: () -> Unit,
     onRead: (SavedText) -> Unit,
     onEdit: (SavedText) -> Unit,
     onDelete: (SavedText) -> Unit,
     onModels: () -> Unit,
+    onProfiles: () -> Unit,
+    onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var pendingDelete by remember { mutableStateOf<SavedText?>(null) }
+
+    BackHandler(onBack = onBack)
 
     pendingDelete?.let { text ->
         AlertDialog(
@@ -59,11 +66,17 @@ fun LibraryScreen(
 
     Column(modifier = modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
+            }
             Text(
                 stringResource(R.string.library_title),
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.weight(1f)
             )
+            IconButton(onClick = onProfiles) {
+                Icon(Icons.Default.Face, contentDescription = stringResource(R.string.profiles_title))
+            }
             IconButton(onClick = onModels) {
                 Icon(Icons.Default.RecordVoiceOver, contentDescription = stringResource(R.string.models_title))
             }
@@ -81,7 +94,13 @@ fun LibraryScreen(
                 modifier = Modifier.weight(1f)
             ) {
                 items(texts, key = { it.id }) { text ->
-                    TextCard(text, onRead = { onRead(text) }, onEdit = { onEdit(text) }, onDelete = { pendingDelete = text })
+                    TextCard(
+                        text,
+                        assignedTo[text.id].orEmpty(),
+                        onRead = { onRead(text) },
+                        onEdit = { onEdit(text) },
+                        onDelete = { pendingDelete = text }
+                    )
                 }
             }
         }
@@ -95,7 +114,13 @@ fun LibraryScreen(
 }
 
 @Composable
-private fun TextCard(text: SavedText, onRead: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
+private fun TextCard(
+    text: SavedText,
+    children: List<ChildProfile>,
+    onRead: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
             Text(text.title, style = MaterialTheme.typography.titleMedium)
@@ -104,6 +129,13 @@ private fun TextCard(text: SavedText, onRead: () -> Unit, onEdit: () -> Unit, on
                 style = MaterialTheme.typography.bodyMedium,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+            Text(
+                if (children.isEmpty()) stringResource(R.string.text_not_assigned)
+                else stringResource(R.string.text_assigned_to, children.joinToString(", ") { it.name }),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp)
             )
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
@@ -127,7 +159,9 @@ private fun TextCard(text: SavedText, onRead: () -> Unit, onEdit: () -> Unit, on
 @Composable
 fun TextEditorScreen(
     editor: TextEditorState,
+    children: List<ChildProfile>,
     onTitleChange: (String) -> Unit,
+    onToggleChild: (ChildProfile) -> Unit,
     onRawTextChange: (String) -> Unit,
     onImport: (fileName: String?, content: String) -> Unit,
     onSave: () -> Unit,
@@ -197,6 +231,8 @@ fun TextEditorScreen(
             }
             if (importFailed) ErrorText(stringResource(R.string.import_error))
             Spacer(Modifier.height(8.dp))
+            ChildAssignment(children, editor.childIds, onToggleChild)
+            Spacer(Modifier.height(8.dp))
             OutlinedTextField(
                 value = editor.rawText,
                 onValueChange = onRawTextChange,
@@ -220,6 +256,31 @@ fun TextEditorScreen(
             Button(onClick = onSave, enabled = editor.canSave, modifier = Modifier.weight(1f)) {
                 Text(stringResource(R.string.save))
             }
+        }
+    }
+}
+
+/** Which children see the text. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ChildAssignment(children: List<ChildProfile>, selected: Set<Long>, onToggle: (ChildProfile) -> Unit) {
+    Text(stringResource(R.string.assign_title), style = MaterialTheme.typography.titleSmall)
+    if (children.isEmpty()) {
+        Text(
+            stringResource(R.string.assign_no_children),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        return
+    }
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        children.forEach { child ->
+            FilterChip(
+                selected = child.id in selected,
+                onClick = { onToggle(child) },
+                label = { Text(child.name) },
+                leadingIcon = { AvatarImage(child.avatar, 24.dp) }
+            )
         }
     }
 }

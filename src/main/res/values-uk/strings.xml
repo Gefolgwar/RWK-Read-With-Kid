@@ -1,5 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="child_home_title">Хто читає?</string>
+    <string name="child_home_no_profiles">Профілів ще немає. Попроси когось із батьків створити твій.</string>
+    <string name="child_texts_empty">Для тебе ще немає текстів. Попроси когось із батьків додати.</string>
+    <string name="parents">Для батьків</string>
+
+    <string name="profiles_title">Діти</string>
+    <string name="profiles_empty">Профілів дітей ще немає. Додайте перший.</string>
+    <string name="add_profile">Додати дитину</string>
+    <string name="new_profile_title">Нова дитина</string>
+    <string name="edit_profile_title">Редагування профілю</string>
+    <string name="profile_name_label">Ім\'я або нікнейм</string>
+    <string name="profile_avatar_label">Аватар</string>
+    <string name="avatar_option">Аватар %1$d</string>
+    <string name="delete_profile_title">Видалити профіль?</string>
+    <string name="delete_profile_message">Профіль «%1$s» і всі його дані буде видалено назавжди.</string>
+
+    <string name="assign_title">Хто читає цей текст</string>
+    <string name="assign_no_children">Додайте профіль дитини, щоб призначити цей текст.</string>
+    <string name="text_assigned_to">Для: %1$s</string>
+    <string name="text_not_assigned">Ще не призначено жодній дитині</string>
+
     <string name="library_title">Мої тексти</string>
     <string name="library_empty">Текстів ще немає. Додайте перший.</string>
     <string name="add_text">Додати текст</string>

@@ -10,6 +10,8 @@ import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.Update
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 
 /** A text a parent saved in the library. [id] is 0 until the text is saved. */
@@ -49,9 +51,10 @@ abstract class TextDao : TextRepository {
     abstract override suspend fun delete(id: Long)
 }
 
-@Database(entities = [SavedText::class], version = 1, exportSchema = false)
+@Database(entities = [SavedText::class, ChildProfile::class, TextAssignment::class], version = 2, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun texts(): TextDao
+    abstract fun children(): ChildDao
 
     companion object {
         @Volatile
@@ -62,6 +65,25 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         fun build(context: Context, name: String): AppDatabase =
-            Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, name).build()
+            Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, name)
+                .addMigrations(MIGRATION_1_2)
+                .build()
+
+        /** Adds child profiles and text assignments; saved texts are kept. */
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `children` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`name` TEXT NOT NULL, `avatar` TEXT NOT NULL)"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `assignments` (`childId` INTEGER NOT NULL, `textId` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`childId`, `textId`), " +
+                        "FOREIGN KEY(`childId`) REFERENCES `children`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE, " +
+                        "FOREIGN KEY(`textId`) REFERENCES `texts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_assignments_textId` ON `assignments` (`textId`)")
+            }
+        }
     }
 }

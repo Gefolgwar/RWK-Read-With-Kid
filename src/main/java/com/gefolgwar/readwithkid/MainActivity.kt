@@ -39,8 +39,15 @@ class MainActivity : ComponentActivity() {
     private val vm: ReadingSessionViewModel by viewModels {
         ReadingSessionViewModel.factory(ukModel.installed) { RealVoskEngine(ukModel.directory) }
     }
+    private val db by lazy { AppDatabase.get(applicationContext) }
     private val libraryVm: LibraryViewModel by viewModels {
-        LibraryViewModel.factory { AppDatabase.get(applicationContext).texts() }
+        LibraryViewModel.factory({ db.texts() }, { db.children() })
+    }
+    private val profilesVm: ProfilesViewModel by viewModels {
+        ProfilesViewModel.factory { db.children() }
+    }
+    private val childHomeVm: ChildHomeViewModel by viewModels {
+        ChildHomeViewModel.factory({ db.texts() }, { db.children() })
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,6 +58,8 @@ class MainActivity : ComponentActivity() {
                 ReadWithKidApp(
                     vm = vm,
                     libraryVm = libraryVm,
+                    profilesVm = profilesVm,
+                    childHomeVm = childHomeVm,
                     models = ukModel,
                     onConfirmModel = { ukModel.confirmDownload(this) }
                 )
@@ -69,15 +78,26 @@ class MainActivity : ComponentActivity() {
 fun ReadWithKidApp(
     vm: ReadingSessionViewModel,
     libraryVm: LibraryViewModel,
+    profilesVm: ProfilesViewModel,
+    childHomeVm: ChildHomeViewModel,
     models: ModelManager,
     onConfirmModel: () -> Unit
 ) {
     val state by vm.uiState.collectAsState()
     val library by libraryVm.uiState.collectAsState()
+    val profiles by profilesVm.uiState.collectAsState()
+    val childHome by childHomeVm.uiState.collectAsState()
     val model by models.state.collectAsState()
-    // Title of the saved text chosen for reading, or null while the library is shown
+    // Title of the saved text chosen for reading, or null while a list is shown
     var readingTitle by rememberSaveable { mutableStateOf<String?>(null) }
+    // The parent area (library, profiles, models); the child's start screen otherwise
+    var parentArea by rememberSaveable { mutableStateOf(false) }
     var showModels by rememberSaveable { mutableStateOf(false) }
+    var showProfiles by rememberSaveable { mutableStateOf(false) }
+    val read = { text: SavedText ->
+        vm.updateText(text.rawText)
+        readingTitle = text.title
+    }
 
     Scaffold { padding ->
         val modifier = Modifier
@@ -86,6 +106,7 @@ fun ReadWithKidApp(
             .padding(16.dp)
         val result = state.result
         val editor = library.editor
+        val profileEditor = profiles.editor
         val title = readingTitle
         when {
             state.sessionState == SessionState.FINISHED && result != null ->
@@ -106,11 +127,22 @@ fun ReadWithKidApp(
             editor != null ->
                 TextEditorScreen(
                     editor,
+                    library.children,
                     onTitleChange = libraryVm::updateTitle,
+                    onToggleChild = libraryVm::toggleChild,
                     onRawTextChange = libraryVm::updateRawText,
                     onImport = libraryVm::importTxt,
                     onSave = libraryVm::save,
                     onCancel = libraryVm::cancelEdit,
+                    modifier = modifier
+                )
+            profileEditor != null ->
+                ProfileEditorScreen(
+                    profileEditor,
+                    onNameChange = profilesVm::updateName,
+                    onAvatarChange = profilesVm::updateAvatar,
+                    onSave = profilesVm::save,
+                    onCancel = profilesVm::cancelEdit,
                     modifier = modifier
                 )
             showModels ->
@@ -122,17 +154,35 @@ fun ReadWithKidApp(
                     onBack = { showModels = false },
                     modifier = modifier
                 )
-            else ->
+            showProfiles ->
+                ProfilesScreen(
+                    profiles.children,
+                    onAdd = profilesVm::newProfile,
+                    onEdit = profilesVm::edit,
+                    onDelete = profilesVm::delete,
+                    onBack = { showProfiles = false },
+                    modifier = modifier
+                )
+            parentArea ->
                 LibraryScreen(
                     library.texts,
+                    library.assignedTo,
                     onAdd = libraryVm::newText,
-                    onRead = { text ->
-                        vm.updateText(text.rawText)
-                        readingTitle = text.title
-                    },
+                    onRead = read,
                     onEdit = libraryVm::edit,
                     onDelete = libraryVm::delete,
                     onModels = { showModels = true },
+                    onProfiles = { showProfiles = true },
+                    onBack = { parentArea = false },
+                    modifier = modifier
+                )
+            else ->
+                ChildHomeScreen(
+                    childHome,
+                    onSelect = childHomeVm::select,
+                    onBack = childHomeVm::back,
+                    onRead = read,
+                    onParents = { parentArea = true },
                     modifier = modifier
                 )
         }
