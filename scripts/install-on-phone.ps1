@@ -57,7 +57,7 @@ Write-Host "Телефон: $Serial"
 
 # --- Мовні моделі (Apache 2.0) ---
 $models = @(
-    @{ Dir = 'model_uk\src\main\assets'; File = 'vosk-model-small-uk-v3-small.zip' },
+    @{ Dir = 'model_uk\src\main\assets'; File = 'vosk-model-small-uk-v3-nano.zip' },
     @{ Dir = 'model_de\src\main\assets'; File = 'vosk-model-small-de-0.15.zip' }
 )
 foreach ($m in $models) {

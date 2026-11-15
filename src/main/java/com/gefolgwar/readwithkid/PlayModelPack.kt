@@ -75,7 +75,7 @@ class PlayModelPack(context: Context, private val packName: String, private val 
  */
 object SpeechModels {
     fun version(language: TextLanguage): String = when (language) {
-        TextLanguage.UK -> "vosk-model-small-uk-v3-small"
+        TextLanguage.UK -> "vosk-model-small-uk-v3-nano"
         TextLanguage.DE -> "vosk-model-small-de-0.15"
     }
 
