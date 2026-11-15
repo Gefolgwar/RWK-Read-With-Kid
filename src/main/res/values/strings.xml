@@ -2,31 +2,9 @@
 <resources>
     <string name="app_name" translatable="false">Read With Kid</string>
 
-    <string name="child_home_title">Who is reading?</string>
-    <string name="child_home_no_profiles">No profiles yet. Ask a parent to create yours.</string>
-    <string name="child_texts_empty">No texts for you yet. Ask a parent to add one.</string>
-    <string name="parents">For parents</string>
-
-    <string name="profiles_title">Children</string>
-    <string name="profiles_empty">No child profiles yet. Add the first one.</string>
-    <string name="add_profile">Add child</string>
-    <string name="new_profile_title">New child</string>
-    <string name="edit_profile_title">Edit child</string>
-    <string name="profile_name_label">Name or nickname</string>
-    <string name="profile_avatar_label">Avatar</string>
-    <string name="avatar_option">Avatar %1$d</string>
-    <string name="delete_profile_title">Delete profile?</string>
-    <string name="delete_profile_message">The profile “%1$s” and all of its data will be deleted permanently.</string>
-
-    <string name="assign_title">Who reads this text</string>
-    <string name="assign_no_children">Add a child profile to assign this text.</string>
-    <string name="text_assigned_to">For: %1$s</string>
-    <string name="text_not_assigned">Not assigned to any child yet</string>
-
     <string name="library_title">My texts</string>
     <string name="library_empty">No texts yet. Add the first one.</string>
     <string name="add_text">Add text</string>
-    <string name="read">Read</string>
     <string name="edit">Edit</string>
     <string name="delete">Delete</string>
     <string name="delete_text_title">Delete text?</string>
@@ -81,15 +59,8 @@
     <string name="result_helped">Words with pronunciation help</string>
     <string name="result_back">Back to text</string>
 
-    <string name="progress">Reading progress</string>
-    <string name="progress_empty">No readings yet. The result of each reading is saved automatically.</string>
-    <string name="progress_chart">Over time</string>
-    <string name="progress_problem_words">Words to practise</string>
-    <string name="progress_problem_word">%1$s (%2$d)</string>
-    <string name="progress_repeated">Same text, read again</string>
-    <string name="progress_history">All readings</string>
-    <string name="progress_reading">%1$d%% · %2$d words/min</string>
-    <string name="progress_helped">Pronunciation help: %1$s</string>
+    <string name="history_title">Earlier readings</string>
+    <string name="history_reading">%1$d%% · %2$d words/min</string>
 
     <string name="models_title">Speech models</string>
     <string name="language_uk">Ukrainian</string>
@@ -111,21 +82,6 @@
     <string name="model_delete_title">Delete speech model?</string>
     <string name="model_delete_message">To read %1$s again, the model will have to be downloaded again.</string>
 
-    <string name="parental_gate_title">For adults</string>
-    <string name="parental_gate_question">To continue, solve: %1$d × %2$d = ?</string>
-    <string name="parental_gate_answer">Answer</string>
-    <string name="parental_gate_wrong">Wrong answer. Here is a new question.</string>
-    <string name="parental_gate_confirm">Continue</string>
-
-    <string name="onboarding_title">Welcome!</string>
-    <string name="onboarding_what_title">What the app does</string>
-    <string name="onboarding_what">You add a text: a page from homework, a favourite story, an exercise from the teacher. Your child reads it aloud, the app follows along word by word and then shows how it went: accuracy, reading speed and words to practise.</string>
-    <string name="onboarding_privacy_title">Audio never leaves the phone</string>
-    <string name="onboarding_privacy">Speech is recognised on this phone, without the internet. Audio is never recorded, saved or sent anywhere. Texts, profiles and results also stay on this phone.</string>
-    <string name="onboarding_parents_title">For parents</string>
-    <string name="onboarding_parents">Texts, children\'s profiles, progress and settings are in the parent area, protected by a question for adults. When reading starts for the first time, the app asks for access to the microphone.</string>
-    <string name="onboarding_start">Get started</string>
-
     <string name="settings_title">Settings</string>
     <string name="ui_language_title">App language</string>
     <string name="ui_language_system">Phone language</string>
@@ -134,10 +90,7 @@
     <string name="ui_language_en" translatable="false">English</string>
 
     <string name="privacy_title">Privacy policy</string>
-    <string name="privacy_open_public_page">Open on the web</string>
-    <!-- Public privacy policy page (ticket 16). The "Open on the web" button is hidden while this is empty. -->
-    <string name="privacy_policy_url" translatable="false"></string>
-    <string name="privacy_policy">Read With Kid helps children practise reading aloud. The app is built so that no personal data leaves your phone.\n\nMicrophone and audio. While a child reads, the app listens through the microphone and recognises speech on this phone. Audio is processed in memory only: it is never recorded, saved or sent anywhere.\n\nData on the phone. The texts you add, children\'s profiles (name or nickname and avatar) and reading results are stored only in the app on this phone. They are not backed up and not shared with anyone. You can delete them in the app at any time; uninstalling the app deletes all of them.\n\nInternet. The app goes online only to download speech models through Google Play; Google\'s privacy policy applies to these downloads. The app contains no advertising, no analytics and no tracking, and it collects no data, neither for us nor for third parties.\n\nChildren. The app is meant for children together with their parents. Texts, profiles, progress and settings are protected by a question for adults.\n\nChanges. If this policy changes, the new version will be shown in the app.</string>
+    <string name="privacy_policy">Read With Kid helps children practise reading aloud. The app is built so that no personal data leaves your phone.\n\nMicrophone and audio. While a child reads, the app listens through the microphone and recognises speech on this phone. Audio is processed in memory only: it is never recorded, saved or sent anywhere.\n\nData on the phone. The texts you add and their reading results are stored only in the app on this phone. They are not backed up and not shared with anyone. You can delete them in the app at any time; uninstalling the app deletes all of them.\n\nInternet. The app goes online only to download speech models through Google Play; Google\'s privacy policy applies to these downloads. The app contains no advertising, no analytics and no tracking, and it collects no data, neither for us nor for third parties.\n\nChildren. The app is meant for children together with their parents. The app contains no links to websites.\n\nChanges. If this policy changes, the new version will be shown in the app.</string>
 
     <string name="licenses_title">Open-source licences</string>
     <string name="licenses_intro">The app is built with open-source software and speech models. Their licences are reproduced below in their original English wording.</string>

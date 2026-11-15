@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -255,25 +256,24 @@ class ReadingSessionViewModelTest {
 
     // --- saving results ---
 
-    private fun childVm(readings: ReadingRepository, dateMs: Long): ReadingSessionViewModel {
-        val childEngine = FakeVoskEngine()
-        engine = childEngine
-        return ReadingSessionViewModel({ childEngine }, readings = readings, wallClockMs = { dateMs }) { nowMs }
-            .also { childEngine.simulateModelLoaded() }
+    private fun savingVm(readings: ReadingRepository, dateMs: Long): ReadingSessionViewModel {
+        val savingEngine = FakeVoskEngine()
+        engine = savingEngine
+        return ReadingSessionViewModel({ savingEngine }, readings = readings, wallClockMs = { dateMs }) { nowMs }
+            .also { savingEngine.simulateModelLoaded() }
     }
 
     @Test
-    fun `a child's finished reading is saved with its metrics`() {
+    fun `a finished reading of a saved text is saved with its metrics`() {
         val readings = InMemoryReadingRepository()
-        vm = childVm(readings, dateMs = 1_700_000_000_000)
-        vm.updateText(text, TextLanguage.UK, ChildReading(childId = 7, textId = 3, textTitle = "Казка"))
+        vm = savingVm(readings, dateMs = 1_700_000_000_000)
+        vm.updateText(text, TextLanguage.UK, TextReading(textId = 3, textTitle = "Казка"))
         vm.start()
         engine.simulateFinal("мама мила тато читала") // "раму." skipped, wrong attempt at "читав"
         nowMs = 30_000
         engine.simulateFinal("читав книжку")
 
         val saved = readings.all.single()
-        assertEquals(7L, saved.childId)
         assertEquals(3L, saved.textId)
         assertEquals("Казка", saved.textTitle)
         assertEquals(1_700_000_000_000, saved.readAt)
@@ -289,8 +289,8 @@ class ReadingSessionViewModelTest {
     @Test
     fun `an early finish is saved too, and each reading again adds a record`() {
         val readings = InMemoryReadingRepository()
-        vm = childVm(readings, dateMs = 1)
-        vm.updateText(text, TextLanguage.UK, ChildReading(childId = 7, textId = 3, textTitle = "Казка"))
+        vm = savingVm(readings, dateMs = 1)
+        vm.updateText(text, TextLanguage.UK, TextReading(textId = 3, textTitle = "Казка"))
         vm.start()
         engine.simulateFinal("мама мила")
         vm.finish()
@@ -302,16 +302,41 @@ class ReadingSessionViewModelTest {
     }
 
     @Test
-    fun `reading a text without a child, from the parent's library, is not saved`() {
+    fun `reading a text that is not in the library is not saved`() {
         val readings = InMemoryReadingRepository()
-        vm = childVm(readings, dateMs = 1)
-        vm.updateText(text, TextLanguage.UK, ChildReading(childId = 7, textId = 3, textTitle = "Казка"))
+        vm = savingVm(readings, dateMs = 1)
+        vm.updateText(text, TextLanguage.UK, TextReading(textId = 3, textTitle = "Казка"))
         vm.updateText(text, TextLanguage.UK)
         vm.start()
         engine.simulateFinal("мама мила раму тато читав книжку")
 
         assertEquals(SessionState.FINISHED, state.sessionState)
         assertTrue(readings.all.isEmpty())
+    }
+
+    @Test
+    fun `a saved text shows its earlier readings, newest first, with the one just finished`() {
+        val readings = InMemoryReadingRepository()
+        fun record(textId: Long, readAt: Long) =
+            ReadingRecord(textId = textId, textTitle = "Казка", readAt = readAt, result = ReadingResult(6, 3, 60_000, emptyList(), emptyList()))
+        runBlocking {
+            readings.saveReading(record(textId = 3, readAt = 1))
+            readings.saveReading(record(textId = 4, readAt = 2))
+        }
+        vm = savingVm(readings, dateMs = 5)
+        vm.updateText(text, TextLanguage.UK, TextReading(textId = 3, textTitle = "Казка"))
+        assertEquals(listOf(1L), state.history.map { it.readAt })
+
+        vm.start()
+        engine.simulateFinal("мама мила раму тато читав книжку")
+        vm.closeResult()
+        assertEquals(listOf(5L, 1L), state.history.map { it.readAt })
+        assertEquals(6, state.history.first().result.correctWords)
+
+        vm.updateText("Кіт спав.", TextLanguage.UK, TextReading(textId = 4, textTitle = "Кіт"))
+        assertEquals(listOf(2L), state.history.map { it.readAt })
+        vm.updateText("Кіт спав.")
+        assertTrue(state.history.isEmpty())
     }
 
     // --- pause / resume ---
@@ -590,7 +615,7 @@ class ReadingSessionViewModelTest {
         val readings = InMemoryReadingRepository()
         val helper = FakePronunciationHelper(TextLanguage.UK, TextLanguage.DE)
         vm = helpVm(helper, readings)
-        vm.updateText(text, TextLanguage.UK, ChildReading(childId = 7, textId = 3, textTitle = "Казка"))
+        vm.updateText(text, TextLanguage.UK, TextReading(textId = 3, textTitle = "Казка"))
         vm.start()
         assertTrue(state.helpAvailable)
 

@@ -1,30 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="child_home_title">Wer liest?</string>
-    <string name="child_home_no_profiles">Noch keine Profile. Bitte einen Elternteil, deins anzulegen.</string>
-    <string name="child_texts_empty">Noch keine Texte für dich. Bitte einen Elternteil, einen hinzuzufügen.</string>
-    <string name="parents">Für Eltern</string>
-
-    <string name="profiles_title">Kinder</string>
-    <string name="profiles_empty">Noch keine Kinderprofile. Legen Sie das erste an.</string>
-    <string name="add_profile">Kind hinzufügen</string>
-    <string name="new_profile_title">Neues Kind</string>
-    <string name="edit_profile_title">Profil bearbeiten</string>
-    <string name="profile_name_label">Name oder Spitzname</string>
-    <string name="profile_avatar_label">Avatar</string>
-    <string name="avatar_option">Avatar %1$d</string>
-    <string name="delete_profile_title">Profil löschen?</string>
-    <string name="delete_profile_message">Das Profil „%1$s“ und alle seine Daten werden endgültig gelöscht.</string>
-
-    <string name="assign_title">Wer liest diesen Text</string>
-    <string name="assign_no_children">Legen Sie ein Kinderprofil an, um diesen Text zuzuweisen.</string>
-    <string name="text_assigned_to">Für: %1$s</string>
-    <string name="text_not_assigned">Noch keinem Kind zugewiesen</string>
 
     <string name="library_title">Meine Texte</string>
     <string name="library_empty">Noch keine Texte. Fügen Sie den ersten hinzu.</string>
     <string name="add_text">Text hinzufügen</string>
-    <string name="read">Lesen</string>
     <string name="edit">Bearbeiten</string>
     <string name="delete">Löschen</string>
     <string name="delete_text_title">Text löschen?</string>
@@ -79,15 +58,8 @@
     <string name="result_helped">Wörter mit Aussprachehilfe</string>
     <string name="result_back">Zurück zum Text</string>
 
-    <string name="progress">Lesefortschritt</string>
-    <string name="progress_empty">Noch keine Lesungen. Das Ergebnis jeder Lesung wird automatisch gespeichert.</string>
-    <string name="progress_chart">Im Verlauf</string>
-    <string name="progress_problem_words">Wörter zum Üben</string>
-    <string name="progress_problem_word">%1$s (%2$d)</string>
-    <string name="progress_repeated">Derselbe Text, erneut gelesen</string>
-    <string name="progress_history">Alle Lesungen</string>
-    <string name="progress_reading">%1$d %% · %2$d Wörter/Min.</string>
-    <string name="progress_helped">Aussprachehilfe: %1$s</string>
+    <string name="history_title">Bisherige Versuche</string>
+    <string name="history_reading">%1$d %% · %2$d Wörter/Min.</string>
 
     <string name="models_title">Sprachmodelle</string>
     <string name="language_uk">Ukrainisch</string>
@@ -109,28 +81,12 @@
     <string name="model_delete_title">Sprachmodell löschen?</string>
     <string name="model_delete_message">Um wieder %1$s zu lesen, muss das Modell erneut heruntergeladen werden.</string>
 
-    <string name="parental_gate_title">Für Erwachsene</string>
-    <string name="parental_gate_question">Zum Fortfahren bitte lösen: %1$d × %2$d = ?</string>
-    <string name="parental_gate_answer">Antwort</string>
-    <string name="parental_gate_wrong">Falsche Antwort. Hier ist eine neue Frage.</string>
-    <string name="parental_gate_confirm">Weiter</string>
-
-    <string name="onboarding_title">Willkommen!</string>
-    <string name="onboarding_what_title">Was die App macht</string>
-    <string name="onboarding_what">Sie fügen einen Text hinzu: eine Seite aus den Hausaufgaben, eine Lieblingsgeschichte, eine Übung von der Lehrkraft. Ihr Kind liest ihn laut vor, die App verfolgt jedes Wort und zeigt danach das Ergebnis: Genauigkeit, Lesetempo und Wörter zum Üben.</string>
-    <string name="onboarding_privacy_title">Audio verlässt nie das Telefon</string>
-    <string name="onboarding_privacy">Die Sprache wird auf diesem Telefon erkannt, ohne Internet. Audio wird nie aufgenommen, gespeichert oder übertragen. Texte, Profile und Ergebnisse bleiben ebenfalls auf diesem Telefon.</string>
-    <string name="onboarding_parents_title">Für Eltern</string>
-    <string name="onboarding_parents">Texte, Kinderprofile, Fortschritt und Einstellungen sind im Elternbereich, der durch eine Frage für Erwachsene geschützt ist. Wenn zum ersten Mal gelesen wird, fragt die App nach dem Zugriff auf das Mikrofon.</string>
-    <string name="onboarding_start">Los geht\'s</string>
-
     <string name="settings_title">Einstellungen</string>
     <string name="ui_language_title">Sprache der App</string>
     <string name="ui_language_system">Sprache des Telefons</string>
 
     <string name="privacy_title">Datenschutzerklärung</string>
-    <string name="privacy_open_public_page">Im Web öffnen</string>
-    <string name="privacy_policy">Read With Kid hilft Kindern, das laute Lesen zu üben. Die App ist so gebaut, dass keine personenbezogenen Daten Ihr Telefon verlassen.\n\nMikrofon und Audio. Während ein Kind liest, hört die App über das Mikrofon zu und erkennt die Sprache auf diesem Telefon. Audio wird nur im Arbeitsspeicher verarbeitet: Es wird nie aufgenommen, gespeichert oder übertragen.\n\nDaten auf dem Telefon. Die Texte, die Sie hinzufügen, Kinderprofile (Name oder Spitzname und Avatar) und Leseergebnisse werden nur in der App auf diesem Telefon gespeichert. Sie werden nicht gesichert und an niemanden weitergegeben. Sie können sie jederzeit in der App löschen; beim Deinstallieren der App werden alle gelöscht.\n\nInternet. Die App geht nur online, um Sprachmodelle über Google Play herunterzuladen; für diese Downloads gilt die Datenschutzerklärung von Google. Die App enthält keine Werbung, keine Analyse und kein Tracking und erhebt keine Daten, weder für uns noch für Dritte.\n\nKinder. Die App ist für Kinder gemeinsam mit ihren Eltern gedacht. Texte, Profile, Fortschritt und Einstellungen sind durch eine Frage für Erwachsene geschützt.\n\nÄnderungen. Wenn sich diese Erklärung ändert, wird die neue Fassung in der App angezeigt.</string>
+    <string name="privacy_policy">Read With Kid hilft Kindern, das laute Lesen zu üben. Die App ist so gebaut, dass keine personenbezogenen Daten Ihr Telefon verlassen.\n\nMikrofon und Audio. Während ein Kind liest, hört die App über das Mikrofon zu und erkennt die Sprache auf diesem Telefon. Audio wird nur im Arbeitsspeicher verarbeitet: Es wird nie aufgenommen, gespeichert oder übertragen.\n\nDaten auf dem Telefon. Die Texte, die Sie hinzufügen, und ihre Leseergebnisse werden nur in der App auf diesem Telefon gespeichert. Sie werden nicht gesichert und an niemanden weitergegeben. Sie können sie jederzeit in der App löschen; beim Deinstallieren der App werden alle gelöscht.\n\nInternet. Die App geht nur online, um Sprachmodelle über Google Play herunterzuladen; für diese Downloads gilt die Datenschutzerklärung von Google. Die App enthält keine Werbung, keine Analyse und kein Tracking und erhebt keine Daten, weder für uns noch für Dritte.\n\nKinder. Die App ist für Kinder gemeinsam mit ihren Eltern gedacht. Die App enthält keine Links zu Websites.\n\nÄnderungen. Wenn sich diese Erklärung ändert, wird die neue Fassung in der App angezeigt.</string>
 
     <string name="licenses_title">Open-Source-Lizenzen</string>
     <string name="licenses_intro">Die App nutzt Open-Source-Software und Sprachmodelle. Ihre Lizenzen sind unten im englischen Originalwortlaut wiedergegeben.</string>

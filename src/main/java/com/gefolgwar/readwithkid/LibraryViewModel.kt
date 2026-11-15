@@ -19,8 +19,6 @@ data class TextEditorState(
     val createdAt: Long = 0,
     val title: String = "",
     val rawText: String = "",
-    /** Children the text is assigned to. */
-    val childIds: Set<Long> = emptySet(),
     /** Language the parent picked, or null while it follows the alphabet of the text. */
     val chosenLanguage: TextLanguage? = null
 ) {
@@ -33,51 +31,31 @@ data class TextEditorState(
 
 data class LibraryUiState(
     val texts: List<SavedText> = emptyList(),
-    val children: List<ChildProfile> = emptyList(),
-    /** Children each text is assigned to, by text id. */
-    val assignedTo: Map<Long, List<ChildProfile>> = emptyMap(),
     /** Open editor, or null when the library list is shown. */
     val editor: TextEditorState? = null
 )
 
 class LibraryViewModel(
     private val repository: TextRepository,
-    private val childRepository: ChildRepository,
     private val clockMs: () -> Long = System::currentTimeMillis
 ) : ViewModel() {
 
     private val editor = MutableStateFlow<TextEditorState?>(null)
 
-    val uiState: StateFlow<LibraryUiState> = combine(
-        repository.observeAll(),
-        childRepository.observeChildren(),
-        childRepository.observeAssignments(),
-        editor
-    ) { texts, children, assignments, editor ->
-        val byId = children.associateBy { it.id }
-        // The two flows update separately, so an assignment can briefly outlive its child.
-        val assignedTo = assignments.mapNotNull { a -> byId[a.childId]?.let { a.textId to it } }
-            .groupBy({ it.first }, { it.second })
-        LibraryUiState(texts, children, assignedTo, editor)
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, LibraryUiState())
+    val uiState: StateFlow<LibraryUiState> = combine(repository.observeAll(), editor, ::LibraryUiState)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, LibraryUiState())
 
     fun newText() {
         editor.value = TextEditorState()
     }
 
     fun edit(text: SavedText) {
-        val childIds = uiState.value.assignedTo[text.id].orEmpty().map { it.id }.toSet()
         // A stored language the alphabet would suggest anyway keeps following the text.
         val chosen = text.language.takeIf { it != TextPreparation.detectLanguage(text.rawText) }
-        editor.value = TextEditorState(text.id, text.createdAt, text.title, text.rawText, childIds, chosen)
+        editor.value = TextEditorState(text.id, text.createdAt, text.title, text.rawText, chosen)
     }
 
     fun chooseLanguage(language: TextLanguage) = editor.update { it?.copy(chosenLanguage = language) }
-
-    /** Assigns the edited text to the child, or takes it away again. */
-    fun toggleChild(child: ChildProfile) = editor.update { current ->
-        current?.copy(childIds = if (child.id in current.childIds) current.childIds - child.id else current.childIds + child.id)
-    }
 
     fun updateTitle(title: String) = editor.update { it?.copy(title = title) }
 
@@ -106,10 +84,7 @@ class LibraryViewModel(
             language = current.language
         )
         editor.value = null
-        viewModelScope.launch {
-            val id = repository.save(text)
-            childRepository.assignText(id, current.childIds)
-        }
+        viewModelScope.launch { repository.save(text) }
     }
 
     fun delete(text: SavedText) {
@@ -117,9 +92,9 @@ class LibraryViewModel(
     }
 
     companion object {
-        fun factory(createTexts: () -> TextRepository, createChildren: () -> ChildRepository): ViewModelProvider.Factory =
+        fun factory(createTexts: () -> TextRepository): ViewModelProvider.Factory =
             viewModelFactory {
-                initializer { LibraryViewModel(createTexts(), createChildren()) }
+                initializer { LibraryViewModel(createTexts()) }
             }
     }
 }

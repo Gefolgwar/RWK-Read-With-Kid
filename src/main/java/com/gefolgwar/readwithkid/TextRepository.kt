@@ -16,7 +16,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 
-/** A text a parent saved in the library. [id] is 0 until the text is saved. */
+/** A text saved in the library. [id] is 0 until the text is saved. */
 @Entity(tableName = "texts")
 data class SavedText(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -55,14 +55,13 @@ abstract class TextDao : TextRepository {
 }
 
 @Database(
-    entities = [SavedText::class, ChildProfile::class, TextAssignment::class, ReadingRecord::class],
-    version = 5,
+    entities = [SavedText::class, ReadingRecord::class],
+    version = 6,
     exportSchema = false
 )
 @TypeConverters(WordListConverter::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun texts(): TextDao
-    abstract fun children(): ChildDao
     abstract fun readings(): ReadingDao
 
     companion object {
@@ -75,7 +74,7 @@ abstract class AppDatabase : RoomDatabase() {
 
         fun build(context: Context, name: String): AppDatabase =
             Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, name)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                 .build()
 
         /** Adds child profiles and text assignments; saved texts are kept. */
@@ -120,6 +119,33 @@ abstract class AppDatabase : RoomDatabase() {
         private val MIGRATION_4_5 = object : Migration(4, 5) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE `readings` ADD COLUMN `helpedWords` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        /**
+         * Removes child profiles and text assignments; readings now belong to their text only.
+         * Texts and their readings are kept; readings of texts deleted earlier could no longer be shown and are dropped.
+         */
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE `readings_new` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`textId` INTEGER NOT NULL, `textTitle` TEXT NOT NULL, `readAt` INTEGER NOT NULL, " +
+                        "`totalWords` INTEGER NOT NULL, `correctWords` INTEGER NOT NULL, `durationMs` INTEGER NOT NULL, " +
+                        "`skippedWords` TEXT NOT NULL, `retriedWords` TEXT NOT NULL, `helpedWords` TEXT NOT NULL DEFAULT '', " +
+                        "FOREIGN KEY(`textId`) REFERENCES `texts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)"
+                )
+                val columns = "`id`, `textId`, `textTitle`, `readAt`, `totalWords`, `correctWords`, `durationMs`, " +
+                    "`skippedWords`, `retriedWords`, `helpedWords`"
+                db.execSQL(
+                    "INSERT INTO `readings_new` ($columns) SELECT $columns FROM `readings` " +
+                        "WHERE `textId` IN (SELECT `id` FROM `texts`)"
+                )
+                db.execSQL("DROP TABLE `readings`")
+                db.execSQL("ALTER TABLE `readings_new` RENAME TO `readings`")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_readings_textId` ON `readings` (`textId`)")
+                db.execSQL("DROP TABLE `assignments`")
+                db.execSQL("DROP TABLE `children`")
             }
         }
     }

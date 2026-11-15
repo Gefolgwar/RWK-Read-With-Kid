@@ -1,7 +1,6 @@
 package com.gefolgwar.readwithkid
 
 import android.Manifest
-import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -39,6 +38,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
@@ -51,8 +52,9 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import androidx.core.net.toUri
 import kotlinx.coroutines.delay
+import java.text.DateFormat
+import java.util.Date
 import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
@@ -64,16 +66,7 @@ class MainActivity : ComponentActivity() {
         }
     }
     private val libraryVm: LibraryViewModel by viewModels {
-        LibraryViewModel.factory({ db.texts() }, { db.children() })
-    }
-    private val profilesVm: ProfilesViewModel by viewModels {
-        ProfilesViewModel.factory { db.children() }
-    }
-    private val childHomeVm: ChildHomeViewModel by viewModels {
-        ChildHomeViewModel.factory({ db.texts() }, { db.children() })
-    }
-    private val progressVm: ProgressViewModel by viewModels {
-        ProgressViewModel.factory({ db.children() }, { db.readings() })
+        LibraryViewModel.factory { db.texts() }
     }
 
     private val settings by lazy { AppSettings(applicationContext) }
@@ -84,23 +77,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        var onboardingDone by mutableStateOf(settings.onboardingDone)
 
         setContent {
             ReadWithKidTheme {
                 ReadWithKidApp(
                     vm = vm,
                     libraryVm = libraryVm,
-                    profilesVm = profilesVm,
-                    childHomeVm = childHomeVm,
-                    progressVm = progressVm,
                     models = ::models,
                     onConfirmModel = { models(it).confirmDownload(this) },
-                    onboardingDone = onboardingDone,
-                    onOnboardingDone = {
-                        settings.onboardingDone = true
-                        onboardingDone = true
-                    },
                     uiLanguage = settings.uiLanguage,
                     onUiLanguageChange = {
                         settings.uiLanguage = it
@@ -123,66 +107,33 @@ class MainActivity : ComponentActivity() {
 fun ReadWithKidApp(
     vm: ReadingSessionViewModel,
     libraryVm: LibraryViewModel,
-    profilesVm: ProfilesViewModel,
-    childHomeVm: ChildHomeViewModel,
-    progressVm: ProgressViewModel,
     models: (TextLanguage) -> ModelManager,
     onConfirmModel: (TextLanguage) -> Unit,
-    onboardingDone: Boolean,
-    onOnboardingDone: () -> Unit,
     uiLanguage: UiLanguage,
     onUiLanguageChange: (UiLanguage) -> Unit
 ) {
     val context = LocalContext.current
     val state by vm.uiState.collectAsState()
     val library by libraryVm.uiState.collectAsState()
-    val profiles by profilesVm.uiState.collectAsState()
-    val childHome by childHomeVm.uiState.collectAsState()
-    val progress by progressVm.uiState.collectAsState()
     val modelStates = TextLanguage.entries.associateWith { models(it).state.collectAsState().value }
     // Model of the language of the text being read
     val model = modelStates.getValue(state.language)
     // Title of the saved text chosen for reading, or null while a list is shown
     var readingTitle by rememberSaveable { mutableStateOf<String?>(null) }
-    // The parent area (library, profiles, models); the child's start screen otherwise
-    var parentArea by rememberSaveable { mutableStateOf(false) }
     var showModels by rememberSaveable { mutableStateOf(false) }
-    var showProfiles by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var showPrivacy by rememberSaveable { mutableStateOf(false) }
     var showLicenses by rememberSaveable { mutableStateOf(false) }
-    // What to do once the parental gate is passed; the gate is shown while this is set.
-    var afterGate by remember { mutableStateOf<(() -> Unit)?>(null) }
-    val openUrl = { url: String ->
-        afterGate = {
-            try {
-                context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
-            } catch (_: ActivityNotFoundException) {
-                // No browser on the phone: nothing to open.
-            }
-        }
-    }
+    // The only place the app leaves itself: the phone settings, to allow the microphone.
     val openAppSettings = {
-        afterGate = {
-            context.startActivity(
-                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
-            )
-        }
-    }
-    // A child's reading is saved for them; a parent's reading from the library is not.
-    val read = { text: SavedText, child: ChildProfile? ->
-        vm.updateText(text.rawText, text.language, child?.let { ChildReading(it.id, text.id, text.title) })
-        readingTitle = text.title
-    }
-
-    afterGate?.let { action ->
-        ParentalGateDialog(
-            onPassed = {
-                afterGate = null
-                action()
-            },
-            onDismiss = { afterGate = null }
+        context.startActivity(
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
         )
+    }
+    // Every reading of a saved text is saved for that text.
+    val read = { text: SavedText ->
+        vm.updateText(text.rawText, text.language, TextReading(text.id, text.title))
+        readingTitle = text.title
     }
 
     Scaffold { padding ->
@@ -192,11 +143,8 @@ fun ReadWithKidApp(
             .padding(16.dp)
         val result = state.result
         val editor = library.editor
-        val profileEditor = profiles.editor
         val title = readingTitle
         when {
-            !onboardingDone ->
-                OnboardingScreen(onDone = onOnboardingDone, modifier = modifier)
             state.sessionState == SessionState.FINISHED && result != null ->
                 ResultScreen(result, onClose = vm::closeResult, modifier = modifier)
             state.sessionState == SessionState.READING || state.sessionState == SessionState.PAUSED ->
@@ -223,27 +171,14 @@ fun ReadWithKidApp(
             editor != null ->
                 TextEditorScreen(
                     editor,
-                    library.children,
                     onTitleChange = libraryVm::updateTitle,
                     onLanguageChange = libraryVm::chooseLanguage,
-                    onToggleChild = libraryVm::toggleChild,
                     onRawTextChange = libraryVm::updateRawText,
                     onImport = libraryVm::importTxt,
                     onSave = libraryVm::save,
                     onCancel = libraryVm::cancelEdit,
                     modifier = modifier
                 )
-            profileEditor != null ->
-                ProfileEditorScreen(
-                    profileEditor,
-                    onNameChange = profilesVm::updateName,
-                    onAvatarChange = profilesVm::updateAvatar,
-                    onSave = profilesVm::save,
-                    onCancel = profilesVm::cancelEdit,
-                    modifier = modifier
-                )
-            progress.child != null ->
-                ProgressScreen(progress, onBack = progressVm::close, modifier = modifier)
             showModels ->
                 ModelsScreen(
                     modelStates,
@@ -254,7 +189,7 @@ fun ReadWithKidApp(
                     modifier = modifier
                 )
             showPrivacy ->
-                PrivacyPolicyScreen(onOpenPublicPage = openUrl, onBack = { showPrivacy = false }, modifier = modifier)
+                PrivacyPolicyScreen(onBack = { showPrivacy = false }, modifier = modifier)
             showLicenses ->
                 LicensesScreen(onBack = { showLicenses = false }, modifier = modifier)
             showSettings ->
@@ -267,36 +202,14 @@ fun ReadWithKidApp(
                     onBack = { showSettings = false },
                     modifier = modifier
                 )
-            showProfiles ->
-                ProfilesScreen(
-                    profiles.children,
-                    onAdd = profilesVm::newProfile,
-                    onEdit = profilesVm::edit,
-                    onDelete = profilesVm::delete,
-                    onProgress = progressVm::open,
-                    onBack = { showProfiles = false },
-                    modifier = modifier
-                )
-            parentArea ->
+            else ->
                 LibraryScreen(
                     library.texts,
-                    library.assignedTo,
                     onAdd = libraryVm::newText,
-                    onRead = { read(it, null) },
+                    onRead = read,
                     onEdit = libraryVm::edit,
                     onDelete = libraryVm::delete,
                     onSettings = { showSettings = true },
-                    onProfiles = { showProfiles = true },
-                    onBack = { parentArea = false },
-                    modifier = modifier
-                )
-            else ->
-                ChildHomeScreen(
-                    childHome,
-                    onSelect = childHomeVm::select,
-                    onBack = childHomeVm::back,
-                    onRead = { read(it, childHome.child) },
-                    onParents = { afterGate = { parentArea = true } },
                     modifier = modifier
                 )
         }
@@ -374,6 +287,11 @@ fun ReadyToReadScreen(
             // Just the text the child is about to read, without the parent's sentence breakdown.
             Spacer(Modifier.height(8.dp))
             Text(state.rawText, style = MaterialTheme.typography.titleLarge)
+
+            if (state.history.isNotEmpty()) {
+                Spacer(Modifier.height(24.dp))
+                ReadingHistory(state.history)
+            }
         }
 
         Spacer(Modifier.height(8.dp))
@@ -400,6 +318,35 @@ fun ReadyToReadScreen(
                 },
                 enabled = state.sessionState == SessionState.READY && state.text.words.isNotEmpty(),
                 modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+/** Earlier readings of the text, newest first: date, accuracy and words correct per minute. */
+@Composable
+private fun ReadingHistory(history: List<ReadingRecord>) {
+    val dateFormat = remember { DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT) }
+    Text(
+        stringResource(R.string.history_title),
+        style = MaterialTheme.typography.titleMedium,
+        modifier = Modifier.semantics { heading() }
+    )
+    history.forEach { reading ->
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp)
+        ) {
+            Text(dateFormat.format(Date(reading.readAt)), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+            Text(
+                stringResource(
+                    R.string.history_reading,
+                    (reading.result.accuracy * 100).roundToInt(),
+                    reading.result.wordsCorrectPerMinute
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold
             )
         }
     }

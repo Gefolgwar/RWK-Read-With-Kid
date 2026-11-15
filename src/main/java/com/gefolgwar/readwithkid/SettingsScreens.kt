@@ -5,11 +5,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.RecordVoiceOver
@@ -23,84 +21,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-
-/** Asks the parental-gate question; calls [onPassed] once it is answered correctly. */
-@Composable
-fun ParentalGateDialog(onPassed: () -> Unit, onDismiss: () -> Unit) {
-    var question by remember { mutableStateOf(GateQuestion.next()) }
-    var answer by remember { mutableStateOf("") }
-    var wrong by remember { mutableStateOf(false) }
-    val check = {
-        if (question.accepts(answer)) {
-            onPassed()
-        } else {
-            wrong = true
-            answer = ""
-            question = GateQuestion.next()
-        }
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Default.Lock, contentDescription = null) },
-        title = { Text(stringResource(R.string.parental_gate_title)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(R.string.parental_gate_question, question.a, question.b))
-                OutlinedTextField(
-                    value = answer,
-                    onValueChange = { answer = it.filter(Char::isDigit).take(4) },
-                    label = { Text(stringResource(R.string.parental_gate_answer)) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword)
-                )
-                if (wrong) ErrorText(stringResource(R.string.parental_gate_wrong))
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = check, enabled = answer.isNotEmpty()) { Text(stringResource(R.string.parental_gate_confirm)) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
-        }
-    )
-}
-
-/** First launch: what the app does and that audio never leaves the phone. */
-@Composable
-fun OnboardingScreen(onDone: () -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier = modifier) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-        ) {
-            Text(
-                stringResource(R.string.onboarding_title),
-                style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.semantics { heading() }
-            )
-            OnboardingPoint(R.string.onboarding_what_title, R.string.onboarding_what)
-            OnboardingPoint(R.string.onboarding_privacy_title, R.string.onboarding_privacy)
-            OnboardingPoint(R.string.onboarding_parents_title, R.string.onboarding_parents)
-        }
-        Spacer(Modifier.height(8.dp))
-        Button(onClick = onDone, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.onboarding_start))
-        }
-    }
-}
-
-@Composable
-private fun OnboardingPoint(title: Int, text: Int) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(stringResource(title), style = MaterialTheme.typography.titleMedium)
-        Text(stringResource(text), style = MaterialTheme.typography.bodyLarge)
-    }
-}
 
 /** Language names are shown in their own language so a parent finds theirs whatever the current one is. */
 private val UiLanguage.label: Int
@@ -178,13 +99,9 @@ private fun ScreenHeader(title: Int, onBack: () -> Unit) {
     Spacer(Modifier.height(8.dp))
 }
 
-/**
- * The privacy policy; [onOpenPublicPage] opens its public web page and is offered only
- * once that page's address is set in `privacy_policy_url`.
- */
+/** The privacy policy, shown as text in the app. */
 @Composable
-fun PrivacyPolicyScreen(onOpenPublicPage: (String) -> Unit, onBack: () -> Unit, modifier: Modifier = Modifier) {
-    val url = stringResource(R.string.privacy_policy_url)
+fun PrivacyPolicyScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     BackHandler(onBack = onBack)
 
     Column(modifier = modifier) {
@@ -196,14 +113,6 @@ fun PrivacyPolicyScreen(onOpenPublicPage: (String) -> Unit, onBack: () -> Unit, 
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
         )
-        if (url.isNotEmpty()) {
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(onClick = { onOpenPublicPage(url) }, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.privacy_open_public_page))
-            }
-        }
     }
 }
 

@@ -62,12 +62,14 @@ data class ReadingUiState(
     val result: ReadingResult? = null,
     val recognitionError: Boolean = false,
     /** Whether the child can tap a word to hear it: the phone has a voice for the language. */
-    val helpAvailable: Boolean = false
+    val helpAvailable: Boolean = false,
+    /** Earlier readings of the saved text, newest first. */
+    val history: List<ReadingRecord> = emptyList()
 )
 
 /**
  * Each text language has its own engine, created by [createEngine], and its own model, see [modelInstalled].
- * A finished reading of a child's text is saved to [readings], dated by [wallClockMs].
+ * A finished reading of a saved text is saved to [readings], dated by [wallClockMs].
  * Words the child taps are said by [pronunciation]; without it there is no help.
  */
 class ReadingSessionViewModel(
@@ -83,8 +85,8 @@ class ReadingSessionViewModel(
     private val _uiState = MutableStateFlow(ReadingUiState())
     val uiState: StateFlow<ReadingUiState> = _uiState.asStateFlow()
 
-    /** Whose reading this is; null when a parent reads from the library, and then nothing is saved. */
-    private var childReading: ChildReading? = null
+    /** The saved text being read; null for a text that is not saved, and then nothing is saved. */
+    private var textReading: TextReading? = null
     private var aligner = WordAligner(emptyList())
     private var currentSentenceIdx = 0
     private var activeSinceMs = 0L
@@ -103,6 +105,7 @@ class ReadingSessionViewModel(
     private lateinit var engine: VoskEngine
     private var modelJob: Job? = null
     private var voiceJob: Job? = null
+    private var historyJob: Job? = null
 
     init {
         useLanguage(_uiState.value.language)
@@ -113,12 +116,24 @@ class ReadingSessionViewModel(
         pronunciation?.release()
     }
 
-    fun updateText(raw: String, language: TextLanguage = TextLanguage.UK, reading: ChildReading? = null) {
+    fun updateText(raw: String, language: TextLanguage = TextLanguage.UK, reading: TextReading? = null) {
         if (isActive()) return
-        childReading = reading
+        textReading = reading
         val languageChanged = language != _uiState.value.language
         _uiState.update {
-            it.copy(rawText = raw, text = TextPreparation.prepare(raw), language = language, recognitionError = false)
+            it.copy(
+                rawText = raw,
+                text = TextPreparation.prepare(raw),
+                language = language,
+                recognitionError = false,
+                history = emptyList()
+            )
+        }
+        historyJob?.cancel()
+        if (reading != null && readings != null) {
+            historyJob = viewModelScope.launch {
+                readings.observeReadings(reading.textId).collect { history -> _uiState.update { it.copy(history = history) } }
+            }
         }
         if (languageChanged) {
             engine.release()
@@ -185,9 +200,8 @@ class ReadingSessionViewModel(
             helpedWords = displayOf(helpedIndices)
         )
         _uiState.update { it.copy(sessionState = SessionState.FINISHED, result = result) }
-        val reading = childReading ?: return
+        val reading = textReading ?: return
         val record = ReadingRecord(
-            childId = reading.childId,
             textId = reading.textId,
             textTitle = reading.textTitle,
             readAt = wallClockMs(),

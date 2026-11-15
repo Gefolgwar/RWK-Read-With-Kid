@@ -16,7 +16,6 @@ import org.junit.Test
 class LibraryViewModelTest {
 
     private lateinit var repository: InMemoryTextRepository
-    private lateinit var children: InMemoryChildRepository
     private var nowMs = 1_000L
     private lateinit var vm: LibraryViewModel
 
@@ -27,8 +26,7 @@ class LibraryViewModelTest {
     fun setup() {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         repository = InMemoryTextRepository()
-        children = InMemoryChildRepository()
-        vm = LibraryViewModel(repository, children, clockMs = { nowMs })
+        vm = LibraryViewModel(repository, clockMs = { nowMs })
     }
 
     @After
@@ -169,75 +167,9 @@ class LibraryViewModelTest {
     @Test
     fun `texts are read from the repository, so a new viewmodel sees saved texts`() {
         addText("Казка", "Жив собі кіт.")
-        val afterRestart = LibraryViewModel(repository, children)
+        val afterRestart = LibraryViewModel(repository)
         assertEquals(listOf("Казка"), afterRestart.uiState.value.texts.map { it.title })
         assertEquals("Казка", runBlocking { repository.observeAll().first() }.single().title)
-    }
-
-    private fun addChild(name: String): ChildProfile = runBlocking {
-        val id = children.saveChild(ChildProfile(name = name, avatar = Avatar.CAT))
-        ChildProfile(id, name, Avatar.CAT)
-    }
-
-    @Test
-    fun `a new text can be assigned to one or several children`() {
-        val olya = addChild("Оля")
-        val petro = addChild("Петро")
-        assertEquals(listOf(olya, petro), state.children)
-
-        vm.newText()
-        assertEquals(emptySet<Long>(), editor.childIds)
-        vm.updateTitle("Казка")
-        vm.updateRawText("Жив собі кіт.")
-        vm.toggleChild(olya)
-        vm.toggleChild(petro)
-        assertEquals(setOf(olya.id, petro.id), editor.childIds)
-        vm.save()
-
-        val text = state.texts.single()
-        assertEquals(listOf(olya, petro), state.assignedTo[text.id])
-    }
-
-    @Test
-    fun `a text is not assigned to anyone by default`() {
-        addChild("Оля")
-        addText("Казка", "Жив собі кіт.")
-        assertNull(state.assignedTo[state.texts.single().id])
-    }
-
-    @Test
-    fun `editing a text shows and changes who it is assigned to`() {
-        val olya = addChild("Оля")
-        val petro = addChild("Петро")
-        vm.newText()
-        vm.updateTitle("Казка")
-        vm.updateRawText("Жив собі кіт.")
-        vm.toggleChild(olya)
-        vm.save()
-
-        vm.edit(state.texts.single())
-        assertEquals(setOf(olya.id), editor.childIds)
-        vm.toggleChild(olya)
-        vm.toggleChild(petro)
-        vm.save()
-
-        assertEquals(listOf(petro), state.assignedTo[state.texts.single().id])
-    }
-
-    @Test
-    fun `cancelling the editor keeps the old assignment`() {
-        val olya = addChild("Оля")
-        vm.newText()
-        vm.updateTitle("Казка")
-        vm.updateRawText("Жив собі кіт.")
-        vm.toggleChild(olya)
-        vm.save()
-
-        vm.edit(state.texts.single())
-        vm.toggleChild(olya)
-        vm.cancelEdit()
-
-        assertEquals(listOf(olya), state.assignedTo[state.texts.single().id])
     }
 
     @Test

@@ -12,14 +12,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.FileOpen
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -35,19 +32,14 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun LibraryScreen(
     texts: List<SavedText>,
-    assignedTo: Map<Long, List<ChildProfile>>,
     onAdd: () -> Unit,
     onRead: (SavedText) -> Unit,
     onEdit: (SavedText) -> Unit,
     onDelete: (SavedText) -> Unit,
     onSettings: () -> Unit,
-    onProfiles: () -> Unit,
-    onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var pendingDelete by remember { mutableStateOf<SavedText?>(null) }
-
-    BackHandler(onBack = onBack)
 
     pendingDelete?.let { text ->
         AlertDialog(
@@ -68,9 +60,6 @@ fun LibraryScreen(
 
     Column(modifier = modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
-            }
             Text(
                 stringResource(R.string.library_title),
                 style = MaterialTheme.typography.titleLarge,
@@ -78,9 +67,6 @@ fun LibraryScreen(
                     .weight(1f)
                     .semantics { heading() }
             )
-            IconButton(onClick = onProfiles) {
-                Icon(Icons.Default.Face, contentDescription = stringResource(R.string.profiles_title))
-            }
             IconButton(onClick = onSettings) {
                 Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings_title))
             }
@@ -100,7 +86,6 @@ fun LibraryScreen(
                 items(texts, key = { it.id }) { text ->
                     TextCard(
                         text,
-                        assignedTo[text.id].orEmpty(),
                         onRead = { onRead(text) },
                         onEdit = { onEdit(text) },
                         onDelete = { pendingDelete = text }
@@ -120,41 +105,31 @@ fun LibraryScreen(
 @Composable
 private fun TextCard(
     text: SavedText,
-    children: List<ChildProfile>,
     onRead: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp)) {
-            Text(text.title, style = MaterialTheme.typography.titleMedium)
-            Text(
-                text.rawText,
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-            Text(
-                if (children.isEmpty()) stringResource(R.string.text_not_assigned)
-                else stringResource(R.string.text_assigned_to, children.joinToString(", ") { it.name }),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
-                Button(onClick = onRead) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.read))
-                }
-                Spacer(Modifier.weight(1f))
-                IconButton(onClick = onEdit) {
-                    Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.edit))
-                }
-                IconButton(onClick = onDelete) {
-                    Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete))
-                }
+    Card(onClick = onRead, modifier = Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 12.dp, top = 4.dp, bottom = 4.dp)) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(vertical = 8.dp)
+            ) {
+                Text(text.title, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    text.rawText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+            IconButton(onClick = onEdit) {
+                Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.edit))
+            }
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete))
             }
         }
     }
@@ -163,10 +138,8 @@ private fun TextCard(
 @Composable
 fun TextEditorScreen(
     editor: TextEditorState,
-    children: List<ChildProfile>,
     onTitleChange: (String) -> Unit,
     onLanguageChange: (TextLanguage) -> Unit,
-    onToggleChild: (ChildProfile) -> Unit,
     onRawTextChange: (String) -> Unit,
     onImport: (fileName: String?, content: String) -> Unit,
     onSave: () -> Unit,
@@ -239,8 +212,6 @@ fun TextEditorScreen(
             Spacer(Modifier.height(8.dp))
             LanguageChoice(editor, onLanguageChange)
             Spacer(Modifier.height(8.dp))
-            ChildAssignment(children, editor.childIds, onToggleChild)
-            Spacer(Modifier.height(8.dp))
             OutlinedTextField(
                 value = editor.rawText,
                 onValueChange = onRawTextChange,
@@ -287,31 +258,6 @@ private fun LanguageChoice(editor: TextEditorState, onChange: (TextLanguage) -> 
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-    }
-}
-
-/** Which children see the text. */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun ChildAssignment(children: List<ChildProfile>, selected: Set<Long>, onToggle: (ChildProfile) -> Unit) {
-    Text(stringResource(R.string.assign_title), style = MaterialTheme.typography.titleSmall)
-    if (children.isEmpty()) {
-        Text(
-            stringResource(R.string.assign_no_children),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        return
-    }
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        children.forEach { child ->
-            FilterChip(
-                selected = child.id in selected,
-                onClick = { onToggle(child) },
-                label = { Text(child.name) },
-                leadingIcon = { AvatarImage(child.avatar, 24.dp) }
-            )
-        }
     }
 }
 

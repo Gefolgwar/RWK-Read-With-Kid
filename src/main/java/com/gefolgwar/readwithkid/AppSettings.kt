@@ -14,16 +14,11 @@ enum class UiLanguage(val tag: String?) {
 class AppSettings(context: Context) {
     private val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
-    var onboardingDone: Boolean
-        get() = prefs.getBoolean(KEY_ONBOARDING_DONE, false)
-        set(value) = prefs.edit { putBoolean(KEY_ONBOARDING_DONE, value) }
-
     var uiLanguage: UiLanguage
         get() = UiLanguage.entries.firstOrNull { it.tag == prefs.getString(KEY_UI_LANGUAGE, null) } ?: UiLanguage.SYSTEM
         set(value) = prefs.edit { putString(KEY_UI_LANGUAGE, value.tag) }
 
     private companion object {
-        const val KEY_ONBOARDING_DONE = "onboarding_done"
         const val KEY_UI_LANGUAGE = "ui_language"
     }
 }

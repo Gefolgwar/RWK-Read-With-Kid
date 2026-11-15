@@ -8,18 +8,11 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** Onboarding flag and interface language, kept across app starts. */
+/** Interface language, kept across app starts. */
 @RunWith(RobolectricTestRunner::class)
 class AppSettingsTest {
 
     private val context: Context = ApplicationProvider.getApplicationContext()
-
-    @Test
-    fun `first launch shows onboarding once`() {
-        assertFalse(AppSettings(context).onboardingDone)
-        AppSettings(context).onboardingDone = true
-        assertTrue(AppSettings(context).onboardingDone)
-    }
 
     @Test
     fun `interface language follows the system until chosen`() {
