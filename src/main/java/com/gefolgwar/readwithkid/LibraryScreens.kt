@@ -1,22 +1,16 @@
 package com.gefolgwar.readwithkid
 
 import android.content.ClipboardManager
-import android.net.Uri
-import android.provider.OpenableColumns
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.FileOpen
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -125,107 +119,84 @@ private fun TextCard(
                     modifier = Modifier.padding(top = 4.dp)
                 )
             }
-            IconButton(onClick = onEdit) {
-                Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.edit))
-            }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete))
+            var menuOpen by remember { mutableStateOf(false) }
+            Box {
+                IconButton(onClick = { menuOpen = true }) {
+                    Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more_actions))
+                }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.edit)) },
+                        leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                        onClick = {
+                            menuOpen = false
+                            onEdit()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.delete)) },
+                        leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
+                        onClick = {
+                            menuOpen = false
+                            onDelete()
+                        }
+                    )
+                }
             }
         }
     }
 }
 
+/** One big field for the text; the title is made from its first words. */
 @Composable
 fun TextEditorScreen(
     editor: TextEditorState,
-    onTitleChange: (String) -> Unit,
     onLanguageChange: (TextLanguage) -> Unit,
     onRawTextChange: (String) -> Unit,
-    onImport: (fileName: String?, content: String) -> Unit,
     onSave: () -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var importFailed by remember { mutableStateOf(false) }
 
     BackHandler(onBack = onCancel)
 
-    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        val content = runCatching {
-            context.contentResolver.openInputStream(uri)!!.use { it.readBytes() }.toString(Charsets.UTF_8).removePrefix("﻿")
-        }.getOrNull()
-        importFailed = content == null
-        if (content != null) {
-            val fileName = context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
-                ?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
-            onImport(fileName, content)
-        }
-    }
-
     Column(modifier = modifier) {
-        Column(
+        Text(
+            stringResource(if (editor.id == 0L) R.string.new_text_title else R.string.edit_text_title),
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.semantics { heading() }
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            stringResource(R.string.private_use_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(onClick = {
+            val clip = context.getSystemService(ClipboardManager::class.java)
+                ?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString()
+            if (!clip.isNullOrBlank()) {
+                onRawTextChange(if (editor.rawText.isBlank()) clip else editor.rawText.trimEnd() + "\n" + clip)
+            }
+        }) {
+            Icon(Icons.Default.ContentPaste, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.paste))
+        }
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = editor.rawText,
+            onValueChange = onRawTextChange,
+            placeholder = { Text(stringResource(R.string.input_hint)) },
             modifier = Modifier
                 .weight(1f)
-                .verticalScroll(rememberScrollState())
-        ) {
-            Text(
-                stringResource(if (editor.id == 0L) R.string.new_text_title else R.string.edit_text_title),
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.semantics { heading() }
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                stringResource(R.string.private_use_note),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(8.dp))
-            OutlinedTextField(
-                value = editor.title,
-                onValueChange = onTitleChange,
-                label = { Text(stringResource(R.string.text_title_label)) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = {
-                    val clip = context.getSystemService(ClipboardManager::class.java)
-                        ?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString()
-                    if (!clip.isNullOrBlank()) {
-                        onRawTextChange(if (editor.rawText.isBlank()) clip else editor.rawText.trimEnd() + "\n" + clip)
-                    }
-                }) {
-                    Icon(Icons.Default.ContentPaste, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.paste))
-                }
-                OutlinedButton(onClick = { importLauncher.launch(arrayOf("text/plain")) }) {
-                    Icon(Icons.Default.FileOpen, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.import_txt))
-                }
-            }
-            if (importFailed) ErrorText(stringResource(R.string.import_error))
-            Spacer(Modifier.height(8.dp))
-            LanguageChoice(editor, onLanguageChange)
-            Spacer(Modifier.height(8.dp))
-            OutlinedTextField(
-                value = editor.rawText,
-                onValueChange = onRawTextChange,
-                placeholder = { Text(stringResource(R.string.input_hint)) },
-                minLines = 5,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            if (!editor.warnings.isEmpty) {
-                Spacer(Modifier.height(8.dp))
-                HardPartsWarning(editor.warnings)
-            }
-            TextPreview(editor.preview)
-        }
+                .fillMaxWidth()
+        )
+        HardPartsHint(editor.warnings)
+        Spacer(Modifier.height(8.dp))
+        LanguageChoice(editor, onLanguageChange)
 
         Spacer(Modifier.height(8.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -261,48 +232,17 @@ private fun LanguageChoice(editor: TextEditorState, onChange: (TextLanguage) -> 
     }
 }
 
+/** Digits, abbreviations and symbols are hard to recognise: a short hint under the field. */
 @Composable
-private fun HardPartsWarning(warnings: TextWarnings) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(Modifier.padding(12.dp)) {
-            Text(
-                stringResource(R.string.hard_parts_title),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onErrorContainer
-            )
-            listOf(
-                R.string.hard_parts_digits to warnings.digits,
-                R.string.hard_parts_abbreviations to warnings.abbreviations,
-                R.string.hard_parts_symbols to warnings.symbols
-            ).filter { it.second.isNotEmpty() }.forEach { (label, parts) ->
-                Text(
-                    stringResource(label, parts.joinToString(", ")),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-            }
-        }
-    }
-}
-
-/** How the text was split into sentences and words. */
-@Composable
-fun TextPreview(text: PreparedText) {
-    if (text.words.isEmpty()) return
-    Spacer(Modifier.height(8.dp))
+private fun HardPartsHint(warnings: TextWarnings) {
+    if (warnings.isEmpty) return
     Text(
-        stringResource(R.string.input_summary, text.sentences.size, text.words.size),
-        style = MaterialTheme.typography.titleSmall
+        stringResource(
+            R.string.hard_parts_hint,
+            (warnings.digits + warnings.abbreviations + warnings.symbols).joinToString(", ")
+        ),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.error,
+        modifier = Modifier.padding(top = 4.dp)
     )
-    text.sentences.forEachIndexed { i, sentence ->
-        Text(
-            "${i + 1}. " + sentence.joinToString(" · ") { it.display },
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(top = 4.dp)
-        )
-    }
 }

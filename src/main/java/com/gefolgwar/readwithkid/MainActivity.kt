@@ -171,10 +171,8 @@ fun ReadWithKidApp(
             editor != null ->
                 TextEditorScreen(
                     editor,
-                    onTitleChange = libraryVm::updateTitle,
                     onLanguageChange = libraryVm::chooseLanguage,
                     onRawTextChange = libraryVm::updateRawText,
-                    onImport = libraryVm::importTxt,
                     onSave = libraryVm::save,
                     onCancel = libraryVm::cancelEdit,
                     modifier = modifier

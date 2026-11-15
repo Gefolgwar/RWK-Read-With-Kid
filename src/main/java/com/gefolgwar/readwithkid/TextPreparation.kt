@@ -38,6 +38,15 @@ object TextPreparation {
         return PreparedText(sentences)
     }
 
+    private const val TITLE_WORDS = 5
+
+    /** Title of a text: its first words, cut with "…" when the text goes on. */
+    fun autoTitle(raw: String): String {
+        val words = prepare(raw).words
+        val title = words.take(TITLE_WORDS).joinToString(" ") { it.display }.trimEnd { it in ".,!?…:;-–—" }
+        return if (words.size > TITLE_WORDS) "$title…" else title
+    }
+
     // e.g. "т.д.", "z.B."
     private val DOTTED_ABBREVIATION = Regex("\\p{L}{1,3}\\.\\p{L}{1,3}\\.?")
     private const val ORDINARY_PUNCTUATION = ".,!?…:;-‐–—'’‘`\"«»„“”‚()[]"

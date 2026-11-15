@@ -127,4 +127,19 @@ class TextPreparationTest {
         val warnings = TextPreparation.findHardParts("50% & 20 € + 3 = № 7 @ кіт # кіт %")
         assertEquals(listOf("%", "&", "€", "+", "=", "№", "@", "#"), warnings.symbols)
     }
+
+    // --- automatic title ---
+
+    @Test
+    fun `title is the first five words with an ellipsis when the text is longer`() {
+        assertEquals("Мама мила раму. Тато читав…", TextPreparation.autoTitle("Мама мила раму. Тато читав книжку."))
+        assertEquals("Жив собі кіт — дуже великий…", TextPreparation.autoTitle("Жив собі кіт — дуже великий і рудий."))
+    }
+
+    @Test
+    fun `short text is the whole title without trailing punctuation`() {
+        assertEquals("Мама мила раму", TextPreparation.autoTitle("  Мама мила\nраму. "))
+        assertEquals("«Кіт»", TextPreparation.autoTitle("«Кіт»"))
+        assertEquals("", TextPreparation.autoTitle(" — … "))
+    }
 }

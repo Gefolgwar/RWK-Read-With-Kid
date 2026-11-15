@@ -6,6 +6,7 @@
     <string name="add_text">Додати текст</string>
     <string name="edit">Редагувати</string>
     <string name="delete">Видалити</string>
+    <string name="more_actions">Інші дії</string>
     <string name="delete_text_title">Видалити текст?</string>
     <string name="delete_text_message">«%1$s» буде видалено назавжди.</string>
     <string name="back">Назад</string>
@@ -13,20 +14,13 @@
     <string name="new_text_title">Новий текст</string>
     <string name="edit_text_title">Редагування тексту</string>
     <string name="private_use_note">Тексти призначені лише для приватного використання в сім\'ї. Вони зберігаються на цьому телефоні й нікуди не передаються.</string>
-    <string name="text_title_label">Заголовок</string>
     <string name="text_language_label">Мова тексту</string>
     <string name="text_language_detected">Запропоновано за алфавітом тексту. Можна змінити.</string>
     <string name="paste">Вставити</string>
-    <string name="import_txt">Імпорт .txt</string>
-    <string name="import_error">Не вдалося прочитати файл.</string>
     <string name="save">Зберегти</string>
-    <string name="hard_parts_title">Ці частини складно розпізнати. Краще запишіть їх словами:</string>
-    <string name="hard_parts_digits">Цифри: %1$s</string>
-    <string name="hard_parts_abbreviations">Абревіатури: %1$s</string>
-    <string name="hard_parts_symbols">Символи: %1$s</string>
+    <string name="hard_parts_hint">Складно розпізнати, краще запишіть словами: %1$s</string>
 
     <string name="input_hint">Вставте або наберіть текст</string>
-    <string name="input_summary">Речень: %1$d · Слів: %2$d</string>
     <string name="model_loading">Завантаження мовної моделі…</string>
     <string name="model_error">Не вдалося завантажити мовну модель. Перезапустіть застосунок.</string>
     <string name="recognition_error">Розпізнавання мовлення зупинилося через помилку. Спробуйте ще раз.</string>

@@ -17,16 +17,15 @@ import kotlinx.coroutines.launch
 data class TextEditorState(
     val id: Long = 0,
     val createdAt: Long = 0,
-    val title: String = "",
     val rawText: String = "",
     /** Language the parent picked, or null while it follows the alphabet of the text. */
     val chosenLanguage: TextLanguage? = null
 ) {
-    val preview: PreparedText = TextPreparation.prepare(rawText)
+    val title: String = TextPreparation.autoTitle(rawText)
     val warnings: TextWarnings = TextPreparation.findHardParts(rawText)
     val detectedLanguage: TextLanguage? = TextPreparation.detectLanguage(rawText)
     val language: TextLanguage get() = chosenLanguage ?: detectedLanguage ?: TextLanguage.UK
-    val canSave: Boolean get() = title.isNotBlank() && preview.words.isNotEmpty()
+    val canSave: Boolean get() = title.isNotEmpty()
 }
 
 data class LibraryUiState(
@@ -52,22 +51,12 @@ class LibraryViewModel(
     fun edit(text: SavedText) {
         // A stored language the alphabet would suggest anyway keeps following the text.
         val chosen = text.language.takeIf { it != TextPreparation.detectLanguage(text.rawText) }
-        editor.value = TextEditorState(text.id, text.createdAt, text.title, text.rawText, chosen)
+        editor.value = TextEditorState(text.id, text.createdAt, text.rawText, chosen)
     }
 
     fun chooseLanguage(language: TextLanguage) = editor.update { it?.copy(chosenLanguage = language) }
 
-    fun updateTitle(title: String) = editor.update { it?.copy(title = title) }
-
     fun updateRawText(raw: String) = editor.update { it?.copy(rawText = raw) }
-
-    /** Replaces the text with a .txt file's content; the file name becomes the title unless one was typed. */
-    fun importTxt(fileName: String?, content: String) = editor.update { current ->
-        current?.copy(
-            rawText = content,
-            title = current.title.ifBlank { fileName?.substringBeforeLast('.')?.trim().orEmpty() }
-        )
-    }
 
     fun cancelEdit() {
         editor.value = null
@@ -78,7 +67,7 @@ class LibraryViewModel(
         if (!current.canSave) return
         val text = SavedText(
             id = current.id,
-            title = current.title.trim(),
+            title = current.title,
             rawText = current.rawText.trim(),
             createdAt = if (current.id == 0L) clockMs() else current.createdAt,
             language = current.language

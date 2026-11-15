@@ -34,9 +34,8 @@ class LibraryViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun addText(title: String, raw: String) {
+    private fun addText(raw: String) {
         vm.newText()
-        vm.updateTitle(title)
         vm.updateRawText(raw)
         vm.save()
     }
@@ -48,28 +47,25 @@ class LibraryViewModelTest {
     }
 
     @Test
-    fun `typed text is saved with title and editor closes`() {
+    fun `typed text is saved with an automatic title and editor closes`() {
         vm.newText()
         assertEquals("", editor.title)
-        vm.updateTitle("  Казка ")
         vm.updateRawText("Мама мила раму.\n")
+        assertEquals("Мама мила раму", editor.title)
         vm.save()
 
         assertNull(state.editor)
         val saved = state.texts.single()
-        assertEquals("Казка", saved.title)
+        assertEquals("Мама мила раму", saved.title)
         assertEquals("Мама мила раму.", saved.rawText)
         assertEquals(1_000L, saved.createdAt)
         assertTrue(saved.id > 0)
     }
 
     @Test
-    fun `editor previews sentence and word split before saving`() {
-        vm.newText()
-        vm.updateRawText("Мама мила раму. Тато читав книжку.")
-        assertEquals(2, editor.preview.sentences.size)
-        assertEquals(6, editor.preview.words.size)
-        assertTrue(state.texts.isEmpty())
+    fun `long text is titled by its first five words`() {
+        addText("Мама мила раму. Тато читав книжку.")
+        assertEquals("Мама мила раму. Тато читав…", state.texts.single().title)
     }
 
     @Test
@@ -85,14 +81,12 @@ class LibraryViewModelTest {
     }
 
     @Test
-    fun `cannot save without title or without words`() {
+    fun `cannot save without words`() {
         vm.newText()
-        vm.updateRawText("Мама мила раму.")
         assertFalse(editor.canSave)
         vm.save()
         assertNotNull(state.editor)
 
-        vm.updateTitle("Назва")
         vm.updateRawText(" — … ")
         assertFalse(editor.canSave)
         vm.save()
@@ -103,25 +97,8 @@ class LibraryViewModelTest {
     }
 
     @Test
-    fun `imported txt fills text and takes title from file name`() {
-        vm.newText()
-        vm.importTxt("Казка про кота.txt", "Жив собі кіт.")
-        assertEquals("Казка про кота", editor.title)
-        assertEquals("Жив собі кіт.", editor.rawText)
-    }
-
-    @Test
-    fun `import keeps title the parent already typed`() {
-        vm.newText()
-        vm.updateTitle("Моя назва")
-        vm.importTxt("file.txt", "Жив собі кіт.")
-        assertEquals("Моя назва", editor.title)
-    }
-
-    @Test
     fun `cancel closes editor without saving`() {
         vm.newText()
-        vm.updateTitle("Назва")
         vm.updateRawText("Текст")
         vm.cancelEdit()
         assertNull(state.editor)
@@ -129,58 +106,58 @@ class LibraryViewModelTest {
     }
 
     @Test
-    fun `editing updates the existing text and keeps its creation time`() {
-        addText("Стара", "Старий текст.")
+    fun `editing updates the existing text and its title, and keeps its creation time`() {
+        addText("Старий текст.")
         val original = state.texts.single()
+        assertEquals("Старий текст", original.title)
 
         nowMs = 5_000
         vm.edit(original)
-        assertEquals("Стара", editor.title)
         assertEquals("Старий текст.", editor.rawText)
-        vm.updateTitle("Нова")
         vm.updateRawText("Новий текст.")
+        assertEquals("Новий текст", editor.title)
         vm.save()
 
         val updated = state.texts.single()
         assertEquals(original.id, updated.id)
-        assertEquals("Нова", updated.title)
+        assertEquals("Новий текст", updated.title)
         assertEquals("Новий текст.", updated.rawText)
         assertEquals(1_000L, updated.createdAt)
     }
 
     @Test
     fun `newest texts come first`() {
-        addText("Перший", "Один.")
+        addText("Перший.")
         nowMs = 2_000
-        addText("Другий", "Два.")
+        addText("Другий.")
         assertEquals(listOf("Другий", "Перший"), state.texts.map { it.title })
     }
 
     @Test
     fun `delete removes the text`() {
-        addText("Перший", "Один.")
-        addText("Другий", "Два.")
+        addText("Перший.")
+        addText("Другий.")
         vm.delete(state.texts.first { it.title == "Перший" })
         assertEquals(listOf("Другий"), state.texts.map { it.title })
     }
 
     @Test
     fun `texts are read from the repository, so a new viewmodel sees saved texts`() {
-        addText("Казка", "Жив собі кіт.")
+        addText("Жив собі кіт.")
         val afterRestart = LibraryViewModel(repository)
-        assertEquals(listOf("Казка"), afterRestart.uiState.value.texts.map { it.title })
-        assertEquals("Казка", runBlocking { repository.observeAll().first() }.single().title)
+        assertEquals(listOf("Жив собі кіт"), afterRestart.uiState.value.texts.map { it.title })
+        assertEquals("Жив собі кіт", runBlocking { repository.observeAll().first() }.single().title)
     }
 
     @Test
     fun `any saved text can be loaded into a reading session`() {
-        addText("Перший", "Один два.")
-        addText("Другий", "Мама мила раму. Тато читав книжку.")
+        addText("Один два.")
+        addText("Мама мила раму. Тато читав книжку.")
         val engine = FakeVoskEngine()
         val reading = ReadingSessionViewModel({ engine })
         engine.simulateModelLoaded()
 
-        val chosen = state.texts.first { it.title == "Другий" }
+        val chosen = state.texts.first { it.rawText.startsWith("Мама") }
         reading.updateText(chosen.rawText)
         reading.start()
 
@@ -206,7 +183,6 @@ class LibraryViewModelTest {
         vm.updateRawText("Der Hund heißt Бровко und spielt gern.")
         assertEquals(TextLanguage.DE, editor.language)
 
-        vm.updateTitle("Hund")
         vm.save()
         assertEquals(TextLanguage.DE, state.texts.single().language)
     }
@@ -214,7 +190,6 @@ class LibraryViewModelTest {
     @Test
     fun `parent can change the suggested language`() {
         vm.newText()
-        vm.updateTitle("Ім'я")
         vm.updateRawText("Anna")
         assertEquals(TextLanguage.DE, editor.language)
 
@@ -231,7 +206,7 @@ class LibraryViewModelTest {
 
     @Test
     fun `editing a text whose language matches its alphabet keeps following the alphabet`() {
-        addText("Katze", "Die Katze schläft.")
+        addText("Die Katze schläft.")
         vm.edit(state.texts.single())
         assertEquals(TextLanguage.DE, editor.language)
         assertNull(editor.chosenLanguage)
@@ -239,7 +214,7 @@ class LibraryViewModelTest {
 
     @Test
     fun `a German text is read with the German model`() {
-        addText("Katze", "Die Katze schläft.")
+        addText("Die Katze schläft.")
         val engines = mutableMapOf<TextLanguage, FakeVoskEngine>()
         val reading = ReadingSessionViewModel({ FakeVoskEngine().also { engine -> engines[it] = engine } })
 
