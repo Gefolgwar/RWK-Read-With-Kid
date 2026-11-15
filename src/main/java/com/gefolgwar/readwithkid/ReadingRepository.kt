@@ -37,6 +37,8 @@ interface ReadingRepository {
 
     /** Inserts the reading. Returns its id. */
     suspend fun saveReading(record: ReadingRecord): Long
+
+    suspend fun deleteReading(id: Long)
 }
 
 @Dao
@@ -46,6 +48,9 @@ abstract class ReadingDao : ReadingRepository {
 
     @Insert
     abstract override suspend fun saveReading(record: ReadingRecord): Long
+
+    @Query("DELETE FROM readings WHERE id = :id")
+    abstract override suspend fun deleteReading(id: Long)
 }
 
 /** Word lists are stored one word per line. */

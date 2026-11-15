@@ -37,6 +37,10 @@
     <string name="resume">Продовжити</string>
     <string name="finish">Готово</string>
     <string name="reading_help_hint">Натисни на слово, щоб почути його</string>
+    <string name="word_heard">Почуто: %1$s</string>
+    <string name="word_heard_nothing">Нічого не почуто</string>
+    <string name="word_retry">Повторити</string>
+    <string name="word_retry_listening">Читай слово…</string>
 
     <string name="result_praise_3">Чудово прочитано!</string>
     <string name="result_praise_2">Молодець!</string>
@@ -54,6 +58,9 @@
 
     <string name="history_title">Попередні спроби</string>
     <string name="history_reading">%1$d %% · %2$d слів/хв</string>
+    <string name="history_empty">Цей текст ще не читали.</string>
+    <string name="delete_reading_title">Видалити спробу?</string>
+    <string name="delete_reading_message">Спробу від %1$s буде видалено назавжди.</string>
 
     <string name="language_uk">Українська</string>
     <string name="language_de">Німецька</string>

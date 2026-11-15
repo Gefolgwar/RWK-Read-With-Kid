@@ -5,10 +5,15 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -28,21 +33,66 @@ data class TextEditorState(
     val canSave: Boolean get() = title.isNotEmpty()
 }
 
+/** The readings of [text], newest first; [shown] is the reading whose result is open, or null for the list. */
+data class TextHistory(
+    val text: SavedText,
+    val readings: List<ReadingRecord> = emptyList(),
+    val shown: ReadingRecord? = null
+)
+
 data class LibraryUiState(
     val texts: List<SavedText> = emptyList(),
     /** Open editor, or null when the library list is shown. */
-    val editor: TextEditorState? = null
+    val editor: TextEditorState? = null,
+    /** Open history of a text, or null. */
+    val history: TextHistory? = null
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class LibraryViewModel(
     private val repository: TextRepository,
+    private val readings: ReadingRepository,
     private val clockMs: () -> Long = System::currentTimeMillis
 ) : ViewModel() {
 
     private val editor = MutableStateFlow<TextEditorState?>(null)
+    /** Text whose history is open, and the id of the reading shown from it. */
+    private val historyText = MutableStateFlow<SavedText?>(null)
+    private val shownReadingId = MutableStateFlow<Long?>(null)
 
-    val uiState: StateFlow<LibraryUiState> = combine(repository.observeAll(), editor, ::LibraryUiState)
+    private val history: Flow<TextHistory?> = combine(
+        historyText.flatMapLatest { text ->
+            if (text == null) flowOf(null) else readings.observeReadings(text.id).map { TextHistory(text, it) }
+        },
+        shownReadingId
+    ) { history, shownId -> history?.copy(shown = history.readings.find { it.id == shownId }) }
+
+    val uiState: StateFlow<LibraryUiState> = combine(repository.observeAll(), editor, history, ::LibraryUiState)
         .stateIn(viewModelScope, SharingStarted.Eagerly, LibraryUiState())
+
+    fun openHistory(text: SavedText) {
+        shownReadingId.value = null
+        historyText.value = text
+    }
+
+    fun closeHistory() {
+        historyText.value = null
+        shownReadingId.value = null
+    }
+
+    /** Opens the result of [reading], as shown at the end of that reading. */
+    fun showReading(reading: ReadingRecord) {
+        shownReadingId.value = reading.id
+    }
+
+    fun closeReading() {
+        shownReadingId.value = null
+    }
+
+    fun deleteReading(reading: ReadingRecord) {
+        if (shownReadingId.value == reading.id) shownReadingId.value = null
+        viewModelScope.launch { readings.deleteReading(reading.id) }
+    }
 
     fun newText() {
         editor.value = TextEditorState()
@@ -81,9 +131,9 @@ class LibraryViewModel(
     }
 
     companion object {
-        fun factory(createTexts: () -> TextRepository): ViewModelProvider.Factory =
+        fun factory(createTexts: () -> TextRepository, createReadings: () -> ReadingRepository): ViewModelProvider.Factory =
             viewModelFactory {
-                initializer { LibraryViewModel(createTexts()) }
+                initializer { LibraryViewModel(createTexts(), createReadings()) }
             }
     }
 }

@@ -6,10 +6,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -20,8 +22,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import java.text.DateFormat
+import java.util.Date
+import kotlin.math.roundToInt
 
 @Composable
 fun LibraryScreen(
@@ -30,6 +36,7 @@ fun LibraryScreen(
     onRead: (SavedText) -> Unit,
     onEdit: (SavedText) -> Unit,
     onDelete: (SavedText) -> Unit,
+    onHistory: (SavedText) -> Unit,
     onSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -82,7 +89,8 @@ fun LibraryScreen(
                         text,
                         onRead = { onRead(text) },
                         onEdit = { onEdit(text) },
-                        onDelete = { pendingDelete = text }
+                        onDelete = { pendingDelete = text },
+                        onHistory = { onHistory(text) }
                     )
                 }
             }
@@ -101,7 +109,8 @@ private fun TextCard(
     text: SavedText,
     onRead: () -> Unit,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onHistory: () -> Unit
 ) {
     Card(onClick = onRead, modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 12.dp, top = 4.dp, bottom = 4.dp)) {
@@ -118,6 +127,9 @@ private fun TextCard(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 4.dp)
                 )
+            }
+            IconButton(onClick = onHistory) {
+                Icon(Icons.Default.History, contentDescription = stringResource(R.string.history_title))
             }
             var menuOpen by remember { mutableStateOf(false) }
             Box {
@@ -143,6 +155,93 @@ private fun TextCard(
                     )
                 }
             }
+        }
+    }
+}
+
+/** Earlier readings of a text, newest first: date, accuracy and words correct per minute. A reading opens its result. */
+@Composable
+fun HistoryScreen(
+    history: TextHistory,
+    onShow: (ReadingRecord) -> Unit,
+    onDelete: (ReadingRecord) -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val dateFormat = remember { DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT) }
+    var pendingDelete by remember { mutableStateOf<ReadingRecord?>(null) }
+
+    BackHandler(onBack = onBack)
+
+    pendingDelete?.let { reading ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text(stringResource(R.string.delete_reading_title)) },
+            text = { Text(stringResource(R.string.delete_reading_message, dateFormat.format(Date(reading.readAt)))) },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingDelete = null
+                    onDelete(reading)
+                }) { Text(stringResource(R.string.delete)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }) { Text(stringResource(R.string.cancel)) }
+            }
+        )
+    }
+
+    Column(modifier = modifier) {
+        Text(
+            stringResource(R.string.history_title),
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.semantics { heading() }
+        )
+        Text(history.text.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 4.dp))
+        Spacer(Modifier.height(8.dp))
+        if (history.readings.isEmpty()) {
+            Text(
+                stringResource(R.string.history_empty),
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.weight(1f)
+            )
+        } else {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                items(history.readings, key = { it.id }) { reading ->
+                    Card(onClick = { onShow(reading) }, modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(start = 12.dp, top = 4.dp, bottom = 4.dp)
+                        ) {
+                            Text(
+                                dateFormat.format(Date(reading.readAt)),
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                stringResource(
+                                    R.string.history_reading,
+                                    (reading.result.accuracy * 100).roundToInt(),
+                                    reading.result.wordsCorrectPerMinute
+                                ),
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                            IconButton(onClick = { pendingDelete = reading }) {
+                                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.back))
         }
     }
 }

@@ -6,7 +6,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -434,31 +433,6 @@ class ReadingSessionViewModelTest {
         assertTrue(readings.all.isEmpty())
     }
 
-    @Test
-    fun `a saved text shows its earlier readings, newest first, with the one just finished`() {
-        val readings = InMemoryReadingRepository()
-        fun record(textId: Long, readAt: Long) =
-            ReadingRecord(textId = textId, textTitle = "Казка", readAt = readAt, result = ReadingResult(6, 3, 60_000, emptyList(), emptyList()))
-        runBlocking {
-            readings.saveReading(record(textId = 3, readAt = 1))
-            readings.saveReading(record(textId = 4, readAt = 2))
-        }
-        vm = savingVm(readings, dateMs = 5)
-        vm.updateText(text, TextLanguage.UK, TextReading(textId = 3, textTitle = "Казка"))
-        assertEquals(listOf(1L), state.history.map { it.readAt })
-
-        vm.start()
-        engine.simulateFinal("мама мила раму тато читав книжку")
-        vm.closeResult()
-        assertEquals(listOf(5L, 1L), state.history.map { it.readAt })
-        assertEquals(6, state.history.first().result.correctWords)
-
-        vm.updateText("Кіт спав.", TextLanguage.UK, TextReading(textId = 4, textTitle = "Кіт"))
-        assertEquals(listOf(2L), state.history.map { it.readAt })
-        vm.updateText("Кіт спав.")
-        assertTrue(state.history.isEmpty())
-    }
-
     // --- pause / resume ---
 
     @Test
@@ -872,5 +846,128 @@ class ReadingSessionViewModelTest {
             listOf("die", "große", "straße", "in", "baden-württemberg", "[unk]"),
             engines.getValue(TextLanguage.DE).lastGrammar
         )
+    }
+
+    // --- reading a misread word again ---
+
+    /** "раму." (2) is misread as "рама" and skipped. */
+    private fun misreadRamu() {
+        vm.updateText(text)
+        vm.start()
+        engine.simulateFinal("мама мила рама тато")
+    }
+
+    @Test
+    fun `a tapped read word shows what the model heard in its place`() {
+        misreadRamu()
+        vm.checkWord(2)
+        assertEquals(WordCheck(2, "рама"), state.wordCheck)
+        vm.checkWord(1)
+        assertEquals(WordCheck(1, "мила"), state.wordCheck)
+        // Nothing was heard yet for an unread word
+        vm.checkWord(5)
+        assertNull(state.wordCheck)
+    }
+
+    @Test
+    fun `a misread word read again correctly turns green and counts as read with several attempts`() {
+        misreadRamu()
+        vm.checkWord(2)
+        vm.retryWord()
+        assertTrue(state.wordCheck!!.retrying)
+        // The microphone starts afresh, so earlier speech is not taken for the word
+        assertEquals(2, engine.startCount)
+
+        engine.simulatePartial("ра му")
+        assertEquals(WordStatus.CONFIRMED, state.wordStatuses[2])
+        assertEquals(WordCheck(2, "раму"), state.wordCheck)
+        // The rest of that speech is not taken for the text either
+        assertEquals(3, engine.startCount)
+        assertEquals(4, state.currentWordIndex)
+
+        engine.simulateFinal("читав книжку")
+        val result = state.result!!
+        assertEquals(6, result.correctWords)
+        assertEquals(emptyList<String>(), result.skippedWords)
+        assertEquals(listOf("раму"), result.retriedWords)
+    }
+
+    @Test
+    fun `a wrong second attempt shows what was heard and the word stays misread`() {
+        misreadRamu()
+        vm.checkWord(2)
+        vm.retryWord()
+        engine.simulatePartial("ра")
+        assertTrue(state.wordCheck!!.retrying)
+        engine.simulateFinal("рами")
+        assertEquals(WordCheck(2, "рами"), state.wordCheck)
+        assertEquals(WordStatus.SKIPPED, state.wordStatuses[2])
+        // Reading goes on from where it was
+        assertEquals(4, state.currentWordIndex)
+        engine.simulateFinal("читав")
+        assertEquals(WordStatus.CONFIRMED, state.wordStatuses[4])
+    }
+
+    @Test
+    fun `only a misread word can be read again`() {
+        misreadRamu()
+        vm.checkWord(1)
+        vm.retryWord()
+        assertFalse(state.wordCheck!!.retrying)
+        assertEquals(1, engine.startCount)
+    }
+
+    @Test
+    fun `reading a word again during a pause resumes reading`() {
+        misreadRamu()
+        vm.pause()
+        vm.checkWord(2)
+        vm.retryWord()
+        assertEquals(SessionState.READING, state.sessionState)
+        assertTrue(engine.started)
+        engine.simulateFinal("раму")
+        assertEquals(WordStatus.CONFIRMED, state.wordStatuses[2])
+    }
+
+    @Test
+    fun `closing the word or pausing stops reading it again`() {
+        misreadRamu()
+        vm.checkWord(2)
+        vm.retryWord()
+        vm.closeWordCheck()
+        assertNull(state.wordCheck)
+        engine.simulateFinal("раму")
+        assertEquals(WordStatus.SKIPPED, state.wordStatuses[2])
+
+        vm.checkWord(2)
+        vm.retryWord()
+        vm.pause()
+        assertFalse(state.wordCheck!!.retrying)
+        vm.resume()
+        engine.simulateFinal("раму")
+        assertEquals(WordStatus.SKIPPED, state.wordStatuses[2])
+    }
+
+    @Test
+    fun `a new reading starts without a tapped word`() {
+        misreadRamu()
+        vm.checkWord(2)
+        vm.finish()
+        vm.closeResult()
+        vm.start()
+        assertNull(state.wordCheck)
+    }
+
+    @Test
+    fun `in grammar mode the word read again is in the grammar`() {
+        engine = FakeVoskEngine()
+        val grammarVm = ReadingSessionViewModel({ engine }, RecognitionMode.GRAMMAR_CONSTRAINED) { nowMs }
+        engine.simulateModelLoaded()
+        grammarVm.updateText("Мама мила раму. Тато читав книжку. Кіт спав.")
+        grammarVm.start()
+        engine.simulateFinal("мама мила рама тато")
+        grammarVm.checkWord(2)
+        grammarVm.retryWord()
+        assertTrue("раму" in engine.lastGrammar!!)
     }
 }

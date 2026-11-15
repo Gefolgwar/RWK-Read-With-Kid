@@ -461,4 +461,84 @@ class WordAlignerTest {
         aligner.processFinal(listOf("баба", "тісто", "колобка", "колобок"))
         assertEquals(setOf(3), aligner.retriedIndices)
     }
+
+    // --- what was heard, and reading a skipped word again ---
+
+    @Test
+    fun `a read word was heard as itself, also when read by syllables`() {
+        read("укра їна є")
+        assertEquals("україна", aligner.heard(0))
+        assertEquals("є", aligner.heard(1))
+    }
+
+    @Test
+    fun `a misread word was heard as what was said in its place`() {
+        read("україна є сувора і")
+        assertEquals(WordStatus.SKIPPED, aligner.getWordStatus(2))
+        assertEquals("сувора", aligner.heard(2))
+    }
+
+    @Test
+    fun `a silently skipped word was heard as nothing`() {
+        read("україна суверенна")
+        assertEquals(WordStatus.SKIPPED, aligner.getWordStatus(1))
+        assertEquals("", aligner.heard(1))
+    }
+
+    @Test
+    fun `words not passed yet and words the model cannot recognise have nothing heard`() {
+        val aligner = WordAligner(kolobok, kolobokUnknown)
+        aligner.processFinal(listOf("баба", "за", "місила", "тісто"))
+        assertNull(aligner.heard(1))
+        assertNull(aligner.heard(3))
+    }
+
+    @Test
+    fun `what was heard keeps the model's spelling`() {
+        val aligner = WordAligner(listOf("schöne", "Straße", "heute", "ist"))
+        aligner.processFinal(listOf("schöne", "strasse", "hoite", "ist"))
+        assertEquals("schöne", aligner.heard(0))
+        assertEquals("strasse", aligner.heard(1))
+        assertEquals("hoite", aligner.heard(2))
+    }
+
+    @Test
+    fun `a skipped word read again correctly counts as read after a wrong attempt`() {
+        read("україна є сувора і")
+        assertTrue(aligner.retry(2, listOf("суверенна"), final = true))
+        assertEquals(WordStatus.CONFIRMED, aligner.getWordStatus(2))
+        assertEquals("суверенна", aligner.heard(2))
+        assertEquals(4, aligner.matchedCount)
+        assertEquals(emptySet<Int>(), aligner.skippedIndices)
+        assertEquals(setOf(2), aligner.retriedIndices)
+        // Reading goes on from where it was
+        assertEquals(3, aligner.confirmedIndex)
+    }
+
+    @Test
+    fun `a skipped word read again by syllables is recognised on a partial result`() {
+        read("україна є сувора і")
+        assertTrue(aligner.retry(2, listOf("су", "ве", "рен", "на"), final = false))
+        assertEquals(WordStatus.CONFIRMED, aligner.getWordStatus(2))
+    }
+
+    @Test
+    fun `a wrong attempt at a skipped word is heard once the result is final`() {
+        read("україна є сувора і")
+        assertFalse(aligner.retry(2, listOf("сові"), final = false))
+        assertEquals("сувора", aligner.heard(2))
+        assertFalse(aligner.retry(2, listOf("соверенна"), final = true))
+        assertEquals("соверенна", aligner.heard(2))
+        assertEquals(WordStatus.SKIPPED, aligner.getWordStatus(2))
+        assertEquals(setOf(2), aligner.skippedIndices)
+    }
+
+    @Test
+    fun `only a skipped word can be read again`() {
+        read("україна є")
+        assertFalse(aligner.retry(1, listOf("є"), final = true))
+        assertFalse(aligner.retry(2, listOf("суверенна"), final = true))
+        assertEquals(WordStatus.UNREAD, aligner.getWordStatus(2))
+        assertEquals(emptySet<Int>(), aligner.retriedIndices)
+    }
 }

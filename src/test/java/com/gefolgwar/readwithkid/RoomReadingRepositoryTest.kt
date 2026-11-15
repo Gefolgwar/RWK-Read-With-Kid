@@ -70,6 +70,21 @@ class RoomReadingRepositoryTest {
         }
     }
 
+    @Test
+    fun `deleting a reading removes only that reading`() {
+        withDb { db ->
+            val text = db.texts().save(SavedText(title = "Казка", rawText = "Мама мила раму.", createdAt = 1))
+            val result = ReadingResult(3, 3, 3_000, emptyList(), emptyList())
+            val first = db.readings().saveReading(reading(text, readAt = 1, result = result))
+            db.readings().saveReading(reading(text, readAt = 2, result = result))
+
+            db.readings().deleteReading(first)
+
+            assertEquals(listOf(2L), db.readings().observeReadings(text).first().map { it.readAt })
+            assertEquals(1, db.texts().observeAll().first().size)
+        }
+    }
+
     /** The tables as version 3 of the app left them: texts with their language, profiles and assignments. */
     private fun SQLiteDatabase.createV3Tables() {
         execSQL(

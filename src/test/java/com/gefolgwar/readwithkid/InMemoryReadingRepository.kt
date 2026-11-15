@@ -21,4 +21,8 @@ class InMemoryReadingRepository : ReadingRepository {
         readings.update { it + saved }
         return saved.id
     }
+
+    override suspend fun deleteReading(id: Long) {
+        readings.update { all -> all.filter { it.id != id } }
+    }
 }

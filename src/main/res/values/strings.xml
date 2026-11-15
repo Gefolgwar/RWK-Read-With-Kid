@@ -38,6 +38,10 @@
     <string name="resume">Continue</string>
     <string name="finish">Done</string>
     <string name="reading_help_hint">Tap a word to hear it</string>
+    <string name="word_heard">Heard: %1$s</string>
+    <string name="word_heard_nothing">Nothing was heard</string>
+    <string name="word_retry">Read again</string>
+    <string name="word_retry_listening">Read the word…</string>
 
     <string name="result_praise_3">Excellent reading!</string>
     <string name="result_praise_2">Well done!</string>
@@ -55,6 +59,9 @@
 
     <string name="history_title">Earlier readings</string>
     <string name="history_reading">%1$d%% · %2$d words/min</string>
+    <string name="history_empty">This text has not been read yet.</string>
+    <string name="delete_reading_title">Delete reading?</string>
+    <string name="delete_reading_message">The reading of %1$s will be deleted permanently.</string>
 
     <string name="language_uk">Ukrainian</string>
     <string name="language_de">German</string>

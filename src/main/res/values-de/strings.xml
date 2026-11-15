@@ -37,6 +37,10 @@
     <string name="resume">Weiter</string>
     <string name="finish">Fertig</string>
     <string name="reading_help_hint">Tippe auf ein Wort, um es zu hören</string>
+    <string name="word_heard">Gehört: %1$s</string>
+    <string name="word_heard_nothing">Nichts gehört</string>
+    <string name="word_retry">Nochmal</string>
+    <string name="word_retry_listening">Lies das Wort…</string>
 
     <string name="result_praise_3">Super gelesen!</string>
     <string name="result_praise_2">Gut gemacht!</string>
@@ -54,6 +58,9 @@
 
     <string name="history_title">Bisherige Versuche</string>
     <string name="history_reading">%1$d %% · %2$d Wörter/Min.</string>
+    <string name="history_empty">Dieser Text wurde noch nicht gelesen.</string>
+    <string name="delete_reading_title">Versuch löschen?</string>
+    <string name="delete_reading_message">Der Versuch vom %1$s wird endgültig gelöscht.</string>
 
     <string name="language_uk">Ukrainisch</string>
     <string name="language_de">Deutsch</string>

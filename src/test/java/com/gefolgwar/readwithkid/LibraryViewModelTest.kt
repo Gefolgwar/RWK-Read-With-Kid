@@ -16,6 +16,7 @@ import org.junit.Test
 class LibraryViewModelTest {
 
     private lateinit var repository: InMemoryTextRepository
+    private lateinit var readings: InMemoryReadingRepository
     private var nowMs = 1_000L
     private lateinit var vm: LibraryViewModel
 
@@ -26,7 +27,8 @@ class LibraryViewModelTest {
     fun setup() {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         repository = InMemoryTextRepository()
-        vm = LibraryViewModel(repository, clockMs = { nowMs })
+        readings = InMemoryReadingRepository()
+        vm = LibraryViewModel(repository, readings, clockMs = { nowMs })
     }
 
     @After
@@ -144,7 +146,7 @@ class LibraryViewModelTest {
     @Test
     fun `texts are read from the repository, so a new viewmodel sees saved texts`() {
         addText("Жив собі кіт.")
-        val afterRestart = LibraryViewModel(repository)
+        val afterRestart = LibraryViewModel(repository, readings)
         assertEquals(listOf("Жив собі кіт"), afterRestart.uiState.value.texts.map { it.title })
         assertEquals("Жив собі кіт", runBlocking { repository.observeAll().first() }.single().title)
     }
@@ -226,5 +228,81 @@ class LibraryViewModelTest {
         assertEquals(TextLanguage.DE, reading.uiState.value.language)
         assertEquals(SessionState.READING, reading.uiState.value.sessionState)
         assertTrue(engines.getValue(TextLanguage.DE).started)
+    }
+
+    // --- history of readings ---
+
+    private fun saveReading(text: SavedText, readAt: Long, correct: Int = 6): ReadingRecord {
+        val record = ReadingRecord(
+            textId = text.id,
+            textTitle = text.title,
+            readAt = readAt,
+            result = ReadingResult(6, correct, 60_000, emptyList(), emptyList())
+        )
+        return record.copy(id = runBlocking { readings.saveReading(record) })
+    }
+
+    @Test
+    fun `a text's history shows its readings, newest first, and follows new ones`() {
+        addText("Мама мила раму.")
+        addText("Кіт спав.")
+        val (cat, mama) = state.texts
+        saveReading(mama, readAt = 1)
+        saveReading(cat, readAt = 2)
+        saveReading(mama, readAt = 3)
+
+        vm.openHistory(mama)
+        assertEquals(mama, state.history!!.text)
+        assertEquals(listOf(3L, 1L), state.history!!.readings.map { it.readAt })
+        saveReading(mama, readAt = 4)
+        assertEquals(listOf(4L, 3L, 1L), state.history!!.readings.map { it.readAt })
+
+        vm.closeHistory()
+        assertNull(state.history)
+    }
+
+    @Test
+    fun `a reading in the history opens its result and closes back to the history`() {
+        addText("Мама мила раму.")
+        val text = state.texts.single()
+        val first = saveReading(text, readAt = 1, correct = 4)
+        saveReading(text, readAt = 2)
+
+        vm.openHistory(text)
+        assertNull(state.history!!.shown)
+        vm.showReading(first)
+        assertEquals(4, state.history!!.shown!!.result.correctWords)
+        vm.closeReading()
+        assertNull(state.history!!.shown)
+        assertEquals(2, state.history!!.readings.size)
+    }
+
+    @Test
+    fun `a deleted reading leaves the history`() {
+        addText("Мама мила раму.")
+        val text = state.texts.single()
+        val first = saveReading(text, readAt = 1)
+        val second = saveReading(text, readAt = 2)
+
+        vm.openHistory(text)
+        vm.showReading(first)
+        vm.deleteReading(first)
+        assertEquals(listOf(second), state.history!!.readings)
+        assertNull(state.history!!.shown)
+        assertEquals(listOf(second), readings.all)
+    }
+
+    @Test
+    fun `another text's history starts on its list`() {
+        addText("Мама мила раму.")
+        addText("Кіт спав.")
+        val (cat, mama) = state.texts
+        vm.openHistory(mama)
+        vm.showReading(saveReading(mama, readAt = 1))
+        vm.closeHistory()
+        vm.openHistory(cat)
+        assertEquals(cat, state.history!!.text)
+        assertNull(state.history!!.shown)
+        assertEquals(emptyList<ReadingRecord>(), state.history!!.readings)
     }
 }

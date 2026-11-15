@@ -19,7 +19,9 @@ class WordAligner(private val words: List<String>, unknownIndices: Set<Int> = em
         val retried: Set<Int> = emptySet(),
         /** The next expected word already got a wrong attempt. */
         val wrongAttempt: Boolean = false,
-        /** Trailing recognised words that need more speech to resolve: unfinished syllables or an unconfirmed jump. */
+        /** What the model heard in place of a word, as it spelled it: the word itself once read, else the wrong attempts. */
+        val heard: Map<Int, String> = emptyMap(),
+        /** Trailing recognised words, as heard, that need more speech to resolve: unfinished syllables or an unconfirmed jump. */
         val pending: List<String> = emptyList()
     )
 
@@ -70,6 +72,42 @@ class WordAligner(private val words: List<String>, unknownIndices: Set<Int> = em
         tentative = null
     }
 
+    /**
+     * What the model heard in place of a read or skipped word, as it spelled it; "" when nothing was heard
+     * in place of a skipped word. Null for a word not passed yet and for a word the model cannot recognise.
+     */
+    fun heard(index: Int): String? {
+        val k = known.binarySearch(index)
+        if (k !in confirmed.matched && k !in confirmed.skipped) return null
+        return confirmed.heard[k].orEmpty()
+    }
+
+    /**
+     * The child reads skipped word [index] again. True once [recognizedWords] hold the word, whole or by syllables:
+     * it then counts as read after a wrong attempt. Otherwise a [final] result is what was heard in its place.
+     */
+    fun retry(index: Int, recognizedWords: List<String>, final: Boolean): Boolean {
+        val k = known.binarySearch(index)
+        if (k !in confirmed.skipped) return false
+        val heardTokens = recognizedWords.filter { TextPreparation.normalize(it).isNotEmpty() }
+        val tokens = heardTokens.map(TextPreparation::normalize)
+        val target = normalizedWords[k]
+        for (i in tokens.indices) {
+            val pieces = glue(tokens, i, target)
+            if (pieces > 0 && tokens.subList(i, i + pieces).joinToString("") == target) {
+                confirmed = confirmed.copy(
+                    matched = confirmed.matched + k,
+                    skipped = confirmed.skipped - k,
+                    retried = confirmed.retried + k,
+                    heard = confirmed.heard + (k to heardTokens.subList(i, i + pieces).joinToString(""))
+                )
+                return true
+            }
+        }
+        if (final) confirmed = confirmed.copy(heard = confirmed.heard + (k to heardTokens.joinToString(" ")))
+        return false
+    }
+
     fun getWordStatus(index: Int): WordStatus {
         if (index < 0 || index >= words.size) return WordStatus.UNREAD
         val k = known.binarySearch(index) // negative for an unknown word
@@ -82,7 +120,9 @@ class WordAligner(private val words: List<String>, unknownIndices: Set<Int> = em
     }
 
     private fun advance(from: Progress, recognizedWords: List<String>): Progress {
-        val tokens = from.pending + recognizedWords.map(TextPreparation::normalize).filter { it.isNotEmpty() }
+        // As the model spelled them, to show what was heard
+        val heardTokens = from.pending + recognizedWords.filter { TextPreparation.normalize(it).isNotEmpty() }
+        val tokens = heardTokens.map(TextPreparation::normalize)
         var p = from.copy(pending = emptyList())
         var i = 0
         while (i < tokens.size) {
@@ -95,8 +135,9 @@ class WordAligner(private val words: List<String>, unknownIndices: Set<Int> = em
             val pieces = glue(tokens, i, target)
             if (pieces > 0) {
                 when {
-                    tokens.subList(i, i + pieces).joinToString("") == target -> p = p.readTo(expected)
-                    i + pieces == tokens.size -> return p.copy(pending = tokens.subList(i, tokens.size))
+                    tokens.subList(i, i + pieces).joinToString("") == target ->
+                        p = p.readTo(expected, heardTokens.subList(i, i + pieces).joinToString(""))
+                    i + pieces == tokens.size -> return p.copy(pending = heardTokens.subList(i, tokens.size))
                     else -> Unit // a partial word before the whole one — not an error
                 }
                 i += pieces
@@ -114,16 +155,19 @@ class WordAligner(private val words: List<String>, unknownIndices: Set<Int> = em
                 .firstOrNull { normalizedWords[it] == token }
             if (jump != null) {
                 // Skipping one word is common; a longer jump must be confirmed by the next word to avoid a chance match.
-                if (jump - expected > 1 && i + 1 == tokens.size) return p.copy(pending = tokens.subList(i, tokens.size))
+                if (jump - expected > 1 && i + 1 == tokens.size) return p.copy(pending = heardTokens.subList(i, tokens.size))
                 if (jump - expected == 1 || normalizedWords.getOrNull(jump + 1) == tokens[i + 1]) {
-                    p = p.readTo(jump)
+                    p = p.readTo(jump, heardTokens[i])
                     i++
                     continue
                 }
             }
 
             // Right after an unknown word the model says something else in its place: not a wrong attempt.
-            if (!followsUnknown(expected)) p = p.copy(wrongAttempt = true)
+            if (!followsUnknown(expected)) {
+                val attempts = listOfNotNull(p.heard[expected], heardTokens[i]).joinToString(" ")
+                p = p.copy(wrongAttempt = true, heard = p.heard + (expected to attempts))
+            }
             i++
         }
         return p
@@ -150,13 +194,14 @@ class WordAligner(private val words: List<String>, unknownIndices: Set<Int> = em
         return count
     }
 
-    /** Reads word [index]; words between the pointer and [index] are skipped. */
-    private fun Progress.readTo(index: Int) = copy(
+    /** Reads word [index], heard as [heardAs]; words between the pointer and [index] are skipped. */
+    private fun Progress.readTo(index: Int, heardAs: String) = copy(
         pointer = index,
         matched = matched + index,
         skipped = skipped + (pointer + 1 until index),
         retried = if (wrongAttempt && index == pointer + 1) retried + index else retried,
-        wrongAttempt = false
+        wrongAttempt = false,
+        heard = heard + (index to heardAs)
     )
 
     private companion object {

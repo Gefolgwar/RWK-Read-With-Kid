@@ -22,6 +22,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
@@ -31,6 +32,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -38,8 +40,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
@@ -49,12 +49,16 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.delay
-import java.text.DateFormat
-import java.util.Date
 import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
@@ -66,7 +70,7 @@ class MainActivity : ComponentActivity() {
         }
     }
     private val libraryVm: LibraryViewModel by viewModels {
-        LibraryViewModel.factory { db.texts() }
+        LibraryViewModel.factory({ db.texts() }, { db.readings() })
     }
 
     private val settings by lazy { AppSettings(applicationContext) }
@@ -149,6 +153,7 @@ fun ReadWithKidApp(
             .padding(16.dp)
         val result = state.result
         val editor = library.editor
+        val history = library.history
         val title = readingTitle
         when {
             state.sessionState == SessionState.FINISHED && result != null ->
@@ -157,7 +162,12 @@ fun ReadWithKidApp(
                 ReadingScreen(
                     state,
                     syllableColors = syllableColors,
-                    onWordTap = vm::sayWord,
+                    onWordTap = {
+                        vm.sayWord(it)
+                        vm.checkWord(it)
+                    },
+                    onRetryWord = vm::retryWord,
+                    onCloseWordCheck = vm::closeWordCheck,
                     onPause = vm::pause,
                     onResume = vm::resume,
                     onFinish = vm::finish,
@@ -184,6 +194,24 @@ fun ReadWithKidApp(
                     onCancel = libraryVm::cancelEdit,
                     modifier = modifier
                 )
+            history?.shown != null -> {
+                BackHandler(onBack = libraryVm::closeReading)
+                // The same result the child saw at the end of that reading
+                ResultScreen(
+                    history.shown.result,
+                    onClose = libraryVm::closeReading,
+                    closeLabel = stringResource(R.string.back),
+                    modifier = modifier
+                )
+            }
+            history != null ->
+                HistoryScreen(
+                    history,
+                    onShow = libraryVm::showReading,
+                    onDelete = libraryVm::deleteReading,
+                    onBack = libraryVm::closeHistory,
+                    modifier = modifier
+                )
             showPrivacy ->
                 PrivacyPolicyScreen(onBack = { showPrivacy = false }, modifier = modifier)
             showLicenses ->
@@ -206,6 +234,7 @@ fun ReadWithKidApp(
                     onRead = read,
                     onEdit = libraryVm::edit,
                     onDelete = libraryVm::delete,
+                    onHistory = libraryVm::openHistory,
                     onSettings = { showSettings = true },
                     modifier = modifier
                 )
@@ -284,11 +313,6 @@ fun ReadyToReadScreen(
             // Just the text the child is about to read, without the parent's sentence breakdown.
             Spacer(Modifier.height(8.dp))
             Text(state.rawText, style = MaterialTheme.typography.titleLarge)
-
-            if (state.history.isNotEmpty()) {
-                Spacer(Modifier.height(24.dp))
-                ReadingHistory(state.history)
-            }
         }
 
         Spacer(Modifier.height(8.dp))
@@ -315,35 +339,6 @@ fun ReadyToReadScreen(
                 },
                 enabled = state.sessionState == SessionState.READY && state.text.words.isNotEmpty(),
                 modifier = Modifier.weight(1f)
-            )
-        }
-    }
-}
-
-/** Earlier readings of the text, newest first: date, accuracy and words correct per minute. */
-@Composable
-private fun ReadingHistory(history: List<ReadingRecord>) {
-    val dateFormat = remember { DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT) }
-    Text(
-        stringResource(R.string.history_title),
-        style = MaterialTheme.typography.titleMedium,
-        modifier = Modifier.semantics { heading() }
-    )
-    history.forEach { reading ->
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 4.dp)
-        ) {
-            Text(dateFormat.format(Date(reading.readAt)), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-            Text(
-                stringResource(
-                    R.string.history_reading,
-                    (reading.result.accuracy * 100).roundToInt(),
-                    reading.result.wordsCorrectPerMinute
-                ),
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Bold
             )
         }
     }
@@ -379,6 +374,8 @@ fun ReadingScreen(
     state: ReadingUiState,
     syllableColors: Boolean,
     onWordTap: (Int) -> Unit,
+    onRetryWord: () -> Unit,
+    onCloseWordCheck: () -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
     onFinish: () -> Unit,
@@ -415,8 +412,8 @@ fun ReadingScreen(
                 } else append(word.display)
             }
             val appendWord = { if (style != null) withStyle(style) { appendText() } else appendText() }
-            // Tapping a word says it, when the phone has a voice for the language
-            if (state.helpAvailable) withLink(LinkAnnotation.Clickable("word$index") { onWordTap(index) }) { appendWord() } else appendWord()
+            // Tapping a word says it, when the phone has a voice for the language, and shows what was heard in its place
+            withLink(LinkAnnotation.Clickable("word$index") { onWordTap(index) }) { appendWord() }
             if (index < words.lastIndex) append(" ")
         }
     }
@@ -435,17 +432,38 @@ fun ReadingScreen(
             Text(stringResource(R.string.reading_help_hint), style = MaterialTheme.typography.bodyLarge)
             Spacer(Modifier.height(8.dp))
         }
-        // Andika comes from the theme's typography.
-        Text(
-            text = annotated,
-            fontSize = 30.sp,
-            lineHeight = 46.sp,
-            onTextLayout = { layout = it },
+        Box(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
                 .verticalScroll(scroll)
-        )
+        ) {
+            // Inside the scroll, so the tapped word's popup stays over the word
+            Box {
+                // Andika comes from the theme's typography.
+                Text(
+                    text = annotated,
+                    fontSize = 30.sp,
+                    lineHeight = 46.sp,
+                    onTextLayout = { layout = it },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                val check = state.wordCheck
+                val wordBounds = check?.takeIf { it.index in wordStarts.indices }?.let {
+                    val start = wordStarts[it.index]
+                    layout?.getPathForRange(start, start + words[it.index].display.length)?.getBounds()
+                }
+                if (check != null && wordBounds != null) {
+                    WordCheckPopup(
+                        check,
+                        wordBounds,
+                        misread = state.wordStatuses.getOrNull(check.index) == WordStatus.SKIPPED,
+                        onRetry = onRetryWord,
+                        onClose = onCloseWordCheck
+                    )
+                }
+            }
+        }
         Spacer(Modifier.height(8.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             if (state.sessionState == SessionState.PAUSED) {
@@ -470,12 +488,61 @@ fun ReadingScreen(
     }
 }
 
+/** Above the tapped word: what the speech model heard in its place, and for a misread word the button to read it again. */
+@Composable
+private fun WordCheckPopup(check: WordCheck, word: Rect, misread: Boolean, onRetry: () -> Unit, onClose: () -> Unit) {
+    val position = remember(word) { OverWord(word) }
+    Popup(popupPositionProvider = position, onDismissRequest = onClose) {
+        Surface(shape = MaterialTheme.shapes.large, shadowElevation = 8.dp, tonalElevation = 2.dp) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    if (check.heard.isEmpty()) stringResource(R.string.word_heard_nothing)
+                    else stringResource(R.string.word_heard, check.heard),
+                    style = MaterialTheme.typography.titleLarge
+                )
+                when {
+                    check.retrying -> Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 3.dp)
+                        Spacer(Modifier.width(12.dp))
+                        Text(stringResource(R.string.word_retry_listening), style = MaterialTheme.typography.titleLarge)
+                    }
+                    misread -> ChildButton(Icons.Default.Mic, stringResource(R.string.word_retry), onClick = onRetry)
+                }
+            }
+        }
+    }
+}
+
+/** Places a popup centred over [word], given in the anchor's coordinates, or under it without room above; inside the window. */
+private class OverWord(private val word: Rect) : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize
+    ): IntOffset {
+        val x = anchorBounds.left + word.center.x.roundToInt() - popupContentSize.width / 2
+        val above = anchorBounds.top + word.top.roundToInt() - popupContentSize.height
+        val y = if (above >= 0) above else anchorBounds.top + word.bottom.roundToInt()
+        return IntOffset(x.coerceIn(0, maxOf(0, windowSize.width - popupContentSize.width)), y)
+    }
+}
+
 /** Scroll position that shows the line starting at [lineTop] a third of the way down a [viewportHeight] tall text. */
 fun autoScrollTarget(lineTop: Float, viewportHeight: Int): Int =
     (lineTop - viewportHeight / 3f).roundToInt().coerceAtLeast(0)
 
 @Composable
-fun ResultScreen(result: ReadingResult, onClose: () -> Unit, modifier: Modifier = Modifier) {
+fun ResultScreen(
+    result: ReadingResult,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier,
+    closeLabel: String = stringResource(R.string.result_back)
+) {
     val totalSeconds = result.durationMs / 1000
     Column(modifier = modifier) {
         Column(
@@ -516,7 +583,7 @@ fun ResultScreen(result: ReadingResult, onClose: () -> Unit, modifier: Modifier 
         Spacer(Modifier.height(8.dp))
         ChildButton(
             Icons.AutoMirrored.Filled.ArrowBack,
-            stringResource(R.string.result_back),
+            closeLabel,
             onClick = onClose,
             modifier = Modifier.fillMaxWidth()
         )
