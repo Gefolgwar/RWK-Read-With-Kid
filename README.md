@@ -1,84 +1,84 @@
 # Read With Kid
 
-Застосунок для перевірки читання дітей вголос (робоча назва; остаточну назву визначить тікет 02).
+An app for checking children's reading aloud (working title; the final name will be decided in ticket 02).
 
-Поки що застосунок підтримує один скрізний сценарій українською та німецькою: батьки вставляють текст, дитина читає його вголос з підсвічуванням слів, після завершення показується результат (точність, слова за хвилину, тривалість). Розпізнавання мовлення — офлайн через Vosk, режим Full Recognition. Тексти зберігаються лише в пам'яті.
+For now the app supports one end-to-end scenario in Ukrainian and German: a parent pastes a text, the child reads it aloud with word highlighting, and when they finish a result is shown (accuracy, words per minute, duration). Speech recognition runs offline via Vosk in Full Recognition mode. Texts are kept in memory only.
 
-## Вимоги
+## Requirements
 
 - Java Development Kit (JDK) 17
 - Android SDK
-- Фізичний Android-пристрій з ОС Android 8.0+ (API 26+) для коректного тестування мікрофону та продуктивності (емулятори можуть давати некоректні затримки).
-- Кабель USB для підключення телефону.
+- A physical Android device running Android 8.0+ (API 26+) for proper testing of the microphone and performance (emulators can show misleading latencies).
+- A USB cable to connect the phone.
 
 ---
 
-## 1. Мовні моделі (Play Asset Delivery)
+## 1. Language models (Play Asset Delivery)
 
-Тексти бувають українською або німецькою; мову застосунок пропонує за алфавітом тексту, батьки можуть її змінити. Для кожної мови є своя модель Vosk, і жодна не входить в основний APK: їх доставляють окремі on-demand asset pack `model_uk` (модуль `model_uk/`) і `model_de` (модуль `model_de/`). Коли батьки вперше відкривають текст певною мовою, застосунок одразу сам завантажує модель цієї мови, показує прогрес і розпаковує її на пристрої. Модель видаляється разом із застосунком.
+Texts can be in Ukrainian or German; the app suggests the language based on the text's alphabet, and the parent can change it. Each language has its own Vosk model, and neither is part of the base APK: they are delivered by separate on-demand asset packs `model_uk` (module `model_uk/`) and `model_de` (module `model_de/`). The first time a parent opens a text in a given language, the app immediately downloads that language's model on its own, shows the progress and unpacks it on the device. The model is removed together with the app.
 
-Архіви моделей не зберігаються в git. Щоб зібрати App Bundle з asset pack:
+Model archives are not stored in git. To build an App Bundle with the asset packs:
 
-1. Завантажте архіви (обидва Apache 2.0):
+1. Download the archives (both Apache 2.0):
    - **`vosk-model-small-uk-v3-small.zip`**: [https://alphacephei.com/vosk/models/vosk-model-small-uk-v3-small.zip](https://alphacephei.com/vosk/models/vosk-model-small-uk-v3-small.zip)
-   - **`vosk-model-small-de-0.15.zip`**: [https://alphacephei.com/vosk/models/vosk-model-small-de-0.15.zip](https://alphacephei.com/vosk/models/vosk-model-small-de-0.15.zip). Не використовуйте `vosk-model-small-de-zamia` — вона під LGPL-3.0.
-2. Покладіть кожен **як є, без розпаковування й перейменування**: українську — у `model_uk/src/main/assets/`, німецьку — у `model_de/src/main/assets/` (створіть папки, якщо їх немає).
+   - **`vosk-model-small-de-0.15.zip`**: [https://alphacephei.com/vosk/models/vosk-model-small-de-0.15.zip](https://alphacephei.com/vosk/models/vosk-model-small-de-0.15.zip). Do not use `vosk-model-small-de-zamia` — it is LGPL-3.0.
+2. Put each one **as is, without unpacking or renaming**: the Ukrainian one in `model_uk/src/main/assets/`, the German one in `model_de/src/main/assets/` (create the folders if they don't exist).
 
-Без архівів юніт-тести і `assembleDebug` / `installDebug` працюють, але `bundleDebug` завершиться помилкою.
+Without the archives, unit tests and `assembleDebug` / `installDebug` work, but `bundleDebug` will fail.
 
 ---
 
-## 2. Збірка та запуск (через Термінал / Командний рядок)
+## 2. Build and run (from the terminal / command line)
 
-Ви можете скомпілювати та встановити застосунок на телефон безпосередньо з терміналу (PowerShell, CMD, Bash), використовуючи Gradle Wrapper.
+You can compile the app and install it on a phone directly from the terminal (PowerShell, CMD, Bash) using the Gradle Wrapper.
 
-### Крок 2.1: Підготовка телефону
+### Step 2.1: Prepare the phone
 
-1. Увімкніть **"Режим розробника"** (Developer Options) на вашому Android пристрої.
-2. Увімкніть **"Налагодження по USB"** (USB Debugging).
-3. Підключіть телефон до комп'ютера за допомогою USB-кабелю.
-4. На екрані телефону може з'явитися запит _"Дозволити налагодження з цього комп'ютера?"_ — натисніть **Дозволити** (Allow).
-5. Перевірте, чи комп'ютер бачить ваш пристрій за допомогою `adb` (Android Debug Bridge):
+1. Enable **Developer Options** on your Android device.
+2. Enable **USB Debugging**.
+3. Connect the phone to the computer with a USB cable.
+4. The phone may show the prompt _"Allow USB debugging from this computer?"_ — tap **Allow**.
+5. Check that the computer sees your device using `adb` (Android Debug Bridge):
    ```powershell
    adb devices
    ```
-   _У списку має з'явитися ваш пристрій поруч зі словом `device`._
+   _Your device should appear in the list next to the word `device`._
 
-### Крок 2.2: Компіляція та встановлення
+### Step 2.2: Compile and install
 
-Відкрийте термінал у папці проекту:
+Open a terminal in the project folder:
 
 ```powershell
 cd "D:\Project\RWK2"
 ```
 
-Щоб **скомпілювати APK та одразу встановити його** на підключений телефон, виконайте:
+To **compile the APK and install it right away** on the connected phone, run:
 
-**Для Windows (PowerShell/CMD):**
+**On Windows (PowerShell/CMD):**
 
 ```powershell
 .\gradlew installDebug
 ```
 
-**Для Mac/Linux (або Bash на Windows):**
+**On Mac/Linux (or Bash on Windows):**
 
 ```bash
 ./gradlew installDebug
 ```
 
-> **Примітка:** Якщо вам потрібно просто зібрати APK-файл без встановлення (наприклад, щоб передати його вручну), виконайте команду `.\gradlew assembleDebug`. Готовий файл з'явиться за шляхом `build/outputs/apk/debug/Read-With-Kid-debug.apk`.
+> **Note:** If you only need to build the APK file without installing it (for example, to transfer it manually), run `.\gradlew assembleDebug`. The resulting file will be at `build/outputs/apk/debug/Read-With-Kid-debug.apk`.
 
-### Крок 2.3: Перевірка з мовною моделлю (bundletool, local testing)
+### Step 2.3: Testing with a language model (bundletool, local testing)
 
-`installDebug` встановлює лише основний APK без asset pack, тому завантаження моделі в такій збірці завершиться помилкою.
+`installDebug` installs only the base APK without the asset packs, so downloading a model in such a build will fail.
 
-Найпростіше — одна команда: скрипт сам завантажить архіви моделей і bundletool, збере AAB і встановить його на підключений телефон (`-Release` — release-збірка, `-Serial <номер>` — якщо підключено кілька телефонів):
+The simplest way is a single command: the script downloads the model archives and bundletool by itself, builds the AAB and installs it on the connected phone (`-Release` for a release build, `-Serial <serial>` if several phones are connected):
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\install-on-phone.ps1
 ```
 
-Вручну: щоб перевірити завантаження моделі локально, без Google Play, використовуйте [bundletool](https://github.com/google/bundletool/releases) у режимі local testing (потрібен архів моделі з розділу 1 і `adb` у `PATH`):
+Manually: to test model download locally, without Google Play, use [bundletool](https://github.com/google/bundletool/releases) in local testing mode (you need the model archive from section 1 and `adb` on your `PATH`):
 
 ```powershell
 .\gradlew bundleDebug
@@ -86,57 +86,57 @@ java -jar bundletool.jar build-apks --bundle=build\outputs\bundle\debug\Read-Wit
 java -jar bundletool.jar install-apks --apks=build\read-with-kid.apks
 ```
 
-У режимі local testing asset pack копіюється на пристрій під час `install-apks`, а «завантаження» в застосунку бере його звідти, тому помилки мережі так перевірити не вийде.
+In local testing mode the asset pack is copied to the device during `install-apks`, and the "download" in the app takes it from there, so network errors can't be tested this way.
 
 ---
 
-## 3. Збірка та запуск (через Android Studio)
+## 3. Build and run (from Android Studio)
 
-Якщо ви віддаєте перевагу графічному інтерфейсу:
+If you prefer a graphical interface:
 
-1. Відкрийте Android Studio.
-2. Натисніть **File → Open** і виберіть папку `D:\Project\RWK2`.
-3. Зачекайте, поки закінчиться синхронізація Gradle (процес внизу екрану).
-4. Підключіть телефон по USB (як описано в Кроці 2.1).
-5. Виберіть ваш пристрій у випадаючому списку пристроїв на панелі інструментів зверху.
-6. Натисніть **Run** (зелений трикутник) або комбінацію клавіш `Shift + F10`. Як і `installDebug`, це встановлює застосунок без asset pack; для перевірки моделі див. крок 2.3.
+1. Open Android Studio.
+2. Click **File → Open** and select the `D:\Project\RWK2` folder.
+3. Wait for the Gradle sync to finish (progress at the bottom of the screen).
+4. Connect the phone via USB (as described in Step 2.1).
+5. Select your device in the device drop-down on the top toolbar.
+6. Click **Run** (the green triangle) or press `Shift + F10`. Like `installDebug`, this installs the app without the asset packs; to test the model, see step 2.3.
 
 ---
 
-## 4. Релізна збірка для Google Play
+## 4. Release build for Google Play
 
-Release-збірка стискається R8 (правила для JNA і Vosk — у `proguard-rules.pro`) і підписується upload-ключем власника. Ключ і паролі не зберігаються в git.
+The release build is shrunk by R8 (rules for JNA and Vosk are in `proguard-rules.pro`) and signed with the owner's upload key. The key and passwords are not stored in git.
 
-1. Один раз згенеруйте upload-ключ і збережіть його (та паролі) у надійному місці поза репозиторієм:
+1. Generate the upload key once and keep it (and the passwords) somewhere safe outside the repository:
    ```powershell
    keytool -genkeypair -v -keystore C:\keys\rwk-upload.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000
    ```
-2. Вкажіть параметри ключа одним зі способів:
-   - файл `keystore.properties` у корені проєкту (він у `.gitignore`):
+2. Provide the key parameters in one of these ways:
+   - a `keystore.properties` file in the project root (it is in `.gitignore`):
      ```properties
      storeFile=C:/keys/rwk-upload.jks
      storePassword=...
      keyAlias=upload
      keyPassword=...
      ```
-   - або змінні середовища `RWK_UPLOAD_STORE_FILE`, `RWK_UPLOAD_STORE_PASSWORD`, `RWK_UPLOAD_KEY_ALIAS`, `RWK_UPLOAD_KEY_PASSWORD`.
+   - or the environment variables `RWK_UPLOAD_STORE_FILE`, `RWK_UPLOAD_STORE_PASSWORD`, `RWK_UPLOAD_KEY_ALIAS`, `RWK_UPLOAD_KEY_PASSWORD`.
 
-   Без цих параметрів release-збірка виходить непідписаною, і Google Play її не прийме.
-3. Покладіть архіви моделей (розділ 1) і зберіть App Bundle з asset pack `model_uk` і `model_de`:
+   Without these parameters the release build comes out unsigned, and Google Play will not accept it.
+3. Add the model archives (section 1) and build the App Bundle with the `model_uk` and `model_de` asset packs:
    ```powershell
    .\gradlew bundleRelease
    ```
-   Результат: `build/outputs/bundle/release/Read-With-Kid-release.aab`.
+   Result: `build/outputs/bundle/release/Read-With-Kid-release.aab`.
 
-Перед завантаженням нової версії збільште `versionCode` (і за потреби `versionName`) у `build.gradle`.
+Before uploading a new version, increase `versionCode` (and `versionName` if needed) in `build.gradle`.
 
 ---
 
-## Як користуватися
+## How to use
 
-1. Запустіть застосунок на телефоні. Якщо мовна модель ще не завантажена, на екрані тексту для читання застосунок одразу почне її завантажувати: видно прогрес завантаження і зрозуміле повідомлення з кнопкою **Спробувати ще раз**, якщо немає інтернету чи бракує місця. Після цього читання працює без інтернету.
-2. Вставте або наберіть текст. Під полем видно, як текст поділено на речення і слова.
-3. Натисніть **Почати читання**. Під час першого старту застосунок пояснить, навіщо потрібен мікрофон, і попросить дозвіл.
-4. Дитина читає вголос: поточне слово підсвічене жовтим, прочитані — зеленим.
-5. **Пауза** / **Продовжити** вимикають і знову вмикають мікрофон. Якщо застосунок іде у фон, читання автоматично ставиться на паузу.
-6. Читання завершується, коли розпізнано останнє слово, або кнопкою **Готово**. Екран результату показує точність, WCPM і тривалість.
+1. Launch the app on the phone. If the language model hasn't been downloaded yet, the app starts downloading it right away on the reading-text screen: download progress is shown, along with a clear message and a **Try again** button if there is no internet or not enough space. After that, reading works offline.
+2. Paste or type a text. Below the field you can see how the text is split into sentences and words.
+3. Tap **Start reading**. On the first start the app explains why it needs the microphone and asks for permission.
+4. The child reads aloud: the current word is highlighted in yellow, words already read in green.
+5. **Pause** / **Continue** turn the microphone off and on again. If the app goes to the background, reading is paused automatically.
+6. Reading ends when the last word is recognised, or with the **Done** button. The result screen shows accuracy, WCPM and duration.
