@@ -10,7 +10,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,7 +35,6 @@ private val UiLanguage.label: Int
 fun SettingsScreen(
     language: UiLanguage,
     onLanguageChange: (UiLanguage) -> Unit,
-    onModels: () -> Unit,
     onPrivacy: () -> Unit,
     onLicenses: () -> Unit,
     onBack: () -> Unit,
@@ -72,7 +70,6 @@ fun SettingsScreen(
                 }
             }
             Spacer(Modifier.height(16.dp))
-            SettingsItem(Icons.Default.RecordVoiceOver, R.string.models_title, onModels)
             SettingsItem(Icons.Default.Lock, R.string.privacy_title, onPrivacy)
             SettingsItem(Icons.Default.Description, R.string.licenses_title, onLicenses)
         }

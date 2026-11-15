@@ -58,11 +58,9 @@ class ModelManagerTest {
     }
 
     @Test
-    fun `installed model reports version and size on disk`() {
+    fun `model of this version on disk is installed`() {
         ModelInstaller.install(modelDir, version) { File(it, "final.mdl").writeText("12345") }
-        val state = manager().state.value as ModelState.Installed
-        assertEquals(version, state.version)
-        assertEquals(5L + version.length, state.sizeBytes) // model file + version marker
+        assertEquals(ModelState.Installed, manager().state.value)
     }
 
     @Test
@@ -175,19 +173,5 @@ class ModelManagerTest {
         scope.advanceUntilIdle()
         manager.download()
         assertEquals(1, pack.fetchCount)
-    }
-
-    @Test
-    fun `delete removes the model and offers the download again`() {
-        val manager = manager()
-        manager.download()
-        pack.emit(PackEvent.Ready(modelZip()))
-        scope.advanceUntilIdle()
-
-        manager.delete()
-        scope.advanceUntilIdle()
-
-        assertFalse(modelDir.exists())
-        assertEquals(ModelState.NotInstalled(5_000L), manager.state.value)
     }
 }

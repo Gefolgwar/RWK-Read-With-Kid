@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -58,6 +59,77 @@ class ReadingSessionViewModelTest {
         assertEquals(1, freshEngine.loadCount)
         freshEngine.simulateModelLoaded()
         assertEquals(SessionState.READY, freshVm.uiState.value.sessionState)
+    }
+
+    @Test
+    fun `opening a text without its model starts the download at once`() {
+        val downloads = mutableListOf<TextLanguage>()
+        val freshVm = ReadingSessionViewModel(
+            { FakeVoskEngine() },
+            modelInstalled = { MutableStateFlow(false) },
+            startModelDownload = { downloads.add(it) }
+        )
+        // Nothing is downloaded before a text is opened
+        assertEquals(emptyList<TextLanguage>(), downloads)
+
+        freshVm.updateText(text)
+        assertEquals(listOf(TextLanguage.UK), downloads)
+    }
+
+    @Test
+    fun `opening a text in another language downloads that language's model`() {
+        val downloads = mutableListOf<TextLanguage>()
+        val installed = mapOf(TextLanguage.UK to MutableStateFlow(true), TextLanguage.DE to MutableStateFlow(false))
+        val freshVm = ReadingSessionViewModel(
+            { FakeVoskEngine() },
+            modelInstalled = { installed.getValue(it) },
+            startModelDownload = { downloads.add(it) }
+        )
+        freshVm.updateText(text, TextLanguage.UK)
+        assertEquals(emptyList<TextLanguage>(), downloads)
+
+        freshVm.updateText(germanText, TextLanguage.DE)
+        assertEquals(listOf(TextLanguage.DE), downloads)
+    }
+
+    @Test
+    fun `download starts once the model is found missing after the text is opened`() {
+        val downloads = mutableListOf<TextLanguage>()
+        val installed = MutableStateFlow<Boolean?>(null) // still checking
+        val freshVm = ReadingSessionViewModel(
+            { FakeVoskEngine() },
+            modelInstalled = { installed.filterNotNull() },
+            startModelDownload = { downloads.add(it) }
+        )
+        freshVm.updateText(text)
+        assertEquals(emptyList<TextLanguage>(), downloads)
+
+        installed.value = false
+        assertEquals(listOf(TextLanguage.UK), downloads)
+    }
+
+    @Test
+    fun `retry downloads the missing model again and reading is possible once it is ready`() {
+        val downloads = mutableListOf<TextLanguage>()
+        val installed = MutableStateFlow(false)
+        val freshEngine = FakeVoskEngine()
+        val freshVm = ReadingSessionViewModel(
+            { freshEngine },
+            modelInstalled = { installed },
+            startModelDownload = { downloads.add(it) }
+        )
+        freshVm.updateText(text)
+        // The first attempt failed, e.g. no network; the parent taps "Try again"
+        freshVm.downloadModel()
+        assertEquals(listOf(TextLanguage.UK, TextLanguage.UK), downloads)
+
+        installed.value = true
+        freshEngine.simulateModelLoaded()
+        assertEquals(SessionState.READY, freshVm.uiState.value.sessionState)
+        freshVm.downloadModel()
+        assertEquals(2, downloads.size)
+        freshVm.start()
+        assertEquals(SessionState.READING, freshVm.uiState.value.sessionState)
     }
 
     @Test

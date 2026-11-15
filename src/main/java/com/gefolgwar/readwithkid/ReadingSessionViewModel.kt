@@ -69,6 +69,7 @@ data class ReadingUiState(
 
 /**
  * Each text language has its own engine, created by [createEngine], and its own model, see [modelInstalled].
+ * A missing model is downloaded by [startModelDownload] as soon as a text in its language is opened.
  * A finished reading of a saved text is saved to [readings], dated by [wallClockMs].
  * Words the child taps are said by [pronunciation]; without it there is no help.
  */
@@ -76,6 +77,7 @@ class ReadingSessionViewModel(
     private val createEngine: (TextLanguage) -> VoskEngine,
     private val mode: RecognitionMode = RecognitionMode.FULL,
     private val modelInstalled: (TextLanguage) -> Flow<Boolean> = { flowOf(true) },
+    private val startModelDownload: (TextLanguage) -> Unit = {},
     private val readings: ReadingRepository? = null,
     private val pronunciation: PronunciationHelper? = null,
     private val wallClockMs: () -> Long = System::currentTimeMillis,
@@ -138,7 +140,15 @@ class ReadingSessionViewModel(
         if (languageChanged) {
             engine.release()
             useLanguage(language)
+        } else {
+            downloadModel()
         }
+    }
+
+    /** Downloads the missing model of the open text's language; also the retry after a failed download. */
+    fun downloadModel() {
+        val state = _uiState.value
+        if (state.sessionState == SessionState.MODEL_MISSING && state.rawText.isNotEmpty()) startModelDownload(state.language)
     }
 
     /** Creates the engine for [language] and loads its model once the model is installed. */
@@ -264,6 +274,7 @@ class ReadingSessionViewModel(
     private fun handleModelMissing() {
         if (isActive()) return
         _uiState.update { it.copy(sessionState = SessionState.MODEL_MISSING, result = null) }
+        downloadModel()
     }
 
     private fun handleModelLoaded() {
@@ -345,6 +356,7 @@ class ReadingSessionViewModel(
     companion object {
         fun factory(
             modelInstalled: (TextLanguage) -> Flow<Boolean> = { flowOf(true) },
+            startModelDownload: (TextLanguage) -> Unit = {},
             createReadings: () -> ReadingRepository? = { null },
             createPronunciation: () -> PronunciationHelper? = { null },
             createEngine: (TextLanguage) -> VoskEngine
@@ -353,6 +365,7 @@ class ReadingSessionViewModel(
                 ReadingSessionViewModel(
                     createEngine,
                     modelInstalled = modelInstalled,
+                    startModelDownload = startModelDownload,
                     readings = createReadings(),
                     pronunciation = createPronunciation()
                 )

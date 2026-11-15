@@ -27,7 +27,7 @@ sealed interface ModelState {
     /** The download waits for Wi-Fi or for the user to allow it. */
     data object NeedsConfirmation : ModelState
     data object Unpacking : ModelState
-    data class Installed(val version: String, val sizeBytes: Long) : ModelState
+    data object Installed : ModelState
 }
 
 sealed interface PackEvent {
@@ -50,8 +50,8 @@ interface ModelPack {
 }
 
 /**
- * Knows whether a speech model is installed, its version and size; downloads it via [pack],
- * unpacks the archive atomically into [directory] (see [ModelInstaller]) and deletes it.
+ * Knows whether a speech model is installed; downloads it via [pack] and
+ * unpacks the archive atomically into [directory] (see [ModelInstaller]). It is deleted with the app.
  */
 class ModelManager(
     val directory: File,
@@ -86,15 +86,6 @@ class ModelManager(
         if (_state.value == ModelState.NeedsConfirmation) pack.showConfirmation(activity)
     }
 
-    fun delete() {
-        if (_state.value !is ModelState.Installed) return
-        _state.value = ModelState.Checking
-        scope.launch {
-            withContext(io) { directory.deleteRecursively() }
-            _state.value = check()
-        }
-    }
-
     private fun onPackEvent(event: PackEvent) {
         val current = _state.value
         if (current !is ModelState.Downloading && current != ModelState.NeedsConfirmation) return
@@ -110,8 +101,7 @@ class ModelManager(
     }
 
     private suspend fun check(): ModelState {
-        val installed = withContext(io) { if (ModelInstaller.isReady(directory, version)) installedState() else null }
-        if (installed != null) return installed
+        if (withContext(io) { ModelInstaller.isReady(directory, version) }) return ModelState.Installed
         downloadBytes = pack.downloadSize()
         return ModelState.NotInstalled(downloadBytes)
     }
@@ -126,14 +116,11 @@ class ModelManager(
                 ModelInstaller.install(directory, version) { target -> extract(archive, target) }
             }
             pack.remove()
-            installedState()
+            ModelState.Installed
         } catch (e: Exception) {
             ModelState.NotInstalled(downloadBytes, ModelError.FAILED)
         }
     }
-
-    private fun installedState() =
-        ModelState.Installed(version, directory.walk().filter { it.isFile }.sumOf { it.length() })
 
     /** The Vosk archive holds one top-level folder; its content becomes [target]. */
     private fun extract(archive: ZipFile, target: File) {

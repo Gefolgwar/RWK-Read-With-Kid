@@ -61,7 +61,7 @@ class MainActivity : ComponentActivity() {
     private fun models(language: TextLanguage) = SpeechModels.get(applicationContext, language)
     private val db by lazy { AppDatabase.get(applicationContext) }
     private val vm: ReadingSessionViewModel by viewModels {
-        ReadingSessionViewModel.factory({ models(it).installed }, { db.readings() }, { TtsPronunciationHelper(applicationContext) }) {
+        ReadingSessionViewModel.factory({ models(it).installed }, { models(it).download() }, { db.readings() }, { TtsPronunciationHelper(applicationContext) }) {
             RealVoskEngine(models(it).directory)
         }
     }
@@ -115,12 +115,10 @@ fun ReadWithKidApp(
     val context = LocalContext.current
     val state by vm.uiState.collectAsState()
     val library by libraryVm.uiState.collectAsState()
-    val modelStates = TextLanguage.entries.associateWith { models(it).state.collectAsState().value }
     // Model of the language of the text being read
-    val model = modelStates.getValue(state.language)
+    val model by models(state.language).state.collectAsState()
     // Title of the saved text chosen for reading, or null while a list is shown
     var readingTitle by rememberSaveable { mutableStateOf<String?>(null) }
-    var showModels by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var showPrivacy by rememberSaveable { mutableStateOf(false) }
     var showLicenses by rememberSaveable { mutableStateOf(false) }
@@ -162,7 +160,7 @@ fun ReadWithKidApp(
                     state,
                     model,
                     onStart = vm::start,
-                    onDownloadModel = { models(state.language).download() },
+                    onRetryModel = vm::downloadModel,
                     onConfirmModel = { onConfirmModel(state.language) },
                     onOpenAppSettings = openAppSettings,
                     onBack = { readingTitle = null },
@@ -177,15 +175,6 @@ fun ReadWithKidApp(
                     onCancel = libraryVm::cancelEdit,
                     modifier = modifier
                 )
-            showModels ->
-                ModelsScreen(
-                    modelStates,
-                    onDownload = { models(it).download() },
-                    onConfirm = onConfirmModel,
-                    onDelete = { models(it).delete() },
-                    onBack = { showModels = false },
-                    modifier = modifier
-                )
             showPrivacy ->
                 PrivacyPolicyScreen(onBack = { showPrivacy = false }, modifier = modifier)
             showLicenses ->
@@ -194,7 +183,6 @@ fun ReadWithKidApp(
                 SettingsScreen(
                     uiLanguage,
                     onLanguageChange = { if (it != uiLanguage) onUiLanguageChange(it) },
-                    onModels = { showModels = true },
                     onPrivacy = { showPrivacy = true },
                     onLicenses = { showLicenses = true },
                     onBack = { showSettings = false },
@@ -220,7 +208,7 @@ fun ReadyToReadScreen(
     state: ReadingUiState,
     model: ModelState,
     onStart: () -> Unit,
-    onDownloadModel: () -> Unit,
+    onRetryModel: () -> Unit,
     onConfirmModel: () -> Unit,
     onOpenAppSettings: () -> Unit,
     onBack: () -> Unit,
@@ -267,7 +255,7 @@ fun ReadyToReadScreen(
 
             when {
                 state.sessionState == SessionState.MODEL_MISSING ->
-                    ModelDownload(state.language, model, onDownloadModel, onConfirmModel)
+                    ModelDownload(model, onRetryModel, onConfirmModel)
                 state.sessionState == SessionState.LOADING_MODEL -> Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                     Spacer(Modifier.width(8.dp))

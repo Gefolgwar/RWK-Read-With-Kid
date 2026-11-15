@@ -55,14 +55,8 @@
     <string name="history_title">Bisherige Versuche</string>
     <string name="history_reading">%1$d %% · %2$d Wörter/Min.</string>
 
-    <string name="models_title">Sprachmodelle</string>
     <string name="language_uk">Ukrainisch</string>
     <string name="language_de">Deutsch</string>
-    <string name="read_in_uk">auf Ukrainisch</string>
-    <string name="read_in_de">auf Deutsch</string>
-    <string name="model_offer">Zum Lesen %1$s braucht die App ein Sprachmodell (%2$s). Es wird einmal heruntergeladen; danach funktioniert das Lesen offline.</string>
-    <string name="model_offer_unknown_size">Zum Lesen %1$s braucht die App ein Sprachmodell. Es wird einmal heruntergeladen; danach funktioniert das Lesen offline.</string>
-    <string name="model_download">Herunterladen</string>
     <string name="model_retry">Erneut versuchen</string>
     <string name="model_downloading">Download: %1$s von %2$s</string>
     <string name="model_needs_confirmation">Der Download wartet auf WLAN oder Ihre Erlaubnis.</string>
@@ -71,9 +65,6 @@
     <string name="model_error_network">Keine Internetverbindung. Verbinden Sie sich mit dem Internet und versuchen Sie es erneut.</string>
     <string name="model_error_storage">Nicht genug freier Speicher auf diesem Telefon. Geben Sie Speicher frei und versuchen Sie es erneut.</string>
     <string name="model_error_failed">Der Download ist fehlgeschlagen. Bitte versuchen Sie es erneut.</string>
-    <string name="model_installed">Installiert · %1$s · %2$s</string>
-    <string name="model_delete_title">Sprachmodell löschen?</string>
-    <string name="model_delete_message">Um wieder %1$s zu lesen, muss das Modell erneut heruntergeladen werden.</string>
 
     <string name="settings_title">Einstellungen</string>
     <string name="ui_language_title">Sprache der App</string>
