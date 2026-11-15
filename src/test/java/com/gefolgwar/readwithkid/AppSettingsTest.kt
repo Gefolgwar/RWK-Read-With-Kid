@@ -8,7 +8,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** Interface language, kept across app starts. */
+/** Interface language and coloured syllables, kept across app starts. */
 @RunWith(RobolectricTestRunner::class)
 class AppSettingsTest {
 
@@ -21,6 +21,15 @@ class AppSettingsTest {
         assertEquals(UiLanguage.DE, AppSettings(context).uiLanguage)
         AppSettings(context).uiLanguage = UiLanguage.SYSTEM
         assertEquals(UiLanguage.SYSTEM, AppSettings(context).uiLanguage)
+    }
+
+    @Test
+    fun `coloured syllables are off until chosen`() {
+        assertFalse(AppSettings(context).syllableColors)
+        AppSettings(context).syllableColors = true
+        assertTrue(AppSettings(context).syllableColors)
+        AppSettings(context).syllableColors = false
+        assertFalse(AppSettings(context).syllableColors)
     }
 
     private val Context.language get() = resources.configuration.locales[0].language

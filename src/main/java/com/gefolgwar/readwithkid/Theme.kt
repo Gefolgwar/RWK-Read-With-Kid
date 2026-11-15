@@ -39,7 +39,7 @@ private val AppTypography = Typography().run {
 }
 
 // High contrast: near-black text on a warm light background, a deep blue for actions.
-private val AppColors = lightColorScheme(
+internal val AppColors = lightColorScheme(
     primary = Color(0xFF1546A0),
     onPrimary = Color.White,
     primaryContainer = Color(0xFFD6E3FF),
@@ -53,6 +53,9 @@ private val AppColors = lightColorScheme(
     onSurfaceVariant = Color(0xFF3D3D45),
     outline = Color(0xFF5E5E66)
 )
+
+/** Coloured syllables alternate these, starting each word with blue; dark enough to read on the reading highlights too. */
+val SyllableColors = listOf(Color(0xFF1546A0), Color(0xFFB71C1C))
 
 @Composable
 fun ReadWithKidTheme(content: @Composable () -> Unit) {

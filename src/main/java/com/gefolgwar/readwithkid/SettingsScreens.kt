@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -35,6 +36,8 @@ private val UiLanguage.label: Int
 fun SettingsScreen(
     language: UiLanguage,
     onLanguageChange: (UiLanguage) -> Unit,
+    syllableColors: Boolean,
+    onSyllableColorsChange: (Boolean) -> Unit,
     onPrivacy: () -> Unit,
     onLicenses: () -> Unit,
     onBack: () -> Unit,
@@ -68,6 +71,21 @@ fun SettingsScreen(
                         Text(stringResource(option.label), style = MaterialTheme.typography.bodyLarge)
                     }
                 }
+            }
+            Spacer(Modifier.height(16.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .toggleable(syllableColors, role = Role.Switch, onValueChange = onSyllableColorsChange)
+                    .padding(vertical = 4.dp)
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.syllable_colors_title), style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.syllable_colors_hint), style = MaterialTheme.typography.bodyMedium)
+                }
+                Spacer(Modifier.width(12.dp))
+                Switch(checked = syllableColors, onCheckedChange = null)
             }
             Spacer(Modifier.height(16.dp))
             SettingsItem(Icons.Default.Lock, R.string.privacy_title, onPrivacy)

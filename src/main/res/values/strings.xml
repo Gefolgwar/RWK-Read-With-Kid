@@ -70,6 +70,8 @@
     <string name="settings_title">Settings</string>
     <string name="ui_language_title">App language</string>
     <string name="ui_language_system">Phone language</string>
+    <string name="syllable_colors_title">Coloured syllables</string>
+    <string name="syllable_colors_hint">While reading, the syllables of each word alternate between blue and red.</string>
     <string name="ui_language_uk" translatable="false">Українська</string>
     <string name="ui_language_de" translatable="false">Deutsch</string>
     <string name="ui_language_en" translatable="false">English</string>

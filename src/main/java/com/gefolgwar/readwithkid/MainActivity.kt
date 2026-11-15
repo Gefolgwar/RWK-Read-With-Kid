@@ -79,6 +79,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
+            var syllableColors by remember { mutableStateOf(settings.syllableColors) }
             ReadWithKidTheme {
                 ReadWithKidApp(
                     vm = vm,
@@ -90,6 +91,11 @@ class MainActivity : ComponentActivity() {
                         settings.uiLanguage = it
                         // Recreating reloads every screen's strings in the new language.
                         recreate()
+                    },
+                    syllableColors = syllableColors,
+                    onSyllableColorsChange = {
+                        settings.syllableColors = it
+                        syllableColors = it
                     }
                 )
             }
@@ -110,7 +116,9 @@ fun ReadWithKidApp(
     models: (TextLanguage) -> ModelManager,
     onConfirmModel: (TextLanguage) -> Unit,
     uiLanguage: UiLanguage,
-    onUiLanguageChange: (UiLanguage) -> Unit
+    onUiLanguageChange: (UiLanguage) -> Unit,
+    syllableColors: Boolean,
+    onSyllableColorsChange: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
     val state by vm.uiState.collectAsState()
@@ -148,6 +156,7 @@ fun ReadWithKidApp(
             state.sessionState == SessionState.READING || state.sessionState == SessionState.PAUSED ->
                 ReadingScreen(
                     state,
+                    syllableColors = syllableColors,
                     onWordTap = vm::sayWord,
                     onPause = vm::pause,
                     onResume = vm::resume,
@@ -183,6 +192,8 @@ fun ReadWithKidApp(
                 SettingsScreen(
                     uiLanguage,
                     onLanguageChange = { if (it != uiLanguage) onUiLanguageChange(it) },
+                    syllableColors = syllableColors,
+                    onSyllableColorsChange = onSyllableColorsChange,
                     onPrivacy = { showPrivacy = true },
                     onLicenses = { showLicenses = true },
                     onBack = { showSettings = false },
@@ -366,6 +377,7 @@ fun ErrorText(text: String) {
 @Composable
 fun ReadingScreen(
     state: ReadingUiState,
+    syllableColors: Boolean,
     onWordTap: (Int) -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
@@ -394,7 +406,15 @@ fun ReadingScreen(
                     WordStatus.UNREAD -> null
                 }
             }
-            val appendWord = { if (style != null) withStyle(style) { append(word.display) } else append(word.display) }
+            // With coloured syllables the letters' colour shows the syllables; progress stays in the background.
+            val appendText = {
+                if (syllableColors) {
+                    Syllables.split(word.display, state.language).forEachIndexed { i, syllable ->
+                        withStyle(SpanStyle(color = SyllableColors[i % SyllableColors.size])) { append(syllable) }
+                    }
+                } else append(word.display)
+            }
+            val appendWord = { if (style != null) withStyle(style) { appendText() } else appendText() }
             // Tapping a word says it, when the phone has a voice for the language
             if (state.helpAvailable) withLink(LinkAnnotation.Clickable("word$index") { onWordTap(index) }) { appendWord() } else appendWord()
             if (index < words.lastIndex) append(" ")

@@ -18,8 +18,14 @@ class AppSettings(context: Context) {
         get() = UiLanguage.entries.firstOrNull { it.tag == prefs.getString(KEY_UI_LANGUAGE, null) } ?: UiLanguage.SYSTEM
         set(value) = prefs.edit { putString(KEY_UI_LANGUAGE, value.tag) }
 
+    /** Whether the reading text shows its syllables in alternating colours; off until chosen. */
+    var syllableColors: Boolean
+        get() = prefs.getBoolean(KEY_SYLLABLE_COLORS, false)
+        set(value) = prefs.edit { putBoolean(KEY_SYLLABLE_COLORS, value) }
+
     private companion object {
         const val KEY_UI_LANGUAGE = "ui_language"
+        const val KEY_SYLLABLE_COLORS = "syllable_colors"
     }
 }
 
