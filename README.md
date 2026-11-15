@@ -70,7 +70,15 @@ cd "D:\Project\RWK2"
 
 ### Крок 2.3: Перевірка з мовною моделлю (bundletool, local testing)
 
-`installDebug` встановлює лише основний APK без asset pack, тому завантаження моделі в такій збірці завершиться помилкою. Щоб перевірити завантаження моделі локально, без Google Play, використовуйте [bundletool](https://github.com/google/bundletool/releases) у режимі local testing (потрібен архів моделі з розділу 1 і `adb` у `PATH`):
+`installDebug` встановлює лише основний APK без asset pack, тому завантаження моделі в такій збірці завершиться помилкою.
+
+Найпростіше — одна команда: скрипт сам завантажить архіви моделей і bundletool, збере AAB і встановить його на підключений телефон (`-Release` — release-збірка, `-Serial <номер>` — якщо підключено кілька телефонів):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\install-on-phone.ps1
+```
+
+Вручну: щоб перевірити завантаження моделі локально, без Google Play, використовуйте [bundletool](https://github.com/google/bundletool/releases) у режимі local testing (потрібен архів моделі з розділу 1 і `adb` у `PATH`):
 
 ```powershell
 .\gradlew bundleDebug
