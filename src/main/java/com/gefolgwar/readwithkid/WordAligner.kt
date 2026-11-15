@@ -3,9 +3,13 @@ package com.gefolgwar.readwithkid
 /**
  * Follows a child reading [words] aloud. Repeats, reading by syllables, partial words and
  * self-corrections are not errors; a skipped word is passed over and remembered as skipped.
+ *
+ * Words at [unknownIndices] are missing from the speech model's vocabulary and cannot be recognised: such a word
+ * is passed once the next known word is read (or with the last known word) and counts neither as read nor as skipped.
  */
-class WordAligner(private val words: List<String>) {
+class WordAligner(private val words: List<String>, unknownIndices: Set<Int> = emptySet()) {
 
+    /** Indices into [known], not into [words]. */
     private data class Progress(
         /** Last word passed (read or skipped), or -1. */
         val pointer: Int = -1,
@@ -19,26 +23,32 @@ class WordAligner(private val words: List<String>) {
         val pending: List<String> = emptyList()
     )
 
-    private val normalizedWords = words.map { TextPreparation.normalize(it) }
+    /** Indices of the known words in [words]; only these are followed. */
+    private val known = words.indices.filter { it !in unknownIndices }
+    private val normalizedWords = known.map { TextPreparation.normalize(words[it]) }
     private var confirmed = Progress()
     private var tentative: Progress? = null
 
     val confirmedIndex: Int
-        get() = confirmed.pointer
+        get() = passedTo(confirmed.pointer)
 
     val tentativeIndex: Int
-        get() = tentative?.pointer ?: -1
+        get() = tentative?.let { passedTo(it.pointer) } ?: -1
+
+    /** Words that can be recognised: the words that count. */
+    val knownCount: Int
+        get() = known.size
 
     // Words actually recognised; words passed over by the look-ahead are not counted.
     val matchedCount: Int
         get() = confirmed.matched.size
 
     val skippedIndices: Set<Int>
-        get() = confirmed.skipped
+        get() = confirmed.skipped.mapTo(mutableSetOf()) { known[it] }
 
     /** Words read correctly after one or more wrong attempts (self-correction). */
     val retriedIndices: Set<Int>
-        get() = confirmed.retried
+        get() = confirmed.retried.mapTo(mutableSetOf()) { known[it] }
 
     fun processPartial(recognizedWords: List<String>) {
         tentative = advance(confirmed, recognizedWords)
@@ -62,9 +72,10 @@ class WordAligner(private val words: List<String>) {
 
     fun getWordStatus(index: Int): WordStatus {
         if (index < 0 || index >= words.size) return WordStatus.UNREAD
+        val k = known.binarySearch(index) // negative for an unknown word
         return when {
-            index in confirmed.matched -> WordStatus.CONFIRMED
-            index in confirmed.skipped -> WordStatus.SKIPPED
+            k in confirmed.matched || k < 0 && index <= confirmedIndex -> WordStatus.CONFIRMED
+            k in confirmed.skipped -> WordStatus.SKIPPED
             index <= tentativeIndex -> WordStatus.TENTATIVE
             else -> WordStatus.UNREAD
         }
@@ -111,11 +122,22 @@ class WordAligner(private val words: List<String>) {
                 }
             }
 
-            p = p.copy(wrongAttempt = true)
+            // Right after an unknown word the model says something else in its place: not a wrong attempt.
+            if (!followsUnknown(expected)) p = p.copy(wrongAttempt = true)
             i++
         }
         return p
     }
+
+    /** Index in [words] of the last word passed when known word [k] is the last passed; unknown words at the end go with the last known one. */
+    private fun passedTo(k: Int) = when (k) {
+        -1 -> -1
+        known.lastIndex -> words.lastIndex
+        else -> known[k]
+    }
+
+    /** Whether unknown words stand right before known word [k]. */
+    private fun followsUnknown(k: Int) = known[k] - (known.getOrNull(k - 1) ?: -1) > 1
 
     /** How many tokens from [start] glue together into the beginning of [word] (stops once the word is complete). */
     private fun glue(tokens: List<String>, start: Int, word: String): Int {

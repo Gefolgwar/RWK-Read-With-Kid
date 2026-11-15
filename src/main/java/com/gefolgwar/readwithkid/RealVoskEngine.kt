@@ -5,6 +5,7 @@ import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.os.Handler
 import android.os.Looper
+import com.sun.jna.NativeLibrary
 import org.json.JSONArray
 import org.vosk.Model
 import org.vosk.Recognizer
@@ -46,6 +47,17 @@ class RealVoskEngine(private val modelDir: File) : VoskEngine {
             }
         }
     }
+
+    override fun knowsWord(word: String): Boolean {
+        val m = model ?: return true
+        // The vocabulary always holds "<eps>"; without a vocabulary every lookup fails.
+        return findWord(m, "<eps>") < 0 || findWord(m, word) >= 0
+    }
+
+    // vosk_model_find_word is in libvosk but not in vosk-android's Java API.
+    private fun findWord(m: Model, word: String): Int =
+        NativeLibrary.getInstance("vosk").getFunction("vosk_model_find_word")
+            .invokeInt(arrayOf(m.pointer, (word + "\u0000").toByteArray(Charsets.UTF_8)))
 
     override fun start(mode: RecognitionMode, grammar: List<String>?) {
         val m = model ?: run {

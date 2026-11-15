@@ -12,10 +12,14 @@ class FakeVoskEngine : VoskEngine {
     var stopCount = 0
     var loadCount = 0
     var grammarUpdateCount = 0
+    /** Words missing from the model's vocabulary. */
+    var unknownWords: Set<String> = emptySet()
 
     override fun loadModel() {
         loadCount++
     }
+
+    override fun knowsWord(word: String) = word !in unknownWords
 
     override fun start(mode: RecognitionMode, grammar: List<String>?) {
         lastMode = mode

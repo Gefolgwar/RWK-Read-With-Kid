@@ -403,4 +403,62 @@ class WordAlignerTest {
         assertEquals(setOf(3), aligner.retriedIndices)
         assertEquals(setOf(4), aligner.skippedIndices)
     }
+
+    // --- words the model does not know ---
+
+    // "замісила"(1) and "вистигав"(4) are not in the model's vocabulary
+    private val kolobok = listOf("Баба", "замісила", "тісто.", "Колобок", "вистигав", "на", "вікні.")
+    private val kolobokUnknown = setOf(1, 4)
+
+    @Test
+    fun `unknown words read correctly are passed with their neighbours and are not errors`() {
+        val aligner = WordAligner(kolobok, kolobokUnknown)
+        // The model says something else in place of an unknown word
+        aligner.processFinal(listOf("баба", "за", "місила"))
+        assertEquals(0, aligner.confirmedIndex)
+        assertEquals(WordStatus.UNREAD, aligner.getWordStatus(1))
+
+        aligner.processFinal(listOf("тісто", "колобок", "вистиг", "на", "вікні"))
+        assertEquals(kolobok.lastIndex, aligner.confirmedIndex)
+        assertTrue(kolobok.indices.all { aligner.getWordStatus(it) == WordStatus.CONFIRMED })
+        assertEquals(5, aligner.knownCount)
+        assertEquals(5, aligner.matchedCount)
+        assertEquals(emptySet<Int>(), aligner.skippedIndices)
+        assertEquals(emptySet<Int>(), aligner.retriedIndices)
+    }
+
+    @Test
+    fun `unknown word is passed as soon as the next known word is heard`() {
+        val aligner = WordAligner(kolobok, kolobokUnknown)
+        aligner.processPartial(listOf("баба", "тісто"))
+        assertEquals(2, aligner.tentativeIndex)
+        assertEquals(WordStatus.TENTATIVE, aligner.getWordStatus(1))
+    }
+
+    @Test
+    fun `skipped known word next to an unknown one is a skip`() {
+        val aligner = WordAligner(kolobok, kolobokUnknown)
+        aligner.processFinal(listOf("баба", "колобок", "на", "вікні")) // "тісто" skipped
+        assertEquals(kolobok.lastIndex, aligner.confirmedIndex)
+        assertEquals(setOf(2), aligner.skippedIndices)
+        assertEquals(WordStatus.SKIPPED, aligner.getWordStatus(2))
+        assertEquals(WordStatus.CONFIRMED, aligner.getWordStatus(1))
+        assertEquals(4, aligner.matchedCount)
+    }
+
+    @Test
+    fun `unknown word at the end is passed with the last known word`() {
+        val aligner = WordAligner(listOf("Колобок", "пирхав"), setOf(1))
+        aligner.processFinal(listOf("колобок"))
+        assertEquals(1, aligner.confirmedIndex)
+        assertEquals(WordStatus.CONFIRMED, aligner.getWordStatus(1))
+        assertEquals(1, aligner.knownCount)
+    }
+
+    @Test
+    fun `wrong attempt at a known word is still recorded when no unknown word stands before it`() {
+        val aligner = WordAligner(kolobok, kolobokUnknown)
+        aligner.processFinal(listOf("баба", "тісто", "колобка", "колобок"))
+        assertEquals(setOf(3), aligner.retriedIndices)
+    }
 }

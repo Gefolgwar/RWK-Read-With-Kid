@@ -326,6 +326,54 @@ class ReadingSessionViewModelTest {
         assertEquals(2, engine.startCount)
     }
 
+    // --- words the model does not know ---
+
+    private val kolobokText = "Баба замісила тісто. Колобок вистигав на вікні."
+
+    @Test
+    fun `text with unknown words read correctly gives 100 percent and no skipped words`() {
+        engine.unknownWords = setOf("замісила", "вистигав")
+        vm.updateText(kolobokText)
+        vm.start()
+        engine.simulateFinal("баба за місила тісто") // the model hears something else in place of "замісила"
+        assertEquals(WordStatus.CONFIRMED, state.wordStatuses[1])
+        engine.simulateFinal("колобок вистиг на вікні")
+
+        assertEquals(SessionState.FINISHED, state.sessionState)
+        val result = state.result!!
+        assertEquals(5, result.totalWords)
+        assertEquals(5, result.correctWords)
+        assertEquals(1f, result.accuracy, 0.0001f)
+        assertEquals(emptyList<String>(), result.skippedWords)
+        assertEquals(emptyList<String>(), result.retriedWords)
+    }
+
+    @Test
+    fun `skipped known word next to an unknown one is counted as skipped`() {
+        engine.unknownWords = setOf("замісила", "вистигав")
+        vm.updateText(kolobokText)
+        vm.start()
+        engine.simulateFinal("баба колобок на вікні") // "тісто." skipped
+
+        val result = state.result!!
+        assertEquals(4, result.correctWords)
+        assertEquals(4f / 5, result.accuracy, 0.0001f)
+        assertEquals(listOf("тісто"), result.skippedWords)
+    }
+
+    @Test
+    fun `vocabulary is asked for the word with the plain apostrophe and without stress marks`() {
+        engine.unknownWords = setOf("п'ять", "молоко")
+        vm.updateText("Було п’ять глечиків. Було моло́ко.")
+        vm.start()
+        engine.simulateFinal("було глечиків було")
+
+        val result = state.result!!
+        assertEquals(3, result.totalWords)
+        assertEquals(1f, result.accuracy, 0.0001f)
+        assertEquals(emptyList<String>(), result.skippedWords)
+    }
+
     // --- saving results ---
 
     private fun savingVm(readings: ReadingRepository, dateMs: Long): ReadingSessionViewModel {

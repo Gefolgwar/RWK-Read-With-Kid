@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.json.JSONException
 import org.json.JSONObject
+import java.text.Normalizer
 import kotlin.math.roundToInt
 
 data class ReadingResult(
@@ -170,7 +171,10 @@ class ReadingSessionViewModel(
     fun start() {
         val state = _uiState.value
         if (state.sessionState != SessionState.READY || state.text.words.isEmpty()) return
-        aligner = WordAligner(state.text.words.map { it.normalized })
+        val words = state.text.words
+        // Words the model cannot recognise are not the child's errors
+        val unknown = words.indices.filterTo(mutableSetOf()) { !engine.knowsWord(vocabularySpelling(words[it])) }
+        aligner = WordAligner(words.map { it.normalized }, unknown)
         elapsedMs = 0L
         helpedIndices.clear()
         _uiState.update { it.copy(sessionState = SessionState.READING, result = null, recognitionError = false) }
@@ -202,7 +206,7 @@ class ReadingSessionViewModel(
         val words = _uiState.value.text.words
         fun displayOf(indices: Set<Int>) = indices.sorted().map { bare(words[it]) }
         val result = ReadingResult(
-            totalWords = words.size,
+            totalWords = aligner.knownCount,
             correctWords = aligner.matchedCount,
             durationMs = elapsedMs,
             skippedWords = displayOf(aligner.skippedIndices),
@@ -345,15 +349,24 @@ class ReadingSessionViewModel(
 
     private fun buildGrammar(sentenceIndex: Int): List<String> {
         val sentences = _uiState.value.text.sentences
-        // As written, not normalized: the recognizer only knows real spellings such as "schöne" or "будь-який".
-        fun spelling(word: Word) = word.display.lowercase().trim { !it.isLetterOrDigit() }
         val words = mutableSetOf<String>()
         sentences.getOrNull(sentenceIndex)?.forEach { words.add(spelling(it)) }
         sentences.getOrNull(sentenceIndex + 1)?.forEach { words.add(spelling(it)) }
         return words.toList() + "[unk]"
     }
 
+    // As written, not normalized: the recognizer only knows real spellings such as "schöne" or "будь-який".
+    private fun spelling(word: Word) = word.display.lowercase().trim { !it.isLetterOrDigit() }
+
+    /** The word as the model's vocabulary spells it: also without stress marks and with the apostrophe "'" ("п’ять" -> "п'ять"). */
+    private fun vocabularySpelling(word: Word) =
+        Normalizer.normalize(spelling(word), Normalizer.Form.NFC).replace(STRESS_MARKS, "").replace(APOSTROPHES, "'")
+
     companion object {
+        // Combining marks left after NFC, e.g. the stress mark U+0301
+        private val STRESS_MARKS = Regex("\\p{Mn}")
+        private val APOSTROPHES = Regex("[ʼ’‘`]")
+
         fun factory(
             modelInstalled: (TextLanguage) -> Flow<Boolean> = { flowOf(true) },
             startModelDownload: (TextLanguage) -> Unit = {},
