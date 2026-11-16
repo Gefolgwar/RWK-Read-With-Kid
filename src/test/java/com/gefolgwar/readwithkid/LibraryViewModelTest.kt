@@ -11,6 +11,7 @@ import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
+import java.util.Calendar
 import kotlin.random.Random
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -388,6 +389,54 @@ class LibraryViewModelTest {
         assertEquals(cat, state.history!!.text)
         assertNull(state.history!!.shown)
         assertEquals(emptyList<ReadingRecord>(), state.history!!.readings)
+    }
+
+    // --- word counts on text cards ---
+
+    /** Local time on the phone, ms since the epoch. */
+    private fun at(day: Int, hour: Int, minute: Int = 0): Long =
+        Calendar.getInstance().apply {
+            clear()
+            set(2026, Calendar.NOVEMBER, day, hour, minute)
+        }.timeInMillis
+
+    @Test
+    fun `a text card counts the words of the text as the reading session splits them`() {
+        val raw = "Мама — мила раму! Тато, читав книжку… «Добре», сказав він."
+        addText(raw)
+        val text = state.texts.single()
+        assertEquals(TextPreparation.prepare(raw).words.size, state.textStats.getValue(text.id).wordCount)
+        assertEquals(9, state.textStats.getValue(text.id).wordCount)
+    }
+
+    @Test
+    fun `words read today sum the correct words of today's readings of that text only`() {
+        nowMs = at(day = 16, hour = 10)
+        addText("Мама мила раму.")
+        addText("Кіт спав.")
+        val (cat, mama) = state.texts
+        saveReading(mama, readAt = at(day = 15, hour = 23, minute = 59), correct = 5)
+        saveReading(mama, readAt = at(day = 16, hour = 0), correct = 3)
+        saveReading(mama, readAt = at(day = 16, hour = 9), correct = 2)
+        saveReading(cat, readAt = at(day = 15, hour = 12), correct = 2)
+
+        assertEquals(5, state.textStats.getValue(mama.id).wordsReadToday)
+        assertEquals(0, state.textStats.getValue(cat.id).wordsReadToday)
+    }
+
+    @Test
+    fun `words read today follow saved and deleted readings`() {
+        nowMs = at(day = 16, hour = 10)
+        addText("Мама мила раму.")
+        val text = state.texts.single()
+        assertEquals(0, state.textStats.getValue(text.id).wordsReadToday)
+
+        val first = saveReading(text, readAt = at(day = 16, hour = 9), correct = 3)
+        saveReading(text, readAt = at(day = 16, hour = 9, minute = 30), correct = 2)
+        assertEquals(5, state.textStats.getValue(text.id).wordsReadToday)
+
+        vm.deleteReading(first)
+        assertEquals(2, state.textStats.getValue(text.id).wordsReadToday)
     }
 
     // --- parent mode and child mode ---

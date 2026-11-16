@@ -58,6 +58,11 @@ class ScreenshotsTest {
         SavedText(3, "Мама мила раму", "Мама мила раму. Тато читав книжку. Оля малювала сонце.", 0, TextLanguage.UK, childId = 2),
         SavedText(4, "Kater Paul", "Kater Paul schläft gern in der Sonne. Am Abend spielt er mit einem Ball.", 0, TextLanguage.DE, childId = 2)
     )
+    /** The story and the German hedgehog were read today, the others not. */
+    private val stats = texts.associate { text ->
+        val today = mapOf(1L to 27, 2L to 15)[text.id] ?: 0
+        text.id to TextStats(TextPreparation.prepare(text.rawText).words.size, today)
+    }
     private val result = ReadingResult(
         totalWords = 34,
         correctWords = 31,
@@ -111,7 +116,7 @@ class ScreenshotsTest {
 
     @Test
     fun library() = shot("1-library") {
-        LibraryScreen(texts, olya, {}, {}, {}, {}, {}, {}, it)
+        LibraryScreen(texts, olya, {}, {}, {}, {}, {}, {}, it, textStats = stats)
     }
 
     @Test
@@ -122,7 +127,7 @@ class ScreenshotsTest {
     /** Locked for the child: no adding, no text menu, no settings; the closed lock asks a grown-up's question. */
     @Test
     fun libraryChildMode() = shot("1c-library-child-mode") {
-        LibraryScreen(texts, olya, {}, {}, {}, {}, {}, {}, it, childMode = true)
+        LibraryScreen(texts, olya, {}, {}, {}, {}, {}, {}, it, childMode = true, textStats = stats)
     }
 
     @Test
@@ -251,7 +256,7 @@ class ScreenshotsTest {
     @Config(qualifiers = "de-w412dp-h915dp-xhdpi", fontScale = 1.3f)
     fun libraryGermanLargeFont() = shot("9-library-de-font130") {
         // The longest placeholder at the largest font
-        LibraryScreen(texts, unnamed, {}, {}, {}, {}, {}, {}, it)
+        LibraryScreen(texts, unnamed, {}, {}, {}, {}, {}, {}, it, textStats = stats)
     }
 
     @Test
@@ -262,7 +267,7 @@ class ScreenshotsTest {
     @Test
     @Config(qualifiers = "uk-w412dp-h915dp-night-xhdpi")
     fun libraryFollowsSystemDarkMode() = shot("d0-library-system-night", dark = null) {
-        LibraryScreen(texts, olya, {}, {}, {}, {}, {}, {}, it)
+        LibraryScreen(texts, olya, {}, {}, {}, {}, {}, {}, it, textStats = stats)
     }
 
     /** The editor while the keyboard is open: the keyboard's insets are given to the window as the phone does. */
@@ -322,7 +327,7 @@ class ScreenshotsTest {
 
     @Test
     fun libraryDark() = shot("d1-library", dark = true) {
-        LibraryScreen(texts, olya, {}, {}, {}, {}, {}, {}, it)
+        LibraryScreen(texts, olya, {}, {}, {}, {}, {}, {}, it, textStats = stats)
     }
 
     @Test

@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.Calendar
 import kotlin.random.Random
 
 /** A text being added ([id] 0) or edited. */
@@ -42,9 +43,14 @@ data class TextHistory(
     val shown: ReadingRecord? = null
 )
 
+/** Shown on a text's card: [wordCount] as the reading session counts them, and the words read correctly today. */
+data class TextStats(val wordCount: Int, val wordsReadToday: Int)
+
 data class LibraryUiState(
     /** Texts of the [activeChild]. */
     val texts: List<SavedText> = emptyList(),
+    /** Stats of each of the [texts], by text id. */
+    val textStats: Map<Long, TextStats> = emptyMap(),
     /** Open editor, or null when the library list is shown. */
     val editor: TextEditorState? = null,
     /** Open history of a text, or null. */
@@ -78,13 +84,39 @@ class LibraryViewModel(
     private val random: Random = Random.Default
 ) : ViewModel() {
 
-    /** The child who was active last time, or the first child if that one no longer exists; with their texts. */
-    private val library: Flow<Pair<Child?, List<SavedText>>> = children.observeAll()
+    /** The child who was active last time, or the first child if that one no longer exists; with their texts and their stats. */
+    private val library: Flow<Triple<Child?, List<SavedText>, Map<Long, TextStats>>> = children.observeAll()
         .map { all -> all.find { it.id == session.activeChildId } ?: all.firstOrNull() }
         .distinctUntilChanged()
         .flatMapLatest { child ->
-            if (child == null) flowOf(null to emptyList()) else repository.observeAll(child.id).map { child to it }
+            if (child == null) {
+                flowOf(Triple(null, emptyList(), emptyMap()))
+            } else {
+                repository.observeAll(child.id).flatMapLatest { texts ->
+                    readings.observeReadingsOf(texts.map { it.id }).map { Triple(child, texts, statsOf(texts, it)) }
+                }
+            }
         }
+
+    private fun statsOf(texts: List<SavedText>, readings: List<ReadingRecord>): Map<Long, TextStats> {
+        // Today is the phone's calendar day, from its local midnight to the next one.
+        val today = Calendar.getInstance().apply {
+            timeInMillis = clockMs()
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val start = today.timeInMillis
+        val end = today.apply { add(Calendar.DAY_OF_MONTH, 1) }.timeInMillis
+        val readToday = readings.filter { it.readAt in start until end }.groupBy { it.textId }
+        return texts.associate { text ->
+            text.id to TextStats(
+                wordCount = TextPreparation.prepare(text.rawText).words.size,
+                wordsReadToday = readToday[text.id].orEmpty().sumOf { it.result.correctWords }
+            )
+        }
+    }
 
     private val editor = MutableStateFlow<TextEditorState?>(null)
     /** Text whose history is open, and the id of the reading shown from it. */
@@ -104,8 +136,8 @@ class LibraryViewModel(
 
     val uiState: StateFlow<LibraryUiState> = combine(
         library, editor, history, childMode, combine(unlockQuestion, settingsOpen, ::Pair)
-    ) { (child, texts), editor, history, childMode, (question, settingsOpen) ->
-        LibraryUiState(texts, editor, history, child, childMode, question, settingsOpen)
+    ) { (child, texts, stats), editor, history, childMode, (question, settingsOpen) ->
+        LibraryUiState(texts, stats, editor, history, child, childMode, question, settingsOpen)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, LibraryUiState())
 
     private val parentMode get() = !childMode.value

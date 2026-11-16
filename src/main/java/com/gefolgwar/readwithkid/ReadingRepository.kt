@@ -35,6 +35,9 @@ interface ReadingRepository {
     /** Readings of the text, newest first. */
     fun observeReadings(textId: Long): Flow<List<ReadingRecord>>
 
+    /** Readings of any of the texts, in no particular order. */
+    fun observeReadingsOf(textIds: List<Long>): Flow<List<ReadingRecord>>
+
     /** Inserts the reading. Returns its id. */
     suspend fun saveReading(record: ReadingRecord): Long
 
@@ -45,6 +48,9 @@ interface ReadingRepository {
 abstract class ReadingDao : ReadingRepository {
     @Query("SELECT * FROM readings WHERE textId = :textId ORDER BY readAt DESC, id DESC")
     abstract override fun observeReadings(textId: Long): Flow<List<ReadingRecord>>
+
+    @Query("SELECT * FROM readings WHERE textId IN (:textIds)")
+    abstract override fun observeReadingsOf(textIds: List<Long>): Flow<List<ReadingRecord>>
 
     @Insert
     abstract override suspend fun saveReading(record: ReadingRecord): Long

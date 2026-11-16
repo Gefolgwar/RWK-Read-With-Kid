@@ -100,6 +100,11 @@
 
     <string name="language_uk">Ukrainisch</string>
     <string name="language_de">Deutsch</string>
+    <plurals name="text_word_count">
+        <item quantity="one">%d Wort</item>
+        <item quantity="other">%d Wörter</item>
+    </plurals>
+    <string name="text_read_today">heute: %d</string>
     <string name="model_retry">Erneut versuchen</string>
     <string name="model_downloading">Download: %1$s von %2$s</string>
     <string name="model_needs_confirmation">Der Download wartet auf WLAN oder Ihre Erlaubnis.</string>

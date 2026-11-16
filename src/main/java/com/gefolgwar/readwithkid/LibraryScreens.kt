@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -65,6 +66,8 @@ fun LibraryScreen(
     modifier: Modifier = Modifier,
     /** In child mode texts can only be read and their history viewed. */
     childMode: Boolean = false,
+    /** Word counts of the [texts], by text id. */
+    textStats: Map<Long, TextStats> = emptyMap(),
     unlockQuestion: UnlockQuestion? = null,
     onLock: () -> Unit = {},
     onUnlock: () -> Unit = {},
@@ -136,6 +139,7 @@ fun LibraryScreen(
                     items(texts, key = { it.id }) { text ->
                         TextCard(
                             text,
+                            textStats[text.id],
                             childMode,
                             onRead = { onRead(text) },
                             onEdit = { onEdit(text) },
@@ -269,6 +273,7 @@ private fun EmptyLibrary(childMode: Boolean, modifier: Modifier = Modifier) {
 @Composable
 private fun TextCard(
     text: SavedText,
+    stats: TextStats?,
     childMode: Boolean,
     onRead: () -> Unit,
     onEdit: () -> Unit,
@@ -294,6 +299,15 @@ private fun TextCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 2.dp)
                 )
+                if (stats != null) {
+                    // "N words · today: M", the today part only once something was read today
+                    val words = pluralStringResource(R.plurals.text_word_count, stats.wordCount, stats.wordCount)
+                    Text(
+                        if (stats.wordsReadToday > 0) "$words · ${stringResource(R.string.text_read_today, stats.wordsReadToday)}" else words,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
             IconButton(onClick = onHistory) {
                 Icon(Icons.Default.History, contentDescription = stringResource(R.string.history_title))

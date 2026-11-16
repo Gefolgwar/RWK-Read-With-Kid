@@ -16,6 +16,9 @@ class InMemoryReadingRepository : ReadingRepository {
             all.filter { it.textId == textId }.sortedWith(compareByDescending<ReadingRecord> { it.readAt }.thenByDescending { it.id })
         }
 
+    override fun observeReadingsOf(textIds: List<Long>): Flow<List<ReadingRecord>> =
+        readings.map { all -> all.filter { it.textId in textIds } }
+
     override suspend fun saveReading(record: ReadingRecord): Long {
         val saved = record.copy(id = nextId++)
         readings.update { it + saved }

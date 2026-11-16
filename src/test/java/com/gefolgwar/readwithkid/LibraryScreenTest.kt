@@ -77,6 +77,21 @@ class LibraryScreenTest {
     }
 
     @Test
+    fun `a text card tells its word count, and today's words only once something was read today`() {
+        var stats by mutableStateOf(TextStats(wordCount = 3, wordsReadToday = 0))
+        compose.setContent {
+            ReadWithKidTheme {
+                LibraryScreen(listOf(text), Child(1, "Оля"), {}, {}, {}, {}, {}, {}, textStats = mapOf(text.id to stats))
+            }
+        }
+        val words = compose.activity.resources.getQuantityString(R.plurals.text_word_count, 3, 3)
+        compose.onNodeWithText(words).assertIsDisplayed()
+
+        stats = stats.copy(wordsReadToday = 2)
+        compose.onNodeWithText("$words · ${compose.activity.getString(R.string.text_read_today, 2)}").assertIsDisplayed()
+    }
+
+    @Test
     fun `readings can be deleted only when deleting is offered`() {
         val reading = ReadingRecord(1, text.id, text.title, 0, ReadingResult(3, 3, 60_000, emptyList(), emptyList()))
         var deleteOffered by mutableStateOf(true)

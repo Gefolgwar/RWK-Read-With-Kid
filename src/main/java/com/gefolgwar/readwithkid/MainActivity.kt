@@ -268,6 +268,7 @@ fun ReadWithKidApp(
                     onSettings = libraryVm::openSettings,
                     modifier = modifier,
                     childMode = library.childMode,
+                    textStats = library.textStats,
                     unlockQuestion = library.unlockQuestion,
                     onLock = libraryVm::lock,
                     onUnlock = libraryVm::askToUnlock,

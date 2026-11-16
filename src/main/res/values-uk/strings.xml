@@ -100,6 +100,13 @@
 
     <string name="language_uk">Українська</string>
     <string name="language_de">Німецька</string>
+    <plurals name="text_word_count">
+        <item quantity="one">%d слово</item>
+        <item quantity="few">%d слова</item>
+        <item quantity="many">%d слів</item>
+        <item quantity="other">%d слова</item>
+    </plurals>
+    <string name="text_read_today">сьогодні: %d</string>
     <string name="model_retry">Спробувати ще раз</string>
     <string name="model_downloading">Завантаження: %1$s з %2$s</string>
     <string name="model_needs_confirmation">Завантаження чекає на Wi-Fi або на ваш дозвіл.</string>
