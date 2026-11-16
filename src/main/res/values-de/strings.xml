@@ -19,7 +19,16 @@
     <string name="text_language_detected">Anhand des Alphabets vorgeschlagen. Sie können sie ändern.</string>
     <string name="paste">Einfügen</string>
     <string name="save">Speichern</string>
-    <string name="hard_parts_hint">Schwer zu erkennen, besser als Wörter ausschreiben: %1$s</string>
+    <string name="hard_parts_title">Manche Stellen werden vielleicht nicht erkannt</string>
+    <string name="hard_parts_intro">Die App erkennt gesprochene Wörter, keine Zeichen. Schreiben Sie diese Stellen als Wörter aus – so, wie Ihr Kind sie vorlesen wird.</string>
+    <string name="hard_parts_digits">Zahlen: %1$s</string>
+    <string name="hard_parts_digits_tip">Schreiben Sie Zahlen als Wörter. Zum Beispiel: 3\u00A0→ drei, 2024\u00A0→ zweitausendvierundzwanzig.</string>
+    <string name="hard_parts_abbreviations">Abkürzungen: %1$s</string>
+    <string name="hard_parts_abbreviations_tip">Schreiben Sie sie aus. Zum Beispiel: z.B.\u00A0→ zum Beispiel, DB\u00A0→ Deutsche Bahn.</string>
+    <string name="hard_parts_symbols">Zeichen: %1$s</string>
+    <string name="hard_parts_symbols_tip">Ersetzen Sie Zeichen durch Wörter. Zum Beispiel: %\u00A0→ Prozent, &amp;\u00A0→ und.</string>
+    <string name="hard_parts_fix">Text korrigieren</string>
+    <string name="hard_parts_save_anyway">Trotzdem speichern</string>
 
     <string name="input_hint">Text einfügen oder eingeben</string>
     <string name="model_loading">Sprachmodell wird geladen…</string>

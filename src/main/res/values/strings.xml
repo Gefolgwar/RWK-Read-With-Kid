@@ -20,7 +20,16 @@
     <string name="text_language_detected">Suggested from the alphabet of the text. You can change it.</string>
     <string name="paste">Paste</string>
     <string name="save">Save</string>
-    <string name="hard_parts_hint">Hard to recognise, better write as words: %1$s</string>
+    <string name="hard_parts_title">Some parts may not be recognised</string>
+    <string name="hard_parts_intro">The app recognises spoken words, not signs. Write these parts of the text as words, the way your child will read them aloud.</string>
+    <string name="hard_parts_digits">Numbers: %1$s</string>
+    <string name="hard_parts_digits_tip">Write numbers as words. For example: 3\u00A0→ three, 2024\u00A0→ two thousand twenty-four.</string>
+    <string name="hard_parts_abbreviations">Abbreviations: %1$s</string>
+    <string name="hard_parts_abbreviations_tip">Write them out in full. For example: e.g.\u00A0→ for example, USA\u00A0→ United States.</string>
+    <string name="hard_parts_symbols">Signs: %1$s</string>
+    <string name="hard_parts_symbols_tip">Replace signs with words. For example: %\u00A0→ percent, &amp;\u00A0→ and.</string>
+    <string name="hard_parts_fix">Fix the text</string>
+    <string name="hard_parts_save_anyway">Save anyway</string>
 
     <string name="input_hint">Paste or type a text</string>
     <string name="model_loading">Loading speech model…</string>

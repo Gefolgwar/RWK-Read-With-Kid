@@ -18,6 +18,8 @@ import androidx.compose.ui.Modifier
 import android.graphics.Canvas
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import org.junit.Rule
 import org.junit.Test
@@ -25,6 +27,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import org.robolectric.shadows.ShadowDialog
 import java.io.File
 
 /**
@@ -111,6 +114,20 @@ class ScreenshotsTest {
     @Test
     fun editor() = shot("2-editor") {
         TextEditorScreen(TextEditorState(rawText = "Кіт Мурко має 3 кошенят. Вони граються м'ячем."), {}, {}, {}, {}, it)
+    }
+
+    /** Saving a text with digits, abbreviations and signs: the dialog is its own window, so it is captured alone. */
+    @Test
+    fun editorHardParts() {
+        compose.setContent {
+            ReadWithKidTheme {
+                TextEditorScreen(TextEditorState(rawText = "У 2024 році 5 учнів з США & ЗСУ отримали 100% балів."), {}, {}, {}, {})
+            }
+        }
+        compose.onNodeWithText(compose.activity.getString(R.string.save)).performClick()
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(1_000)
+        save("2c-editor-hard-parts", ShadowDialog.getLatestDialog().window!!.decorView)
     }
 
     @Test

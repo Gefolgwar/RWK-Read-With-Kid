@@ -19,7 +19,16 @@
     <string name="text_language_detected">Запропоновано за алфавітом тексту. Можна змінити.</string>
     <string name="paste">Вставити</string>
     <string name="save">Зберегти</string>
-    <string name="hard_parts_hint">Складно розпізнати, краще запишіть словами: %1$s</string>
+    <string name="hard_parts_title">Деякі місця можуть не розпізнатися</string>
+    <string name="hard_parts_intro">Застосунок розпізнає вимовлені слова, а не знаки. Запишіть ці місця тексту словами — так, як дитина читатиме їх уголос.</string>
+    <string name="hard_parts_digits">Числа: %1$s</string>
+    <string name="hard_parts_digits_tip">Запишіть числа словами. Наприклад: 3\u00A0→ три, 2024\u00A0→ дві тисячі двадцять четвертий.</string>
+    <string name="hard_parts_abbreviations">Скорочення: %1$s</string>
+    <string name="hard_parts_abbreviations_tip">Запишіть їх повністю. Наприклад: т.д.\u00A0→ так далі, США\u00A0→ Сполучені Штати.</string>
+    <string name="hard_parts_symbols">Знаки: %1$s</string>
+    <string name="hard_parts_symbols_tip">Замініть знаки словами. Наприклад: %\u00A0→ відсотків, &amp;\u00A0→ і.</string>
+    <string name="hard_parts_fix">Виправити текст</string>
+    <string name="hard_parts_save_anyway">Зберегти так</string>
 
     <string name="input_hint">Вставте або наберіть текст</string>
     <string name="model_loading">Завантаження мовної моделі…</string>

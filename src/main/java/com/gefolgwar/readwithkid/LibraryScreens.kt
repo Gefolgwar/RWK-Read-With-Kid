@@ -3,6 +3,8 @@ package com.gefolgwar.readwithkid
 import android.content.ClipboardManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -381,9 +383,20 @@ fun TextEditorScreen(
                 .heightIn(min = 120.dp)
         )
         if (!typing) {
-            HardPartsHint(editor.warnings)
             Spacer(Modifier.height(16.dp))
             LanguageChoice(editor, onLanguageChange)
+        }
+
+        var showHardParts by remember { mutableStateOf(false) }
+        if (showHardParts) {
+            HardPartsDialog(
+                editor.warnings,
+                onFix = { showHardParts = false },
+                onSaveAnyway = {
+                    showHardParts = false
+                    onSave()
+                }
+            )
         }
 
         Spacer(Modifier.height(if (typing) 8.dp else 16.dp))
@@ -391,7 +404,11 @@ fun TextEditorScreen(
             OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f).heightIn(min = 56.dp)) {
                 Text(stringResource(R.string.cancel), style = MaterialTheme.typography.titleMedium)
             }
-            Button(onClick = onSave, enabled = editor.canSave, modifier = Modifier.weight(1f).heightIn(min = 56.dp)) {
+            Button(
+                onClick = { if (editor.warnings.isEmpty) onSave() else showHardParts = true },
+                enabled = editor.canSave,
+                modifier = Modifier.weight(1f).heightIn(min = 56.dp)
+            ) {
                 Text(stringResource(R.string.save), style = MaterialTheme.typography.titleMedium)
             }
         }
@@ -422,31 +439,52 @@ private fun LanguageChoice(editor: TextEditorState, onChange: (TextLanguage) -> 
     }
 }
 
-/** Digits, abbreviations and symbols are hard to recognise: a short hint under the field. */
+/**
+ * Shown on save when the text has digits, abbreviations or symbols, which speech recognition handles poorly:
+ * what was found in this text, and how to write it as words. The parent can fix the text or save it anyway.
+ */
 @Composable
-private fun HardPartsHint(warnings: TextWarnings) {
-    if (warnings.isEmpty) return
-    Surface(
-        color = Magnets.Orange.container,
-        shape = MaterialTheme.shapes.medium,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 12.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+private fun HardPartsDialog(warnings: TextWarnings, onFix: () -> Unit, onSaveAnyway: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onFix,
+        icon = {
             Icon(
                 Icons.Outlined.Info,
                 contentDescription = null,
                 tint = if (LocalDarkDoor.current) Magnets.Orange.face else Magnets.Orange.edge
             )
-            Spacer(Modifier.width(12.dp))
-            Text(
-                stringResource(
-                    R.string.hard_parts_hint,
-                    (warnings.digits + warnings.abbreviations + warnings.symbols).joinToString(", ")
-                ),
-                style = MaterialTheme.typography.bodyMedium
-            )
+        },
+        title = { Text(stringResource(R.string.hard_parts_title), textAlign = TextAlign.Center) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text(stringResource(R.string.hard_parts_intro), style = MaterialTheme.typography.bodyMedium)
+                HardPartsKind(warnings.digits, R.string.hard_parts_digits, R.string.hard_parts_digits_tip)
+                HardPartsKind(warnings.abbreviations, R.string.hard_parts_abbreviations, R.string.hard_parts_abbreviations_tip)
+                HardPartsKind(warnings.symbols, R.string.hard_parts_symbols, R.string.hard_parts_symbols_tip)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onFix) { Text(stringResource(R.string.hard_parts_fix)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onSaveAnyway) { Text(stringResource(R.string.hard_parts_save_anyway)) }
         }
-    }
+    )
+}
+
+/** One kind of hard part: what was found in the text, then a tip with examples. */
+@Composable
+private fun HardPartsKind(found: List<String>, foundRes: Int, tipRes: Int) {
+    if (found.isEmpty()) return
+    Spacer(Modifier.height(16.dp))
+    Text(
+        stringResource(foundRes, found.joinToString(", ")),
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.onSurface
+    )
+    Text(
+        stringResource(tipRes),
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.padding(top = 4.dp)
+    )
 }
