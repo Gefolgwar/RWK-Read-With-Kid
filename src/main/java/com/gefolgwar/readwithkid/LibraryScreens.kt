@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
@@ -59,6 +60,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.text.DateFormat
+import java.text.NumberFormat
 import java.util.Date
 import kotlin.math.roundToInt
 
@@ -101,8 +103,10 @@ fun LibraryScreen(
     var naming by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf<Child?>(null) }
     var deletingChild by remember { mutableStateOf<Child?>(null) }
+    var showNorms by remember { mutableStateOf(false) }
 
     unlockQuestion?.let { UnlockDialog(it, onAnswerUnlock, onDismissUnlock) }
+    if (showNorms) ReadingNormsDialog(onClose = { showNorms = false })
 
     if (childrenOpen) {
         val toRename = renaming
@@ -202,7 +206,20 @@ fun LibraryScreen(
                     .padding(start = 4.dp, top = 8.dp)
                     .semantics { heading() }
             )
-            Spacer(Modifier.height(16.dp))
+            // Words read today across all the child's texts, next to the norms to compare them with (open in child mode too).
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 4.dp)) {
+                val today = textStats.values.sumOf { it.wordsReadToday }
+                Text(
+                    pluralStringResource(R.plurals.words_read_today, today, today),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                IconButton(onClick = { showNorms = true }) {
+                    Icon(Icons.Outlined.Info, contentDescription = stringResource(R.string.norms_title))
+                }
+            }
+            Spacer(Modifier.height(8.dp))
             if (texts.isEmpty()) {
                 EmptyLibrary(childMode, Modifier.weight(1f))
             } else {
@@ -705,12 +722,26 @@ private fun ProgressChart(scores: List<Int>) {
     }
 }
 
+/** A guide for one school grade: reading speed aloud in words per minute, and words to read a day. */
+private class ReadingNorm(val grade: Int, val speed: IntRange, val daily: IntRange)
+
 /**
- * How fast and how much children read by school grade, in Ukraine and in Germany, with the sources.
- * The figures come from docs/research/reading-norms.md; the app has no links, so sources are named, not linked.
+ * Rounded guide values, one set for both reading languages, derived from docs/research/reading-norms.md:
+ * the speed spans the Ukrainian and German figures (grades 1 and 3 filled in between), and a day is
+ * 10–15 minutes of reading in grade 1, 15–20 in grade 2 and 20 from grade 3 on, as in the German Leseband.
  */
+private val ReadingNorms = listOf(
+    ReadingNorm(1, 25..40, 300..500),
+    ReadingNorm(2, 50..90, 1000..1500),
+    ReadingNorm(3, 75..110, 1500..2000),
+    ReadingNorm(4, 90..140, 2000..2500)
+)
+
+/** How fast and how much children read aloud by school grade, with a note in small print that it is only a guide. */
 @Composable
 private fun ReadingNormsDialog(onClose: () -> Unit) {
+    val numbers = NumberFormat.getIntegerInstance(LocalConfiguration.current.locales[0])
+    fun IntRange.text() = "${numbers.format(first)}–${numbers.format(last)}"
     AlertDialog(
         onDismissRequest = onClose,
         icon = { Icon(Icons.Outlined.Info, contentDescription = null) },
@@ -718,8 +749,17 @@ private fun ReadingNormsDialog(onClose: () -> Unit) {
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(stringResource(R.string.norms_intro), style = MaterialTheme.typography.bodyMedium)
-                NormsCountry(R.string.norms_ukraine, R.string.norms_ukraine_speed, R.string.norms_ukraine_daily, R.string.norms_ukraine_source)
-                NormsCountry(R.string.norms_germany, R.string.norms_germany_speed, R.string.norms_germany_daily, R.string.norms_germany_source)
+                Spacer(Modifier.height(16.dp))
+                NormsRow("", stringResource(R.string.norms_speed), stringResource(R.string.norms_daily), header = true)
+                ReadingNorms.forEach { norm ->
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    NormsRow(stringResource(R.string.norms_grade, norm.grade), norm.speed.text(), norm.daily.text())
+                }
+                Text(
+                    stringResource(R.string.norms_note),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(top = 16.dp)
+                )
             }
         },
         confirmButton = {
@@ -728,23 +768,22 @@ private fun ReadingNormsDialog(onClose: () -> Unit) {
     )
 }
 
-/** One country: its name as a heading, reading speed by grade, the daily amount and the sources. */
+/** One line of the norms table: the grade, its speed and its words a day; read together by TalkBack. */
 @Composable
-private fun NormsCountry(nameRes: Int, speedRes: Int, dailyRes: Int, sourceRes: Int) {
-    Spacer(Modifier.height(20.dp))
-    Text(
-        stringResource(nameRes),
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.onSurface,
-        modifier = Modifier.semantics { heading() }
-    )
-    Text(stringResource(speedRes), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp))
-    Text(stringResource(dailyRes), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp))
-    Text(
-        stringResource(sourceRes),
-        style = MaterialTheme.typography.bodySmall,
-        modifier = Modifier.padding(top = 6.dp)
-    )
+private fun NormsRow(grade: String, speed: String, daily: String, header: Boolean = false) {
+    val style = if (header) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodyMedium.merge(TabularNumbers)
+    val color = if (header) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
+    Row(
+        verticalAlignment = Alignment.Bottom,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+            .semantics(mergeDescendants = true) {}
+    ) {
+        Text(grade, style = MaterialTheme.typography.bodyMedium, color = color, modifier = Modifier.weight(0.9f))
+        Text(speed, style = style, color = color, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+        Text(daily, style = style, color = color, textAlign = TextAlign.End, modifier = Modifier.weight(1.1f))
+    }
 }
 
 /** A text's magnet and its title, at the top of the screens about that text; [compact] under another heading. */

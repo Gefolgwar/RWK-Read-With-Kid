@@ -1,8 +1,23 @@
 # Reading norms for primary-school children: Ukraine and Germany
 
-Researched 2026-11-16 for issue #39 (parent spec #35). The app's info dialog in the history screen
-(`ReadingNormsDialog` in `LibraryScreens.kt`, strings `norms_*`) shows exactly the figures below.
-Only figures found in a primary source are listed. Where none was found, this file says so.
+Researched 2026-11-16 for issue #39 (parent spec #35). Only figures found in a primary source are listed.
+Where none was found, this file says so.
+
+The app's info dialog (`ReadingNormsDialog` in `LibraryScreens.kt`, on the main screen and in the history)
+does not show these figures as they are. By the owner's decision it shows one rounded set of guide values by grade,
+without sources and without splitting by country, marked as approximate and not binding:
+
+| Grade | Words per minute | Words per day |
+|---|---|---|
+| 1 | 25–40 | 300–500 |
+| 2 | 50–90 | 1,000–1,500 |
+| 3 | 75–110 | 1,500–2,000 |
+| 4 | 90–140 | 2,000–2,500 |
+
+Derivation: the speed spans the Ukrainian and German figures below. Grade 1 has no official figure in either
+country, and grade 3 none in Germany; those values are estimates between the sourced ones. Words per day is the
+speed times 10–15 minutes of reading (grade 1), 15–20 minutes (grade 2) or 20 minutes (grades 3–4, as in the
+German Leseband). Neither country has an official figure for words per day.
 
 ## Summary
 

@@ -100,17 +100,13 @@
     <string name="delete_reading_title">Delete reading?</string>
     <string name="delete_reading_message">The reading of %1$s will be deleted permanently.</string>
 
-    <!-- Reading norms; the figures and their sources are in docs/research/reading-norms.md -->
+    <!-- Reading norms; the figures are in ReadingNormsDialog, derived from docs/research/reading-norms.md -->
     <string name="norms_title">Reading norms</string>
-    <string name="norms_intro">Guide values for reading aloud, in words per minute. Compare them with the score. They are a guide for practice, not a test.</string>
-    <string name="norms_ukraine">Ukraine</string>
-    <string name="norms_ukraine_speed">Grade 2: 35–45 in the 1st semester, 50–60 in the 2nd\nGrade 3: 65–70 in the 1st semester, 75–80 in the 2nd\nGrade 4: 80–85 in the 1st semester, 90–95 in the 2nd</string>
-    <string name="norms_ukraine_daily">Per day: there is no official figure.</string>
-    <string name="norms_ukraine_source">Source: Ministry of Education and Science of Ukraine, order No. 1222 of 21.08.2013 as amended by order No. 1009 of 19.08.2016, literary reading, grades 2–4. There are no figures for grade 1.</string>
-    <string name="norms_germany">Germany</string>
-    <string name="norms_germany_speed">End of grade 2: about 80–90 words read correctly, very good readers about 115\nEnd of grade 4: about 130–140, very good readers about 165</string>
-    <string name="norms_germany_daily">Per day: 20 minutes of reading on every school day (Leseband in Brandenburg and Schleswig-Holstein).</string>
-    <string name="norms_germany_source">Sources: ISB Bavaria, LehrplanPLUS primary school, based on Rosebrock et al. (2011), Leseflüssigkeit fördern; Brandenburg Ministry of Education; Schleswig-Holstein Ministry of Education (2024). There are no figures for grades 1 and 3.</string>
+    <string name="norms_intro">A guide for reading aloud, by school grade: how fast, and how many words a day (about 10–20 minutes of reading).</string>
+    <string name="norms_grade">Grade %d</string>
+    <string name="norms_speed">Words per minute</string>
+    <string name="norms_daily">Words per day</string>
+    <string name="norms_note">These are approximate figures. They don\'t have to be followed: every child reads at their own pace.</string>
     <string name="norms_close">Close</string>
 
     <string name="language_uk">Ukrainian</string>
@@ -120,6 +116,10 @@
         <item quantity="other">%d words</item>
     </plurals>
     <string name="text_read_today">today: %d</string>
+    <plurals name="words_read_today">
+        <item quantity="one">Read today: %d word</item>
+        <item quantity="other">Read today: %d words</item>
+    </plurals>
     <string name="model_retry">Try again</string>
     <string name="model_downloading">Downloading: %1$s of %2$s</string>
     <string name="model_needs_confirmation">The download is waiting for Wi-Fi or your permission.</string>

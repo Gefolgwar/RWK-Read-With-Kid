@@ -155,11 +155,40 @@ class LibraryScreenTest {
                 HistoryScreen(TextHistory(text, emptyList()), onShow = {}, onDelete = null, onBack = {})
             }
         }
+        assertNormsOpenAndClose()
+    }
+
+    @Test
+    fun `the main screen opens the reading norms in child mode too`() {
+        open(childMode = true)
+        assertNormsOpenAndClose()
+    }
+
+    /** The norms give speed and words per day by grade, and say in small print that they are only a guide. */
+    private fun assertNormsOpenAndClose() {
         compose.onNodeWithContentDescription(string(R.string.norms_title)).performClick()
-        compose.onNodeWithText(string(R.string.norms_ukraine_speed)).assertIsDisplayed()
-        compose.onNodeWithText(string(R.string.norms_germany_source)).assertExists()
+        compose.onNodeWithText(string(R.string.norms_speed)).assertIsDisplayed()
+        compose.onNodeWithText(string(R.string.norms_daily)).assertIsDisplayed()
+        compose.onNodeWithText(compose.activity.getString(R.string.norms_grade, 1)).assertIsDisplayed()
+        compose.onNodeWithText(string(R.string.norms_note)).assertExists()
         compose.onNodeWithText(string(R.string.norms_close)).performClick()
-        compose.onNodeWithText(string(R.string.norms_ukraine_speed)).assertDoesNotExist()
+        compose.onNodeWithText(string(R.string.norms_speed)).assertDoesNotExist()
+    }
+
+    @Test
+    fun `the main screen tells the words read today across all texts`() {
+        val other = text.copy(id = 2, title = "Кіт")
+        var stats by mutableStateOf(mapOf(text.id to TextStats(3, 0), other.id to TextStats(5, 0)))
+        compose.setContent {
+            ReadWithKidTheme {
+                LibraryScreen(listOf(text, other), Child(1, "Оля"), {}, {}, {}, {}, {}, {}, textStats = stats)
+            }
+        }
+        fun today(words: Int) = compose.activity.resources.getQuantityString(R.plurals.words_read_today, words, words)
+        compose.onNodeWithText(today(0)).assertIsDisplayed()
+
+        stats = mapOf(text.id to TextStats(3, 3), other.id to TextStats(5, 4))
+        compose.onNodeWithText(today(7)).assertIsDisplayed()
     }
 
     @Test
