@@ -41,7 +41,10 @@ data class TextHistory(
     val text: SavedText,
     val readings: List<ReadingRecord> = emptyList(),
     val shown: ReadingRecord? = null
-)
+) {
+    /** Score (words correct per minute) of each reading, oldest first, for the progress chart. */
+    val scores: List<Int> = readings.asReversed().map { it.result.wordsCorrectPerMinute }
+}
 
 /** Shown on a text's card: [wordCount] as the reading session counts them, and the words read correctly today. */
 data class TextStats(val wordCount: Int, val wordsReadToday: Int)

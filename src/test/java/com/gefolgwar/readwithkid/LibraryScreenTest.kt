@@ -107,6 +107,28 @@ class LibraryScreenTest {
     }
 
     @Test
+    fun `the progress chart shows from two readings on and tells the first and latest score`() {
+        // A minute each: the score is the correct words.
+        fun reading(id: Long, correct: Int) =
+            ReadingRecord(id, text.id, text.title, id, ReadingResult(40, correct, 60_000, emptyList(), emptyList()))
+        var readings by mutableStateOf(emptyList<ReadingRecord>())
+        compose.setContent {
+            ReadWithKidTheme {
+                HistoryScreen(TextHistory(text, readings), onShow = {}, onDelete = null, onBack = {})
+            }
+        }
+        val chart = compose.activity.getString(R.string.history_chart_description, 21, 34)
+        compose.onNodeWithContentDescription(chart).assertDoesNotExist()
+
+        readings = listOf(reading(1, 21))
+        compose.onNodeWithContentDescription(chart).assertDoesNotExist()
+
+        // Newest first, as the history lists them.
+        readings = listOf(reading(3, 34), reading(2, 30), reading(1, 21))
+        compose.onNodeWithContentDescription(chart).assertIsDisplayed()
+    }
+
+    @Test
     fun `a history row tells its score, accuracy and duration instead of stars`() {
         val readAt = 1_763_000_000_000
         // 31 of 34 words in 52 seconds: 36 words correct per minute, 91 %

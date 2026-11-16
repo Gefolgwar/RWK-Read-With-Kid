@@ -89,6 +89,7 @@
     <string name="history_score_unit">words/min</string>
     <string name="history_reading_description">%1$s. Score: %2$d words correct per minute. Accuracy %3$d%%, duration %4$s.</string>
     <string name="history_empty">This text has not been read yet.</string>
+    <string name="history_chart_description">Score progress: first reading %1$d, latest %2$d words correct per minute.</string>
     <string name="delete_reading_title">Delete reading?</string>
     <string name="delete_reading_message">The reading of %1$s will be deleted permanently.</string>
 

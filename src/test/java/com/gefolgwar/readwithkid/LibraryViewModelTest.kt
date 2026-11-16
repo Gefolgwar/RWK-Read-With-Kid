@@ -447,6 +447,21 @@ class LibraryViewModelTest {
     }
 
     @Test
+    fun `the progress chart has a score per reading, oldest first, and loses a deleted reading's`() {
+        addText("Мама мила раму.")
+        val text = state.texts.single()
+        // Each reading takes a minute, so its score is its correct words.
+        saveReading(text, readAt = 1, correct = 3)
+        val middle = saveReading(text, readAt = 2, correct = 4)
+        saveReading(text, readAt = 3, correct = 6)
+
+        vm.openHistory(text)
+        assertEquals(listOf(3, 4, 6), state.history!!.scores)
+        vm.deleteReading(middle)
+        assertEquals(listOf(3, 6), state.history!!.scores)
+    }
+
+    @Test
     fun `another text's history starts on its list`() {
         addText("Мама мила раму.")
         addText("Кіт спав.")

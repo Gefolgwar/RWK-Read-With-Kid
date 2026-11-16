@@ -2,6 +2,7 @@ package com.gefolgwar.readwithkid
 
 import android.content.ClipboardManager
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
@@ -32,7 +33,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
@@ -468,7 +474,7 @@ private fun TextCard(
 
 /**
  * Earlier readings of a text, newest first: the score (words correct per minute) large, with date, accuracy and duration.
- * A reading opens its result.
+ * A reading opens its result. From two readings on, a chart above the list shows how the score changed.
  * [onDelete] is null in child mode, where readings cannot be deleted.
  * The info button opens the reading norms to compare the scores with.
  */
@@ -526,6 +532,10 @@ fun HistoryScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.weight(1f)
             ) {
+                // A single point shows no progress yet.
+                if (history.scores.size >= 2) {
+                    item(key = "chart") { ProgressChart(history.scores) }
+                }
                 items(history.readings, key = { it.id }) { reading ->
                     val date = dateFormat.format(Date(reading.readAt))
                     val score = reading.result.wordsCorrectPerMinute
@@ -581,6 +591,37 @@ fun HistoryScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * [scores] of a text's readings as a line, oldest on the left, from zero up to the best score; the latest point is larger.
+ * TalkBack reads the first and the latest score.
+ */
+@Composable
+private fun ProgressChart(scores: List<Int>) {
+    val description = stringResource(R.string.history_chart_description, scores.first(), scores.last())
+    val line = MaterialTheme.colorScheme.primary
+    val baseline = MaterialTheme.colorScheme.outlineVariant
+    Card(
+        colors = cardColors(),
+        shape = MaterialTheme.shapes.large,
+        modifier = Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = description }
+    ) {
+        Canvas(Modifier.fillMaxWidth().height(96.dp).padding(horizontal = 20.dp, vertical = 16.dp)) {
+            val top = scores.max().coerceAtLeast(1)
+            val points = scores.mapIndexed { i, score ->
+                Offset(size.width * i / (scores.size - 1), size.height * (1 - score.toFloat() / top))
+            }
+            drawLine(baseline, Offset(0f, size.height), Offset(size.width, size.height), strokeWidth = 1.dp.toPx())
+            val path = Path().apply {
+                moveTo(points.first().x, points.first().y)
+                points.drop(1).forEach { lineTo(it.x, it.y) }
+            }
+            drawPath(path, line, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+            points.dropLast(1).forEach { drawCircle(line, radius = 4.dp.toPx(), center = it) }
+            drawCircle(line, radius = 6.dp.toPx(), center = points.last())
         }
     }
 }
