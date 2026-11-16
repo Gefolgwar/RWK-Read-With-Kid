@@ -1,0 +1,174 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-16T00:00:00Z",
+  "title": "Design System: Read With Kid",
+  "extensions": {
+    "colorMeta": {
+      "magnet-blue": { "role": "primary", "displayName": "Magnet Blue", "canonical": "Color(0xFF1D5BD8)", "tonalRamp": ["#12203A", "#1B366C", "#1F4AA2", "#1E5EDD", "#5684E0", "#8DA9E3", "#BFCEEB", "#ECF0F8"] },
+      "magnet-blue-edge": { "role": "primary", "displayName": "Magnet Blue Edge", "canonical": "Color(0xFF113A8F)" },
+      "magnet-blue-container": { "role": "primary", "displayName": "Reading Ruler Blue", "canonical": "Color(0xFFDDE7FF)" },
+      "ink-on-blue-container": { "role": "primary", "displayName": "Deep Blue Ink", "canonical": "Color(0xFF0A2463)" },
+      "magnet-red": { "role": "text-magnet", "displayName": "Magnet Red", "canonical": "Color(0xFFE0322B)", "tonalRamp": ["#3A1413", "#6B1F1C", "#A12520", "#DB2821", "#DE5D57", "#E2918E", "#EBC1BF", "#F8EDED"] },
+      "magnet-red-edge": { "role": "text-magnet", "displayName": "Magnet Red Edge", "canonical": "Color(0xFF9E1C17)" },
+      "magnet-green": { "role": "secondary", "displayName": "Magnet Green", "canonical": "Color(0xFF14975A)", "tonalRamp": ["#123A28", "#1B6C46", "#1FA265", "#1EDD84", "#55E0A0", "#8CE4BB", "#BFECD7", "#ECF8F3"] },
+      "magnet-green-edge": { "role": "secondary", "displayName": "Magnet Green Edge", "canonical": "Color(0xFF0A6339)" },
+      "magnet-green-container": { "role": "secondary", "displayName": "Pale Magnet Green", "canonical": "Color(0xFFD5F2E2)" },
+      "ink-on-green-container": { "role": "secondary", "displayName": "Deep Green Ink", "canonical": "Color(0xFF053A20)" },
+      "magnet-orange": { "role": "tertiary", "displayName": "Magnet Orange", "canonical": "Color(0xFFF06A0E)", "tonalRamp": ["#3E220F", "#733B14", "#AD5214", "#ED690F", "#EB8C4A", "#EBAF85", "#EFD0BB", "#F9F1EC"] },
+      "magnet-orange-edge": { "role": "tertiary", "displayName": "Magnet Orange Edge", "canonical": "Color(0xFFA84604)" },
+      "magnet-orange-container": { "role": "tertiary", "displayName": "Pale Magnet Orange", "canonical": "Color(0xFFFFE6D3)" },
+      "magnet-purple": { "role": "text-magnet", "displayName": "Magnet Purple", "canonical": "Color(0xFF7A45D6)", "tonalRamp": ["#221637", "#3A2165", "#522A97", "#682ECD", "#8B61D5", "#AE94DC", "#D0C2E8", "#F1EDF7"] },
+      "magnet-purple-edge": { "role": "text-magnet", "displayName": "Magnet Purple Edge", "canonical": "Color(0xFF4F2794)" },
+      "magnet-yellow": { "role": "reading-moment", "displayName": "Current-Word Yellow", "canonical": "Color(0xFFFFC20E)", "tonalRamp": ["#40330C", "#785E0E", "#B78B0B", "#FBBB01", "#F5C840", "#F1D47F", "#F2E4B8", "#FAF6EB"] },
+      "magnet-yellow-edge": { "role": "reading-moment", "displayName": "Current-Word Yellow Edge", "canonical": "Color(0xFFD69A00)" },
+      "magnet-yellow-container": { "role": "reading-moment", "displayName": "Pale Yellow", "canonical": "Color(0xFFFFF1C4)" },
+      "enamel-door": { "role": "neutral", "displayName": "Enamel Door", "canonical": "Color(0xFFEFF2F7)", "tonalRamp": ["#1E242F", "#323F55", "#44597D", "#5473A7", "#7D93B9", "#A5B3CB", "#CBD3DF", "#F0F2F5"] },
+      "card-white": { "role": "neutral", "displayName": "Card White", "canonical": "Color.White" },
+      "door-low": { "role": "neutral", "displayName": "Door Low", "canonical": "Color(0xFFF7F9FC)" },
+      "door-container": { "role": "neutral", "displayName": "Door Container", "canonical": "Color(0xFFE9EDF3)" },
+      "door-tonal": { "role": "neutral", "displayName": "Door Tonal", "canonical": "Color(0xFFE3E8F0)" },
+      "door-highest": { "role": "neutral", "displayName": "Door Highest", "canonical": "Color(0xFFDCE2EB)" },
+      "blue-black-ink": { "role": "neutral", "displayName": "Blue-Black Ink", "canonical": "Color(0xFF161B26)", "tonalRamp": ["#1F242D", "#353E52", "#4A5877", "#5C719F", "#8392B3", "#A9B2C7", "#CDD2DD", "#F0F1F4"] },
+      "slate-ink": { "role": "neutral", "displayName": "Slate Ink", "canonical": "Color(0xFF475062)", "tonalRamp": ["#22252A", "#3B414C", "#535C6E", "#6A7792", "#8C96A9", "#AFB5C1", "#D0D4DA", "#F1F2F3"] },
+      "steel-outline": { "role": "neutral", "displayName": "Steel Outline", "canonical": "Color(0xFF6E7789)", "tonalRamp": ["#232529", "#3E4149", "#575D6A", "#70798B", "#9198A5", "#B2B6BE", "#D2D4D8", "#F1F2F3"] },
+      "hairline": { "role": "neutral", "displayName": "Hairline", "canonical": "Color(0xFFCCD3DE)" },
+      "error-red": { "role": "error", "displayName": "Error Red", "canonical": "Color(0xFFC0261C)", "tonalRamp": ["#3A1513", "#6B211C", "#A12820", "#DB2C21", "#DE6057", "#E2938E", "#EBC2BF", "#F8EDED"] },
+      "error-container": { "role": "error", "displayName": "Error Container", "canonical": "Color(0xFFFFE3E0)" },
+      "ink-on-error-container": { "role": "error", "displayName": "Deep Error Ink", "canonical": "Color(0xFF5F0D08)" }
+    },
+    "typographyMeta": {
+      "headline-medium": { "displayName": "Headline Medium", "purpose": "Screen titles and the result praise line. M3 headlineMedium in Andika Bold." },
+      "headline-small": { "displayName": "Headline Small", "purpose": "Settings-level headers and result figures (with tnum)." },
+      "title-large": { "displayName": "Title Large", "purpose": "Child button labels, large text heading, empty state, word-check popup." },
+      "title-medium": { "displayName": "Title Medium", "purpose": "Card titles, parent button and FAB labels, section titles." },
+      "title-small": { "displayName": "Title Small", "purpose": "Field labels." },
+      "body-large": { "displayName": "Body Large", "purpose": "Body text, list rows, result labels." },
+      "body-medium": { "displayName": "Body Medium", "purpose": "Secondary lines, hints." },
+      "body-small": { "displayName": "Body Small", "purpose": "Footnotes, licence text." },
+      "label-large": { "displayName": "Label Large", "purpose": "Small Material buttons and segments." },
+      "reading": { "displayName": "Reading", "purpose": "The reading text the child reads aloud (ReadingFontSize 30sp, 52sp line height)." },
+      "reading-page": { "displayName": "Reading Page", "purpose": "The text previewed on the ready-to-read screen." },
+      "editor": { "displayName": "Editor", "purpose": "The parent's text field." },
+      "magnet-letter": { "displayName": "Magnet Letter", "purpose": "A text's first letter as a magnet; 72/44/40/32/28sp by context." },
+      "figures": { "displayName": "Tabular Figures", "purpose": "TabularNumbers: merged into any style showing a changing number." }
+    },
+    "shadows": [
+      { "name": "magnet-letter", "value": "edge-colour copy offset y = 0.07 x size; text shadow rgba(16,24,40,0.2) y = 1.6 x thickness, blur = 2.5 x thickness", "purpose": "Lifts every magnet letter off the door (MagnetLetter)." },
+      { "name": "magnet-tile", "value": "edge rect 4dp below face; shadow rgba(16,24,40,0.25) 0 3dp 8dp", "purpose": "Lifts the current-word yellow tile (drawMagnetTile)." },
+      { "name": "gloss", "value": "linear-gradient(to bottom, rgba(255,255,255,0.38) 0%, transparent 55%), SrcAtop", "purpose": "Plastic shine on magnet faces and earned stars; the tile uses 0.45 alpha to 60% height." },
+      { "name": "popup", "value": "Material 3 shadowElevation 8dp", "purpose": "Word-check popup over a tapped word." }
+    ],
+    "motion": [
+      { "name": "magnet-tile-spring", "value": "spring(dampingRatio = 0.7, stiffness = 450)", "purpose": "Current-word tile moving to the next word on the same line; snaps on a new line." },
+      { "name": "star-pop", "value": "spring(DampingRatioHighBouncy, StiffnessLow), scale 0 to 1, 300ms stagger", "purpose": "Earned stars popping in on the result." },
+      { "name": "ease-out-expo", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Result count-up: 900ms after a 400ms delay." },
+      { "name": "auto-scroll", "value": "animateScrollTo, current line at one third of the viewport", "purpose": "Keeps the line being read in view." },
+      { "name": "reduce-motion", "value": "ANIMATOR_DURATION_SCALE == 0 cuts every animation to its end state", "purpose": "Honours the system Remove animations setting. Not yet verified on hardware." }
+    ],
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Child Button (primary)",
+      "kind": "button",
+      "refersTo": "button-child-primary",
+      "description": "Big action on the child's screens: 32dp icon, one-word Title Large label, 72dp minimum.",
+      "html": "<button class=\"ds-btn-child\"><svg width=\"32\" height=\"32\" viewBox=\"0 0 24 24\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M8 5v14l11-7z\"/></svg><span>Start</span></button>",
+      "css": ".ds-btn-child { display: inline-flex; align-items: center; justify-content: center; gap: 12px; min-width: 320px; min-height: 72px; padding: 12px; border: none; border-radius: 32px; background: #1D5BD8; color: #FFFFFF; font: 700 22px/28px Andika, sans-serif; cursor: pointer; transition: background 0.15s; } .ds-btn-child:hover { background: #1A52C2; } .ds-btn-child:focus-visible { outline: 3px solid #113A8F; outline-offset: 3px; } .ds-btn-child:active { background: #174AAE; }"
+    },
+    {
+      "name": "Child Button (tonal, stacked)",
+      "kind": "button",
+      "refersTo": "button-child-tonal",
+      "description": "Pause or Continue beside Done: icon over label, 96dp minimum.",
+      "html": "<button class=\"ds-btn-child-tonal\"><svg width=\"32\" height=\"32\" viewBox=\"0 0 24 24\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M6 19h4V5H6v14zm8-14v14h4V5h-4z\"/></svg><span>Pause</span></button>",
+      "css": ".ds-btn-child-tonal { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 180px; min-height: 96px; padding: 12px; border: none; border-radius: 32px; background: #E3E8F0; color: #161B26; font: 700 22px/28px Andika, sans-serif; cursor: pointer; transition: background 0.15s; } .ds-btn-child-tonal:hover { background: #D8DEE8; } .ds-btn-child-tonal:focus-visible { outline: 3px solid #1D5BD8; outline-offset: 3px; }"
+    },
+    {
+      "name": "Parent Buttons",
+      "kind": "button",
+      "refersTo": "button-parent-primary",
+      "description": "Cancel and Save on the editor: M3 outlined and filled pills, 56dp.",
+      "html": "<div class=\"ds-btn-pair\"><button class=\"ds-btn-outlined\">Cancel</button><button class=\"ds-btn-filled\">Save</button></div>",
+      "css": ".ds-btn-pair { display: flex; gap: 12px; width: 360px; } .ds-btn-outlined, .ds-btn-filled { flex: 1; min-height: 56px; border-radius: 9999px; font: 700 16px/24px Andika, sans-serif; letter-spacing: 0.15px; cursor: pointer; } .ds-btn-outlined { background: transparent; color: #475062; border: 1px solid #CCD3DE; } .ds-btn-filled { background: #1D5BD8; color: #FFFFFF; border: none; } .ds-btn-outlined:hover { background: rgba(71,80,98,0.08); } .ds-btn-filled:hover { background: #1A52C2; } .ds-btn-outlined:focus-visible, .ds-btn-filled:focus-visible { outline: 3px solid #113A8F; outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Library row: the text's magnet letter, title over language, History and More actions.",
+      "html": "<div class=\"ds-door\"><div class=\"ds-card\"><span class=\"ds-magnet\">D</span><div class=\"ds-card-text\"><div class=\"ds-card-title\">Der kleine Igel</div><div class=\"ds-card-sub\">German</div></div><button class=\"ds-icon-btn\" aria-label=\"History\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.95 8.95 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.25 2.52.77-1.28-3.52-2.09V8H12z\"/></svg></button></div></div>",
+      "css": ".ds-door { background: #EFF2F7; padding: 16px; width: 380px; } .ds-card { display: flex; align-items: center; gap: 12px; background: #FFFFFF; border-radius: 24px; padding: 12px 4px 12px 16px; cursor: pointer; } .ds-card:hover { background: #F7F9FC; } .ds-card:focus-visible { outline: 3px solid #1D5BD8; outline-offset: 2px; } .ds-magnet { width: 52px; text-align: center; font: 700 44px/44px Andika, sans-serif; color: #14975A; text-shadow: 0 3px 0 #0A6339, 0 8px 8px rgba(16,24,40,0.2); } .ds-card-text { flex: 1; } .ds-card-title { font: 700 16px/24px Andika, sans-serif; letter-spacing: 0.15px; color: #161B26; } .ds-card-sub { margin-top: 2px; font: 400 14px/20px Andika, sans-serif; letter-spacing: 0.25px; color: #475062; } .ds-icon-btn { width: 48px; height: 48px; border: none; border-radius: 50%; background: transparent; color: #161B26; } .ds-icon-btn:hover { background: rgba(22,27,38,0.08); }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "field-text",
+      "description": "The one field where the parent pastes or types a text.",
+      "html": "<textarea class=\"ds-field\" rows=\"4\" placeholder=\"Paste or type the text\"></textarea>",
+      "css": ".ds-field { width: 360px; padding: 16px; background: #FFFFFF; color: #161B26; border: 1px solid #CCD3DE; border-radius: 24px; font: 400 20px/30px Andika, sans-serif; letter-spacing: 0.5px; resize: none; transition: border-color 0.15s; } .ds-field:hover { border-color: #6E7789; } .ds-field:focus-visible, .ds-field:focus { outline: none; border: 2px solid #1D5BD8; padding: 15px; }"
+    },
+    {
+      "name": "Header",
+      "kind": "nav",
+      "refersTo": "headline-medium",
+      "description": "Hand-rolled header matching the M3 large top app bar, with an IconButton.",
+      "html": "<div class=\"ds-header\"><h1>My texts</h1><button class=\"ds-icon-btn\" aria-label=\"Settings\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M19.14 12.94a7.07 7.07 0 0 0 0-1.88l2.03-1.58a.5.5 0 0 0 .12-.61l-1.92-3.32a.5.5 0 0 0-.59-.22l-2.39.96a7.03 7.03 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.49.42l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.5.5 0 0 0-.59.22L2.71 8.88a.5.5 0 0 0 .12.61l2.03 1.58a7.07 7.07 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.25.42.49.42h3.84c.24 0 .44-.18.49-.42l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.5.5 0 0 0-.12-.61l-2.03-1.58zM12 15.6a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2z\"/></svg></button></div>",
+      "css": ".ds-header { display: flex; align-items: center; width: 380px; padding: 8px 0 0 4px; background: #EFF2F7; } .ds-header h1 { flex: 1; margin: 0; font: 700 28px/36px Andika, sans-serif; color: #161B26; } .ds-icon-btn { width: 48px; height: 48px; border: none; border-radius: 50%; background: transparent; color: #161B26; cursor: pointer; } .ds-icon-btn:hover { background: rgba(22,27,38,0.08); } .ds-icon-btn:focus-visible { outline: 3px solid #1D5BD8; }"
+    },
+    {
+      "name": "Reading Line with Current-Word Magnet",
+      "kind": "custom",
+      "refersTo": "magnet-tile-current",
+      "description": "Signature: the line banded like a reading ruler, read words underlined, the current word on a lifted yellow magnet tile.",
+      "html": "<div class=\"ds-page\"><p class=\"ds-reading\"><span class=\"ds-read\">Lisichka</span> <span class=\"ds-skip\">stezhci</span><br><span class=\"ds-band\"><span class=\"ds-tile\">dilitysia</span> z</span></p></div>",
+      "css": ".ds-page { width: 360px; background: #FFFFFF; border-radius: 24px; padding: 24px 20px; } .ds-reading { margin: 0; font: 400 30px/52px Andika, sans-serif; letter-spacing: 0.5px; color: #161B26; } .ds-read { text-decoration: underline 4px #14975A; text-underline-offset: 10px; } .ds-skip { text-decoration: underline 4px dashed #F06A0E; text-underline-offset: 10px; } .ds-band { display: inline-block; width: calc(100% + 24px); margin-left: -12px; padding: 0 12px; background: #DDE7FF; border-radius: 14px; } .ds-tile { display: inline-block; padding: 0 7px; margin-left: -7px; line-height: 40px; background: linear-gradient(to bottom, rgba(255,255,255,0.45), rgba(255,255,255,0) 60%), #FFC20E; border-radius: 10px; box-shadow: 0 4px 0 #D69A00, 0 7px 8px rgba(16,24,40,0.25); transition: transform 0.2s; } .ds-tile:hover { transform: translateY(-1px); }"
+    },
+    {
+      "name": "Result Word Tiles",
+      "kind": "chip",
+      "refersTo": "word-tile-skipped",
+      "description": "Words of one kind on the result, on the pale container of the colour that marked them.",
+      "html": "<div class=\"ds-tiles\"><span class=\"ds-tile-word ds-skipped\">stezhci</span><span class=\"ds-tile-word ds-retried\">dilitysia</span><span class=\"ds-tile-word ds-helped\">pyrohom</span></div>",
+      "css": ".ds-tiles { display: flex; flex-wrap: wrap; gap: 8px; width: 360px; } .ds-tile-word { padding: 8px 14px; border-radius: 12px; font: 400 22px/30px Andika, sans-serif; letter-spacing: 0.5px; color: #161B26; } .ds-skipped { background: #FFE6D3; } .ds-retried { background: #FFF1C4; } .ds-helped { background: #DDE7FF; color: #0A2463; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Fridge Door",
+    "overview": "The app is the fridge door where a family's letters live. The ground is a cool enamel white with a blue-grey tint, never cream; white cards sit on it like paper held up on the door; ink is a near-black blue. Colour comes from one source only: six saturated plastic magnet colours, each with a darker same-hue edge that shows the plastic's thickness. Every text the parent adds is represented by its first letter as a chunky Andika Bold magnet, and that magnet's colour follows the text from library to reading to result.\n\nThe system is deliberately two-handed. The parent screens (library, editor, history, settings) are calm, standard Material 3: hand-rolled headers matching the large top app bar, filled white cards, pill buttons, a primary extended FAB. The child's screens (ready-to-read, reading, result) use the same tokens at child scale: 72 to 96dp buttons with a big icon and a short title-large label, reading text at 30sp with 52sp line height, and the one signature motion, the current word snapping onto a lifted yellow magnet tile.\n\nDepth is physical only where the world is physical. Magnets stand off the door with a darker edge, a soft drop shadow and a gloss across the top; everything else is flat tonal layering. The system rejects the category defaults it replaced: pastel mascot cards, cream-and-serif \"storybook\", and the clinical assessment dashboard.\n\nThe app is light-only by decision. A dark theme is an open item, not an omission to fill silently.",
+    "keyCharacteristics": [
+      "Cool blue-grey enamel ground, white cards, near-black blue ink.",
+      "Six glossy magnet colours, each a face, a darker edge and a pale container.",
+      "Andika throughout; Bold for every heading, title and label, Regular for body and reading.",
+      "Each text owns one magnet colour, derived from its id, everywhere it appears.",
+      "Yellow belongs to the reading moment: the current word and the reward.",
+      "Rounded, chunky shapes; standard Material 3 controls."
+    ],
+    "rules": [
+      { "name": "The One Owner Rule", "body": "A text has exactly one magnet colour, from its id across the five text colours, and it shows that colour on the library card, the text heading, the reading header and the result heading. Never pick a text's colour by hand or by position in a list.", "section": "colors" },
+      { "name": "The Yellow Moment Rule", "body": "Yellow is never a text's colour and never an action colour. On the reading screen it marks only the current word; elsewhere it is the reward (earned stars) and the trace of the moment (retried words).", "section": "colors" },
+      { "name": "The Enamel, Not Cream Rule", "body": "The ground is cool blue-grey (enamel-door). A warm cream or beige ground is the look this system replaced.", "section": "colors" },
+      { "name": "The One Family Rule", "body": "Andika for everything, including numbers and controls. No second typeface.", "section": "typography" },
+      { "name": "The Steady Figures Rule", "body": "Any number that changes or is compared (result figures, counts, history accuracy, download progress) uses tabular figures (`tnum`).", "section": "typography" },
+      { "name": "The Only Magnets Stand Off Rule", "body": "The edge-plus-shadow-plus-gloss treatment belongs to magnets: letters, the current-word tile, earned stars. Cards, buttons and fields stay flat.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do give every text its magnet colour from `Magnets.forText(id)` and show that same colour wherever the text appears.",
+      "Do keep cards card-white on the enamel-door ground with lg (24dp) corners and no shadow.",
+      "Do use ChildButton (72dp minimum, 96dp stacked, xl corners, 32dp icon, Title Large label) on any screen the child operates, with at most two actions in reach.",
+      "Do use Andika for every string, Bold for headings, titles and labels, and tabular figures for any changing number.",
+      "Do draw reading progress behind the text, so a word's state never changes its layout.",
+      "Do honour the Remove animations setting: every animation must have a cut-to-end path.",
+      "Do keep standard Material 3 controls on the parent screens."
+    ],
+    "donts": [
+      "Don't use yellow as a text's magnet colour or as an action colour.",
+      "Don't put a cream, beige or warm off-white ground behind anything; the door is cool enamel.",
+      "Don't add pastel mascot cards, storybook serif type or clinical dashboard chrome.",
+      "Don't give cards, buttons or fields the magnet edge, offset shadow or gloss; that treatment is for magnets only.",
+      "Don't introduce a second typeface.",
+      "Don't mark reading progress with colour alone; skipped words also differ by their dashed stroke.",
+      "Don't ship a dark theme by inverting tokens; the app is light-only until that open item is designed."
+    ]
+  }
+}

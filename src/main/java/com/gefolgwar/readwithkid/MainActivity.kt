@@ -14,8 +14,11 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -32,8 +35,20 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -43,10 +58,10 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntOffset
@@ -131,6 +146,8 @@ fun ReadWithKidApp(
     val model by models(state.language).state.collectAsState()
     // Title of the saved text chosen for reading, or null while a list is shown
     var readingTitle by rememberSaveable { mutableStateOf<String?>(null) }
+    // Id of that text, for its magnet colour
+    var readingId by rememberSaveable { mutableStateOf(0L) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var showPrivacy by rememberSaveable { mutableStateOf(false) }
     var showLicenses by rememberSaveable { mutableStateOf(false) }
@@ -144,6 +161,7 @@ fun ReadWithKidApp(
     val read = { text: SavedText ->
         vm.updateText(text.rawText, text.language, TextReading(text.id, text.title))
         readingTitle = text.title
+        readingId = text.id
     }
 
     Scaffold { padding ->
@@ -157,10 +175,12 @@ fun ReadWithKidApp(
         val title = readingTitle
         when {
             state.sessionState == SessionState.FINISHED && result != null ->
-                ResultScreen(result, onClose = vm::closeResult, modifier = modifier)
+                ResultScreen(result, title, Magnets.forText(readingId), onClose = vm::closeResult, modifier = modifier)
             state.sessionState == SessionState.READING || state.sessionState == SessionState.PAUSED ->
                 ReadingScreen(
                     state,
+                    title,
+                    Magnets.forText(readingId),
                     syllableColors = syllableColors,
                     onWordTap = {
                         vm.sayWord(it)
@@ -177,6 +197,7 @@ fun ReadWithKidApp(
             title != null ->
                 ReadyToReadScreen(
                     title,
+                    Magnets.forText(readingId),
                     state,
                     model,
                     onStart = vm::start,
@@ -200,6 +221,8 @@ fun ReadWithKidApp(
                 // The same result the child saw at the end of that reading
                 ResultScreen(
                     history.shown.result,
+                    history.text.title,
+                    Magnets.forText(history.text.id),
                     onClose = libraryVm::closeReading,
                     closeLabel = stringResource(R.string.back),
                     modifier = modifier
@@ -243,9 +266,23 @@ fun ReadWithKidApp(
     }
 }
 
+
+/** Whether the phone's "Remove animations" setting is on: motion then cuts instead of moving. */
+@Composable
+fun reduceMotion(): Boolean {
+    val context = LocalContext.current
+    return remember {
+        Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+    }
+}
+
+/** Exponential ease-out: quick to start, soft to land. */
+private val EaseOutExpo = CubicBezierEasing(0.16f, 1f, 0.3f, 1f)
+
 @Composable
 fun ReadyToReadScreen(
     title: String,
+    magnet: Magnet,
     state: ReadingUiState,
     model: ModelState,
     onStart: () -> Unit,
@@ -286,66 +323,73 @@ fun ReadyToReadScreen(
     }
 
     Column(modifier = modifier) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
+            }
+            Spacer(Modifier.width(8.dp))
+            TextHeading(title, magnet, Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(16.dp))
         Column(
+            verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
         ) {
-            Text(title, style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.height(8.dp))
-
             when {
                 state.sessionState == SessionState.MODEL_MISSING ->
                     ModelDownload(model, onRetryModel, onConfirmModel)
-                state.sessionState == SessionState.LOADING_MODEL -> Row(verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.model_loading), style = MaterialTheme.typography.bodyMedium)
+                state.sessionState == SessionState.LOADING_MODEL -> StatusCard {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 3.dp)
+                        Spacer(Modifier.width(12.dp))
+                        Text(stringResource(R.string.model_loading), style = MaterialTheme.typography.bodyLarge)
+                    }
                 }
-                state.sessionState == SessionState.MODEL_ERROR -> ErrorText(stringResource(R.string.model_error))
-                state.recognitionError -> ErrorText(stringResource(R.string.recognition_error))
+                state.sessionState == SessionState.MODEL_ERROR -> StatusCard { ErrorText(stringResource(R.string.model_error)) }
+                state.recognitionError -> StatusCard { ErrorText(stringResource(R.string.recognition_error)) }
                 // Once denied, Android may no longer ask, so the parent is shown how to allow it in the phone settings.
-                permissionDenied -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                permissionDenied -> StatusCard {
                     ErrorText(stringResource(R.string.mic_permission_denied))
                     OutlinedButton(onClick = onOpenAppSettings) { Text(stringResource(R.string.mic_open_settings)) }
                 }
             }
 
-            // Just the text the child is about to read, without the parent's sentence breakdown.
-            Spacer(Modifier.height(8.dp))
-            Text(state.rawText, style = MaterialTheme.typography.titleLarge)
+            // Just the text the child is about to read, on its page.
+            Card(colors = cardColors(), shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    state.rawText,
+                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = 24.sp, lineHeight = 38.sp),
+                    modifier = Modifier.padding(20.dp)
+                )
+            }
         }
 
-        Spacer(Modifier.height(8.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            ChildButton(
-                Icons.AutoMirrored.Filled.ArrowBack,
-                stringResource(R.string.back),
-                onClick = onBack,
-                primary = false,
-                modifier = Modifier.weight(1f)
-            )
-            ChildButton(
-                Icons.Default.PlayArrow,
-                stringResource(R.string.start_reading),
-                onClick = {
-                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
-                        == PackageManager.PERMISSION_GRANTED
-                    ) {
-                        permissionDenied = false
-                        onStart()
-                    } else {
-                        showRationale = true
-                    }
-                },
-                enabled = state.sessionState == SessionState.READY && state.text.words.isNotEmpty(),
-                modifier = Modifier.weight(1f)
-            )
-        }
+        Spacer(Modifier.height(16.dp))
+        ChildButton(
+            Icons.Default.PlayArrow,
+            stringResource(R.string.start_reading),
+            onClick = {
+                if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
+                    == PackageManager.PERMISSION_GRANTED
+                ) {
+                    permissionDenied = false
+                    onStart()
+                } else {
+                    showRationale = true
+                }
+            },
+            enabled = state.sessionState == SessionState.READY && state.text.words.isNotEmpty(),
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 
-/** A big button for the child's screens: a large icon and a short label; grows with the system font size. */
+/**
+ * A big button for the child's screens: a large icon and a short label; grows with the system font size.
+ * [stacked] puts the icon above the label, for buttons that share a row.
+ */
 @Composable
 fun ChildButton(
     icon: ImageVector,
@@ -353,26 +397,42 @@ fun ChildButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     primary: Boolean = true,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    stacked: Boolean = false
 ) {
     val content: @Composable RowScope.() -> Unit = {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(32.dp))
-        Spacer(Modifier.width(12.dp))
-        Text(label, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
+        if (stacked) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(icon, contentDescription = null, modifier = Modifier.size(32.dp))
+                Spacer(Modifier.height(4.dp))
+                Text(label, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        } else {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(32.dp))
+            Spacer(Modifier.width(12.dp))
+            Text(label, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
+        }
     }
-    val big = modifier.heightIn(min = 72.dp)
-    if (primary) Button(onClick, big, enabled, content = content)
-    else OutlinedButton(onClick, big, enabled, content = content)
+    val big = modifier.heightIn(min = if (stacked) 96.dp else 72.dp)
+    val shape = MaterialTheme.shapes.extraLarge
+    val padding = PaddingValues(horizontal = 12.dp, vertical = 12.dp)
+    if (primary) Button(onClick, big, enabled, shape = shape, contentPadding = padding, content = content)
+    else FilledTonalButton(onClick, big, enabled, shape = shape, contentPadding = padding, content = content)
 }
 
 @Composable
 fun ErrorText(text: String) {
-    Text(text, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+    Text(text, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyLarge)
 }
+
+/** Where a word sits in the laid-out reading text, and the baseline of its line. */
+private data class WordBox(val left: Float, val right: Float, val baseline: Float, val line: Int)
 
 @Composable
 fun ReadingScreen(
     state: ReadingUiState,
+    title: String?,
+    magnet: Magnet,
     syllableColors: Boolean,
     onWordTap: (Int) -> Unit,
     onRetryWord: () -> Unit,
@@ -403,46 +463,43 @@ fun ReadingScreen(
         )
     }
 
-    val readColor = Color(0xFF4CAF50).copy(alpha = 0.3f)
-    val tentativeColor = Color(0xFF4CAF50).copy(alpha = 0.15f)
-    val currentColor = Color(0xFFFFEB3B).copy(alpha = 0.6f)
-    val skippedColor = Color(0xFFFF9800).copy(alpha = 0.35f)
     val words = state.text.words
     // Where each word starts in the shown text, to find the line of the current word
     val wordStarts = IntArray(words.size)
     val scroll = rememberScrollState()
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
+    // Words keep their look while their state changes: the states are drawn behind the text, so lines never reflow.
+    val noLinkStyle = TextLinkStyles(style = SpanStyle())
 
     val annotated = buildAnnotatedString {
         words.forEachIndexed { index, word ->
             wordStarts[index] = length
-            val style = when {
-                index == state.currentWordIndex -> SpanStyle(background = currentColor, fontWeight = FontWeight.Bold)
-                else -> when (state.wordStatuses.getOrElse(index) { WordStatus.UNREAD }) {
-                    WordStatus.CONFIRMED -> SpanStyle(background = readColor)
-                    WordStatus.TENTATIVE -> SpanStyle(background = tentativeColor)
-                    WordStatus.SKIPPED -> SpanStyle(background = skippedColor, textDecoration = TextDecoration.LineThrough)
-                    WordStatus.UNREAD -> null
-                }
-            }
-            // With coloured syllables the letters' colour shows the syllables; progress stays in the background.
-            val appendText = {
+            // Tapping a word says it, when the phone has a voice for the language, and shows what was heard in its place
+            withLink(LinkAnnotation.Clickable("word$index", noLinkStyle) { onWordTap(index) }) {
+                // With coloured syllables the letters' colour shows the syllables; progress is drawn behind them.
                 if (syllableColors) {
                     Syllables.split(word.display, state.language).forEachIndexed { i, syllable ->
                         withStyle(SpanStyle(color = SyllableColors[i % SyllableColors.size])) { append(syllable) }
                     }
                 } else append(word.display)
             }
-            val appendWord = { if (style != null) withStyle(style) { appendText() } else appendText() }
-            // Tapping a word says it, when the phone has a voice for the language, and shows what was heard in its place
-            withLink(LinkAnnotation.Clickable("word$index") { onWordTap(index) }) { appendWord() }
             if (index < words.lastIndex) append(" ")
         }
     }
 
+    val boxes = remember(layout) {
+        val result = layout ?: return@remember emptyList()
+        words.indices.map { i ->
+            val start = wordStarts[i]
+            val end = start + words[i].display.length
+            val line = result.getLineForOffset(start)
+            val bounds = result.getPathForRange(start, end).getBounds()
+            WordBox(bounds.left, bounds.right, result.getLineBaseline(line), line)
+        }
+    }
+
     // Long texts follow the reading: when the current word moves to another line, that line is scrolled into view.
-    val currentLine = layout?.takeIf { state.currentWordIndex in wordStarts.indices }
-        ?.getLineForOffset(wordStarts[state.currentWordIndex])
+    val currentLine = boxes.getOrNull(state.currentWordIndex)?.line
     LaunchedEffect(currentLine) {
         val line = currentLine ?: return@LaunchedEffect
         val lineTop = layout?.getLineTop(line) ?: return@LaunchedEffect
@@ -450,62 +507,76 @@ fun ReadingScreen(
     }
 
     Column(modifier = modifier) {
-        if (state.helpAvailable) {
-            Text(stringResource(R.string.reading_help_hint), style = MaterialTheme.typography.bodyLarge)
-            Spacer(Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+            // Leaving sits alone up here, away from Pause and Done.
+            IconButton(onClick = { confirmLeave = true }) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
+            }
+            // The text's own magnet, as on the library card
+            if (title != null) {
+                Spacer(Modifier.width(4.dp))
+                MagnetLetter(magnetLetterOf(title), magnet, size = 32.sp)
+            }
+            if (state.helpAvailable) {
+                Spacer(Modifier.width(16.dp))
+                Text(
+                    stringResource(R.string.reading_help_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
-        Box(
+        Spacer(Modifier.height(12.dp))
+        Card(
+            colors = cardColors(),
+            shape = MaterialTheme.shapes.large,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .verticalScroll(scroll)
         ) {
-            // Inside the scroll, so the tapped word's popup stays over the word
-            Box {
-                // Andika comes from the theme's typography.
-                Text(
-                    text = annotated,
-                    fontSize = 30.sp,
-                    lineHeight = 46.sp,
-                    onTextLayout = { layout = it },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                val check = state.wordCheck
-                val wordBounds = check?.takeIf { it.index in wordStarts.indices }?.let {
-                    val start = wordStarts[it.index]
-                    layout?.getPathForRange(start, start + words[it.index].display.length)?.getBounds()
-                }
-                if (check != null && wordBounds != null) {
-                    WordCheckPopup(
-                        check,
-                        wordBounds,
-                        misread = state.wordStatuses.getOrNull(check.index) == WordStatus.SKIPPED,
-                        onRetry = onRetryWord,
-                        onClose = onCloseWordCheck
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(scroll)
+                    .padding(horizontal = 20.dp, vertical = 24.dp)
+            ) {
+                // Inside the scroll, so the tapped word's popup stays over the word
+                Box {
+                    // Andika comes from the theme's typography.
+                    Text(
+                        text = annotated,
+                        style = MaterialTheme.typography.bodyLarge.copy(fontSize = ReadingFontSize, lineHeight = 52.sp),
+                        onTextLayout = { layout = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .readingProgress(boxes, state.wordStatuses, state.currentWordIndex)
                     )
+                    val check = state.wordCheck
+                    val wordBounds = check?.takeIf { it.index in wordStarts.indices }?.let {
+                        val start = wordStarts[it.index]
+                        layout?.getPathForRange(start, start + words[it.index].display.length)?.getBounds()
+                    }
+                    if (check != null && wordBounds != null) {
+                        WordCheckPopup(
+                            check,
+                            wordBounds,
+                            misread = state.wordStatuses.getOrNull(check.index) == WordStatus.SKIPPED,
+                            onRetry = onRetryWord,
+                            onClose = onCloseWordCheck
+                        )
+                    }
                 }
             }
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(16.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            // Icon only, so the two main buttons keep room for their labels
-            OutlinedButton(
-                onClick = { confirmLeave = true },
-                contentPadding = PaddingValues(0.dp),
-                modifier = Modifier.size(72.dp)
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = stringResource(R.string.back),
-                    modifier = Modifier.size(32.dp)
-                )
-            }
             if (state.sessionState == SessionState.PAUSED) {
                 ChildButton(
                     Icons.Default.PlayArrow,
                     stringResource(R.string.resume),
                     onClick = onResume,
                     primary = false,
+                    stacked = true,
                     modifier = Modifier.weight(1f)
                 )
             } else {
@@ -514,12 +585,103 @@ fun ReadingScreen(
                     stringResource(R.string.pause),
                     onClick = onPause,
                     primary = false,
+                    stacked = true,
                     modifier = Modifier.weight(1f)
                 )
             }
-            ChildButton(Icons.Default.Check, stringResource(R.string.finish), onClick = onFinish, modifier = Modifier.weight(1f))
+            ChildButton(
+                Icons.Default.Check,
+                stringResource(R.string.finish),
+                onClick = onFinish,
+                stacked = true,
+                modifier = Modifier.weight(1f)
+            )
         }
     }
+}
+
+private val ReadingFontSize = 30.sp
+
+/** Read words underlined in green, skipped ones in dashed orange, the current line banded and the current word on a yellow magnet. */
+@Composable
+private fun Modifier.readingProgress(boxes: List<WordBox>, statuses: List<WordStatus>, current: Int): Modifier {
+    val band = MaterialTheme.colorScheme.primaryContainer
+    val reduceMotion = reduceMotion()
+    val target = boxes.getOrNull(current)
+    // The magnet springs to the next word along the line; on a new line it is simply there, never sweeping across the text.
+    val tile = remember { Animatable(Rect.Zero, Rect.VectorConverter) }
+    var tileLine by remember { mutableIntStateOf(-1) }
+    LaunchedEffect(target) {
+        val word = target ?: return@LaunchedEffect
+        val rect = Rect(word.left, word.baseline, word.right, word.baseline)
+        if (reduceMotion || word.line != tileLine || tile.value == Rect.Zero) tile.snapTo(rect)
+        else tile.animateTo(rect, spring(dampingRatio = 0.7f, stiffness = 450f))
+        tileLine = word.line
+    }
+    return drawBehind {
+        val font = ReadingFontSize.toPx()
+        if (target != null) {
+            // The line being read, like a reading ruler across the page
+            drawRoundRect(
+                band,
+                topLeft = Offset(-12.dp.toPx(), target.baseline - font * 1.05f),
+                size = Size(size.width + 24.dp.toPx(), font * 1.5f),
+                cornerRadius = CornerRadius(14.dp.toPx())
+            )
+        }
+        boxes.forEachIndexed { i, box ->
+            if (i == current) return@forEachIndexed
+            val y = box.baseline + font * 0.28f
+            when (statuses.getOrElse(i) { WordStatus.UNREAD }) {
+                WordStatus.CONFIRMED -> drawProgressLine(Magnets.Green.face, box, y)
+                WordStatus.TENTATIVE -> drawProgressLine(Magnets.Green.face.copy(alpha = 0.4f), box, y)
+                WordStatus.SKIPPED -> drawProgressLine(Magnets.Orange.face, box, y, dashed = true)
+                WordStatus.UNREAD -> Unit
+            }
+        }
+        if (target != null && tile.value != Rect.Zero) drawMagnetTile(tile.value, font)
+    }
+}
+
+private fun DrawScope.drawProgressLine(color: Color, box: WordBox, y: Float, dashed: Boolean = false) {
+    val stroke = 4.dp.toPx()
+    drawLine(
+        color,
+        Offset(box.left + stroke / 2, y),
+        Offset(box.right - stroke / 2, y),
+        strokeWidth = stroke,
+        cap = StrokeCap.Round,
+        pathEffect = if (dashed) PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 7.dp.toPx())) else null
+    )
+}
+
+/** A yellow plastic magnet lifted behind the word: a soft shadow on the page, its darker edge, and a glossy face. */
+private fun DrawScope.drawMagnetTile(word: Rect, font: Float) {
+    val padX = 7.dp.toPx()
+    val top = word.top - font * 0.9f
+    val bottom = word.top + font * 0.36f
+    val topLeft = Offset(word.left - padX, top)
+    val size = Size(word.width + padX * 2, bottom - top)
+    val radius = 10.dp.toPx()
+    val edge = 4.dp.toPx()
+    // The edge casts the soft shadow, so the magnet stands off the page.
+    drawIntoCanvas { canvas ->
+        val paint = Paint().asFrameworkPaint().apply {
+            isAntiAlias = true
+            color = Magnets.Yellow.edge.toArgb()
+            setShadowLayer(8.dp.toPx(), 0f, 3.dp.toPx(), Color(0x40101828).toArgb())
+        }
+        canvas.nativeCanvas.drawRoundRect(
+            topLeft.x, topLeft.y + edge, topLeft.x + size.width, topLeft.y + edge + size.height, radius, radius, paint
+        )
+    }
+    drawRoundRect(Magnets.Yellow.face, topLeft, size, CornerRadius(radius))
+    drawRoundRect(
+        Brush.verticalGradient(0f to Color.White.copy(alpha = 0.45f), 1f to Color.Transparent, startY = top, endY = top + size.height * 0.6f),
+        topLeft,
+        size,
+        CornerRadius(radius)
+    )
 }
 
 /** Above the tapped word: what the speech model heard in its place, and for a misread word the button to read it again. */
@@ -527,9 +689,13 @@ fun ReadingScreen(
 private fun WordCheckPopup(check: WordCheck, word: Rect, misread: Boolean, onRetry: () -> Unit, onClose: () -> Unit) {
     val position = remember(word) { OverWord(word) }
     Popup(popupPositionProvider = position, onDismissRequest = onClose) {
-        Surface(shape = MaterialTheme.shapes.large, shadowElevation = 8.dp, tonalElevation = 2.dp) {
+        Surface(
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.surfaceContainerLowest,
+            shadowElevation = 8.dp
+        ) {
             Column(
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier.padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -570,22 +736,28 @@ private class OverWord(private val word: Rect) : PopupPositionProvider {
 fun autoScrollTarget(lineTop: Float, viewportHeight: Int): Int =
     (lineTop - viewportHeight / 3f).roundToInt().coerceAtLeast(0)
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ResultScreen(
     result: ReadingResult,
+    title: String?,
+    magnet: Magnet,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
     closeLabel: String = stringResource(R.string.result_back)
 ) {
-    val totalSeconds = result.durationMs / 1000
+    val totalSeconds = (result.durationMs / 1000).toInt()
     Column(modifier = modifier) {
         Column(
             modifier = Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
         ) {
+            // Which text this result belongs to, with its magnet
+            if (title != null) TextHeading(title, magnet, Modifier.padding(start = 8.dp, top = 8.dp), compact = true)
+            Spacer(Modifier.height(16.dp))
             RewardStars(result.stars)
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(12.dp))
             Text(
                 stringResource(
                     when (result.stars) {
@@ -599,22 +771,26 @@ fun ResultScreen(
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(16.dp))
-            ResultRow(
-                stringResource(R.string.result_accuracy),
-                stringResource(R.string.result_percent, (result.accuracy * 100).roundToInt())
-            )
-            ResultRow(stringResource(R.string.result_wcpm), result.wordsCorrectPerMinute.toString())
-            ResultRow(stringResource(R.string.result_duration), "%d:%02d".format(totalSeconds / 60, totalSeconds % 60))
-            Spacer(Modifier.height(8.dp))
+            Card(colors = cardColors(), shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth()) {
+                val percent = (result.accuracy * 100).roundToInt()
+                ResultRow(stringResource(R.string.result_accuracy), percent) { stringResource(R.string.result_percent, it) }
+                ResultDivider()
+                ResultRow(stringResource(R.string.result_wcpm), result.wordsCorrectPerMinute) { it.toString() }
+                ResultDivider()
+                ResultRow(stringResource(R.string.result_duration), totalSeconds) { "%d:%02d".format(it / 60, it % 60) }
+            }
             Text(
                 stringResource(R.string.result_words, result.correctWords, result.totalWords),
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyLarge.merge(TabularNumbers),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 4.dp, top = 12.dp)
             )
-            WordList(stringResource(R.string.result_skipped), result.skippedWords)
-            WordList(stringResource(R.string.result_retried), result.retriedWords)
-            WordList(stringResource(R.string.result_helped), result.helpedWords)
+            WordList(stringResource(R.string.result_skipped), result.skippedWords, Magnets.Orange)
+            WordList(stringResource(R.string.result_retried), result.retriedWords, Magnets.Yellow)
+            WordList(stringResource(R.string.result_helped), result.helpedWords, Magnets.Blue)
+            Spacer(Modifier.height(8.dp))
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(16.dp))
         ChildButton(
             Icons.AutoMirrored.Filled.ArrowBack,
             closeLabel,
@@ -624,58 +800,94 @@ fun ResultScreen(
     }
 }
 
-/** The reward: earned stars pop in one after another, the rest stay as outlines. */
+@Composable
+private fun ResultDivider() =
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 16.dp))
+
+/** The reward: earned stars pop in one after another as yellow magnets, the rest stay as outlines. */
 @Composable
 private fun RewardStars(stars: Int) {
     val description = stringResource(R.string.result_stars, stars, ReadingResult.MAX_STARS)
+    val reduceMotion = reduceMotion()
     Row(
-        horizontalArrangement = Arrangement.Center,
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
         modifier = Modifier
             .fillMaxWidth()
             .clearAndSetSemantics { contentDescription = description }
     ) {
         repeat(ReadingResult.MAX_STARS) { i ->
             val earned = i < stars
-            val scale = remember { Animatable(if (earned) 0f else 1f) }
-            if (earned) {
+            val scale = remember { Animatable(if (earned && !reduceMotion) 0f else 1f) }
+            if (earned && !reduceMotion) {
                 LaunchedEffect(Unit) {
                     delay(300L * i)
                     scale.animateTo(1f, spring(dampingRatio = Spring.DampingRatioHighBouncy, stiffness = Spring.StiffnessLow))
                 }
             }
-            Icon(
-                if (earned) Icons.Default.Star else Icons.Default.StarBorder,
-                contentDescription = null,
-                tint = if (earned) Color(0xFFFFA000) else MaterialTheme.colorScheme.outline,
-                modifier = Modifier
-                    .size(80.dp)
-                    // Scaled while drawing only, so the animation does not recompose the screen every frame.
-                    .graphicsLayer {
-                        scaleX = scale.value
-                        scaleY = scale.value
-                    }
-            )
+            Box(
+                // Scaled while drawing only, so the animation does not recompose the screen every frame.
+                Modifier.graphicsLayer {
+                    scaleX = scale.value
+                    scaleY = scale.value
+                }
+            ) {
+                if (earned) {
+                    Icon(Icons.Default.Star, null, tint = Magnets.Yellow.edge, modifier = Modifier.size(72.dp).offset(y = 4.dp))
+                    Icon(Icons.Default.Star, null, tint = Magnets.Yellow.face, modifier = Modifier.size(72.dp).gloss())
+                } else {
+                    Icon(Icons.Default.StarBorder, null, tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(72.dp))
+                }
+            }
         }
     }
 }
 
+/** A result number that counts up to [value] in place, read out by TalkBack as its final text. */
 @Composable
-private fun WordList(title: String, words: List<String>) {
-    if (words.isEmpty()) return
-    Spacer(Modifier.height(16.dp))
-    Text(title, style = MaterialTheme.typography.titleMedium)
-    Text(words.joinToString(", "), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 4.dp))
-}
-
-@Composable
-private fun ResultRow(label: String, value: String) {
+private fun ResultRow(label: String, value: Int, format: @Composable (Int) -> String) {
+    val reduceMotion = reduceMotion()
+    val shown = remember(value) { Animatable(if (reduceMotion) value.toFloat() else 0f) }
+    LaunchedEffect(value) {
+        if (!reduceMotion) {
+            delay(400)
+            shown.animateTo(value.toFloat(), tween(900, easing = EaseOutExpo))
+        }
+    }
+    val finalText = format(value)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .heightIn(min = 64.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .clearAndSetSemantics { contentDescription = "$label: $finalText" },
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(label, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-        Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        Spacer(Modifier.width(16.dp))
+        Text(
+            format(shown.value.roundToInt()),
+            style = MaterialTheme.typography.headlineSmall.merge(TabularNumbers)
+        )
+    }
+}
+
+/** The words of one kind as small tiles in the reading font, tinted like their marks while reading. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun WordList(title: String, words: List<String>, magnet: Magnet) {
+    if (words.isEmpty()) return
+    Spacer(Modifier.height(24.dp))
+    Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 4.dp))
+    Spacer(Modifier.height(8.dp))
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        words.forEach { word ->
+            Surface(color = magnet.container, shape = MaterialTheme.shapes.small) {
+                Text(
+                    word,
+                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = 22.sp),
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                )
+            }
+        }
     }
 }

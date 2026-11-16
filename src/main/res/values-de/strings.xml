@@ -4,6 +4,7 @@
     <string name="library_title">Meine Texte</string>
     <string name="library_empty">Noch keine Texte. Fügen Sie den ersten hinzu.</string>
     <string name="add_text">Text hinzufügen</string>
+    <string name="empty_magnets">ABC</string>
     <string name="edit">Bearbeiten</string>
     <string name="delete">Löschen</string>
     <string name="more_actions">Weitere Aktionen</string>
@@ -82,6 +83,7 @@
     <string name="ui_language_system">Sprache des Telefons</string>
     <string name="syllable_colors_title">Silben in Farbe</string>
     <string name="syllable_colors_hint">Beim Lesen wechseln die Silben jedes Wortes zwischen Blau und Rot.</string>
+    <string name="syllable_preview_word">Schmetterling</string>
 
     <string name="privacy_title">Datenschutzerklärung</string>
     <string name="privacy_policy">Read With Kid hilft Kindern, das laute Lesen zu üben. Die App ist so gebaut, dass keine personenbezogenen Daten Ihr Telefon verlassen.\n\nMikrofon und Audio. Während ein Kind liest, hört die App über das Mikrofon zu und erkennt die Sprache auf diesem Telefon. Audio wird nur im Arbeitsspeicher verarbeitet: Es wird nie aufgenommen, gespeichert oder übertragen.\n\nDaten auf dem Telefon. Die Texte, die Sie hinzufügen, und ihre Leseergebnisse werden nur in der App auf diesem Telefon gespeichert. Sie werden nicht gesichert und an niemanden weitergegeben. Sie können sie jederzeit in der App löschen; beim Deinstallieren der App werden alle gelöscht.\n\nInternet. Die App geht nur online, um Sprachmodelle über Google Play herunterzuladen; für diese Downloads gilt die Datenschutzerklärung von Google. Die App enthält keine Werbung, keine Analyse und kein Tracking und erhebt keine Daten, weder für uns noch für Dritte.\n\nKinder. Die App ist für Kinder gemeinsam mit ihren Eltern gedacht. Die App enthält keine Links zu Websites.\n\nÄnderungen. Wenn sich diese Erklärung ändert, wird die neue Fassung in der App angezeigt.</string>

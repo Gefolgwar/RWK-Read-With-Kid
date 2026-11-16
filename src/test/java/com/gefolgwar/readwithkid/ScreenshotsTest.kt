@@ -6,10 +6,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.compose.ui.test.captureToImage
-import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onRoot
+import android.graphics.Canvas
+import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.dp
 import org.junit.Rule
 import org.junit.Test
@@ -29,7 +28,7 @@ import java.io.File
 class ScreenshotsTest {
 
     @get:Rule
-    val compose = createComposeRule()
+    val compose = createAndroidComposeRule<ComponentActivity>()
 
     private val story = "Лисичка знайшла на стежці червоне яблуко. Вона понесла його додому, щоб поділитися з братиком. " +
         "Братик дуже зрадів і сказав: «Дякую, сестричко!» Увечері вони разом пили чай з яблучним пирогом."
@@ -57,9 +56,10 @@ class ScreenshotsTest {
         compose.waitForIdle()
         compose.mainClock.advanceTimeBy(3_000)
         val dir = File("build/screens").apply { mkdirs() }
-        File(dir, "$name.png").outputStream().use {
-            compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it)
-        }
+        val view = compose.activity.window.decorView
+        val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+        view.draw(Canvas(bitmap))
+        File(dir, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
     private fun reading(state: SessionState = SessionState.READING): ReadingUiState {
@@ -99,13 +99,14 @@ class ScreenshotsTest {
 
     @Test
     fun ready() = shot("3-ready") {
-        ReadyToReadScreen(texts[0].title, reading(SessionState.READY), ModelState.Installed, {}, {}, {}, {}, {}, it)
+        ReadyToReadScreen(texts[0].title, Magnets.forText(1), reading(SessionState.READY), ModelState.Installed, {}, {}, {}, {}, {}, it)
     }
 
     @Test
     fun readyDownloading() = shot("3b-ready-downloading") {
         ReadyToReadScreen(
             texts[0].title,
+            Magnets.forText(1),
             reading(SessionState.MODEL_MISSING),
             ModelState.Downloading(52_000_000, 133_000_000),
             {}, {}, {}, {}, {}, it
@@ -114,17 +115,17 @@ class ScreenshotsTest {
 
     @Test
     fun readingScreen() = shot("4-reading") {
-        ReadingScreen(reading(), syllableColors = false, {}, {}, {}, {}, {}, {}, {}, it)
+        ReadingScreen(reading(), texts[0].title, Magnets.forText(1), syllableColors = false, {}, {}, {}, {}, {}, {}, {}, it)
     }
 
     @Test
     fun readingSyllables() = shot("4b-reading-syllables") {
-        ReadingScreen(reading(SessionState.PAUSED), syllableColors = true, {}, {}, {}, {}, {}, {}, {}, it)
+        ReadingScreen(reading(SessionState.PAUSED), texts[0].title, Magnets.forText(1), syllableColors = true, {}, {}, {}, {}, {}, {}, {}, it)
     }
 
     @Test
     fun resultScreen() = shot("5-result") {
-        ResultScreen(result, onClose = {}, modifier = it)
+        ResultScreen(result, texts[0].title, Magnets.forText(1), onClose = {}, modifier = it)
     }
 
     @Test
@@ -139,6 +140,18 @@ class ScreenshotsTest {
             ),
             {}, {}, {}, it
         )
+    }
+
+    @Test
+    @Config(qualifiers = "de-w412dp-h915dp-xhdpi", fontScale = 1.3f)
+    fun readingGermanLargeFont() = shot("8-reading-de-font130") {
+        ReadingScreen(reading(SessionState.PAUSED), texts[0].title, Magnets.forText(1), syllableColors = false, {}, {}, {}, {}, {}, {}, {}, it)
+    }
+
+    @Test
+    @Config(qualifiers = "de-w412dp-h915dp-xhdpi", fontScale = 1.3f)
+    fun libraryGermanLargeFont() = shot("9-library-de-font130") {
+        LibraryScreen(texts, {}, {}, {}, {}, {}, {}, it)
     }
 
     @Test

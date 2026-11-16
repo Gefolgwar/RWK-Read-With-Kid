@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
@@ -14,20 +13,31 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import java.text.DateFormat
 import java.util.Date
 import kotlin.math.roundToInt
+
+/** White cards on the enamel-white door. */
+@Composable
+fun cardColors() = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
 
 @Composable
 fun LibraryScreen(
@@ -59,48 +69,76 @@ fun LibraryScreen(
         )
     }
 
-    Column(modifier = modifier) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                stringResource(R.string.library_title),
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier
-                    .weight(1f)
-                    .semantics { heading() }
-            )
-            IconButton(onClick = onSettings) {
-                Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings_title))
+    Box(modifier = modifier) {
+        Column(Modifier.fillMaxSize()) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 4.dp, top = 8.dp)) {
+                Text(
+                    stringResource(R.string.library_title),
+                    style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics { heading() }
+                )
+                IconButton(onClick = onSettings) {
+                    Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings_title))
+                }
             }
-        }
-        Spacer(Modifier.height(8.dp))
-        if (texts.isEmpty()) {
-            Text(
-                stringResource(R.string.library_empty),
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.weight(1f)
-            )
-        } else {
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.weight(1f)
-            ) {
-                items(texts, key = { it.id }) { text ->
-                    TextCard(
-                        text,
-                        onRead = { onRead(text) },
-                        onEdit = { onEdit(text) },
-                        onDelete = { pendingDelete = text },
-                        onHistory = { onHistory(text) }
-                    )
+            Spacer(Modifier.height(16.dp))
+            if (texts.isEmpty()) {
+                EmptyLibrary(Modifier.weight(1f))
+            } else {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    // Room under the last card for the button
+                    contentPadding = PaddingValues(bottom = 96.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    items(texts, key = { it.id }) { text ->
+                        TextCard(
+                            text,
+                            onRead = { onRead(text) },
+                            onEdit = { onEdit(text) },
+                            onDelete = { pendingDelete = text },
+                            onHistory = { onHistory(text) }
+                        )
+                    }
                 }
             }
         }
-        Spacer(Modifier.height(8.dp))
-        Button(onClick = onAdd, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Default.Add, contentDescription = null)
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.add_text))
+        ExtendedFloatingActionButton(
+            onClick = onAdd,
+            icon = { Icon(Icons.Default.Add, contentDescription = null) },
+            text = { Text(stringResource(R.string.add_text), style = MaterialTheme.typography.titleMedium) },
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            modifier = Modifier.align(Alignment.BottomEnd)
+        )
+    }
+}
+
+/** A few magnet letters on an empty door, and what to do first. */
+@Composable
+private fun EmptyLibrary(modifier: Modifier = Modifier) {
+    val letters = stringResource(R.string.empty_magnets)
+    val magnets = listOf(Magnets.Red, Magnets.Blue, Magnets.Green)
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(bottom = 96.dp)
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            letters.forEachIndexed { i, letter ->
+                MagnetLetter(letter.toString(), magnets[i % magnets.size], size = 72.sp)
+            }
         }
+        Spacer(Modifier.height(24.dp))
+        Text(
+            stringResource(R.string.library_empty),
+            style = MaterialTheme.typography.titleLarge,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
@@ -112,20 +150,24 @@ private fun TextCard(
     onDelete: () -> Unit,
     onHistory: () -> Unit
 ) {
-    Card(onClick = onRead, modifier = Modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 12.dp, top = 4.dp, bottom = 4.dp)) {
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(vertical = 8.dp)
-            ) {
-                Text(text.title, style = MaterialTheme.typography.titleMedium)
+    Card(onClick = onRead, colors = cardColors(), shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp)) {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.width(52.dp)) {
+                MagnetLetter(magnetLetterOf(text.title), Magnets.forText(text.id))
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text.rawText,
-                    style = MaterialTheme.typography.bodyMedium,
+                    text.title,
+                    style = MaterialTheme.typography.titleMedium,
                     maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 4.dp)
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    stringResource(text.language.nameRes),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp)
                 )
             }
             IconButton(onClick = onHistory) {
@@ -159,7 +201,7 @@ private fun TextCard(
     }
 }
 
-/** Earlier readings of a text, newest first: date, accuracy and words correct per minute. A reading opens its result. */
+/** Earlier readings of a text, newest first: date, stars, accuracy and words correct per minute. A reading opens its result. */
 @Composable
 fun HistoryScreen(
     history: TextHistory,
@@ -168,7 +210,7 @@ fun HistoryScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val dateFormat = remember { DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT) }
+    val dateFormat = remember { DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT) }
     var pendingDelete by remember { mutableStateOf<ReadingRecord?>(null) }
 
     BackHandler(onBack = onBack)
@@ -191,57 +233,84 @@ fun HistoryScreen(
     }
 
     Column(modifier = modifier) {
-        Text(
-            stringResource(R.string.history_title),
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.semantics { heading() }
-        )
-        Text(history.text.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 4.dp))
-        Spacer(Modifier.height(8.dp))
+        ScreenHeader(R.string.history_title, onBack)
+        TextHeading(history.text.title, Magnets.forText(history.text.id), Modifier.padding(start = 8.dp), compact = true)
+        Spacer(Modifier.height(16.dp))
         if (history.readings.isEmpty()) {
             Text(
                 stringResource(R.string.history_empty),
                 style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f)
             )
         } else {
             LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.weight(1f)
             ) {
                 items(history.readings, key = { it.id }) { reading ->
-                    Card(onClick = { onShow(reading) }, modifier = Modifier.fillMaxWidth()) {
+                    Card(onClick = { onShow(reading) }, colors = cardColors(), shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth()) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(start = 12.dp, top = 4.dp, bottom = 4.dp)
+                            modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp)
                         ) {
-                            Text(
-                                dateFormat.format(Date(reading.readAt)),
-                                style = MaterialTheme.typography.bodyLarge,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Text(
-                                stringResource(
-                                    R.string.history_reading,
-                                    (reading.result.accuracy * 100).roundToInt(),
-                                    reading.result.wordsCorrectPerMinute
-                                ),
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Column(Modifier.weight(1f)) {
+                                Text(dateFormat.format(Date(reading.readAt)), style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    stringResource(
+                                        R.string.history_reading,
+                                        (reading.result.accuracy * 100).roundToInt(),
+                                        reading.result.wordsCorrectPerMinute
+                                    ),
+                                    style = MaterialTheme.typography.bodyLarge.merge(TabularNumbers),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 2.dp)
+                                )
+                            }
+                            SmallStars(reading.result.stars)
                             IconButton(onClick = { pendingDelete = reading }) {
-                                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete))
+                                Icon(
+                                    Icons.Outlined.Delete,
+                                    contentDescription = stringResource(R.string.delete),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     }
                 }
             }
         }
-        Spacer(Modifier.height(8.dp))
-        OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.back))
+    }
+}
+
+/** A text's magnet and its title, at the top of the screens about that text; [compact] under another heading. */
+@Composable
+fun TextHeading(title: String, magnet: Magnet, modifier: Modifier = Modifier, compact: Boolean = false) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
+        MagnetLetter(magnetLetterOf(title), magnet, size = if (compact) 28.sp else 40.sp)
+        Spacer(Modifier.width(if (compact) 12.dp else 16.dp))
+        Text(
+            title,
+            style = if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.semantics { heading() }
+        )
+    }
+}
+
+/** The stars a reading earned, small, for lists. */
+@Composable
+private fun SmallStars(stars: Int) {
+    val description = stringResource(R.string.result_stars, stars, ReadingResult.MAX_STARS)
+    Row(Modifier.clearAndSetSemantics { this.contentDescription = description }) {
+        repeat(ReadingResult.MAX_STARS) { i ->
+            Icon(
+                if (i < stars) Icons.Default.Star else Icons.Default.StarBorder,
+                contentDescription = null,
+                tint = if (i < stars) Magnets.Yellow.edge else MaterialTheme.colorScheme.outlineVariant,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }
@@ -261,49 +330,59 @@ fun TextEditorScreen(
     BackHandler(onBack = onCancel)
 
     Column(modifier = modifier) {
-        Text(
-            stringResource(if (editor.id == 0L) R.string.new_text_title else R.string.edit_text_title),
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.semantics { heading() }
-        )
-        Spacer(Modifier.height(4.dp))
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 4.dp, top = 8.dp)) {
+            Text(
+                stringResource(if (editor.id == 0L) R.string.new_text_title else R.string.edit_text_title),
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier
+                    .weight(1f)
+                    .semantics { heading() }
+            )
+            FilledTonalButton(onClick = {
+                val clip = context.getSystemService(ClipboardManager::class.java)
+                    ?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString()
+                if (!clip.isNullOrBlank()) {
+                    onRawTextChange(if (editor.rawText.isBlank()) clip else editor.rawText.trimEnd() + "\n" + clip)
+                }
+            }) {
+                Icon(Icons.Default.ContentPaste, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.paste))
+            }
+        }
         Text(
             stringResource(R.string.private_use_note),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 4.dp, top = 8.dp)
         )
-        Spacer(Modifier.height(8.dp))
-        OutlinedButton(onClick = {
-            val clip = context.getSystemService(ClipboardManager::class.java)
-                ?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString()
-            if (!clip.isNullOrBlank()) {
-                onRawTextChange(if (editor.rawText.isBlank()) clip else editor.rawText.trimEnd() + "\n" + clip)
-            }
-        }) {
-            Icon(Icons.Default.ContentPaste, contentDescription = null)
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.paste))
-        }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(16.dp))
         OutlinedTextField(
             value = editor.rawText,
             onValueChange = onRawTextChange,
             placeholder = { Text(stringResource(R.string.input_hint)) },
+            textStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = 20.sp, lineHeight = 30.sp),
+            shape = MaterialTheme.shapes.large,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+            ),
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
         )
         HardPartsHint(editor.warnings)
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(16.dp))
         LanguageChoice(editor, onLanguageChange)
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(16.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f)) {
-                Text(stringResource(R.string.cancel))
+            OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f).heightIn(min = 56.dp)) {
+                Text(stringResource(R.string.cancel), style = MaterialTheme.typography.titleMedium)
             }
-            Button(onClick = onSave, enabled = editor.canSave, modifier = Modifier.weight(1f)) {
-                Text(stringResource(R.string.save))
+            Button(onClick = onSave, enabled = editor.canSave, modifier = Modifier.weight(1f).heightIn(min = 56.dp)) {
+                Text(stringResource(R.string.save), style = MaterialTheme.typography.titleMedium)
             }
         }
     }
@@ -313,20 +392,22 @@ fun TextEditorScreen(
 @Composable
 private fun LanguageChoice(editor: TextEditorState, onChange: (TextLanguage) -> Unit) {
     Text(stringResource(R.string.text_language_label), style = MaterialTheme.typography.titleSmall)
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        TextLanguage.entries.forEach { language ->
-            FilterChip(
+    Spacer(Modifier.height(8.dp))
+    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+        TextLanguage.entries.forEachIndexed { i, language ->
+            SegmentedButton(
                 selected = language == editor.language,
                 onClick = { onChange(language) },
-                label = { Text(stringResource(language.nameRes)) }
-            )
+                shape = SegmentedButtonDefaults.itemShape(i, TextLanguage.entries.size)
+            ) { Text(stringResource(language.nameRes)) }
         }
     }
     if (editor.chosenLanguage == null && editor.detectedLanguage != null) {
         Text(
             stringResource(R.string.text_language_detected),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 6.dp)
         )
     }
 }
@@ -335,13 +416,23 @@ private fun LanguageChoice(editor: TextEditorState, onChange: (TextLanguage) -> 
 @Composable
 private fun HardPartsHint(warnings: TextWarnings) {
     if (warnings.isEmpty) return
-    Text(
-        stringResource(
-            R.string.hard_parts_hint,
-            (warnings.digits + warnings.abbreviations + warnings.symbols).joinToString(", ")
-        ),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.error,
-        modifier = Modifier.padding(top = 4.dp)
-    )
+    Surface(
+        color = Magnets.Orange.container,
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Icon(Icons.Outlined.Info, contentDescription = null, tint = Magnets.Orange.edge)
+            Spacer(Modifier.width(12.dp))
+            Text(
+                stringResource(
+                    R.string.hard_parts_hint,
+                    (warnings.digits + warnings.abbreviations + warnings.symbols).joinToString(", ")
+                ),
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+    }
 }
