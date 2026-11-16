@@ -11,6 +11,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.core.Animatable
@@ -96,6 +97,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // The app gets the keyboard's and system bars' insets itself (needed to know when the keyboard is open),
+        // and the status bar icons follow the light or dark theme.
+        enableEdgeToEdge()
 
         setContent {
             var syllableColors by remember { mutableStateOf(settings.syllableColors) }
@@ -168,6 +172,8 @@ fun ReadWithKidApp(
         val modifier = Modifier
             .fillMaxSize()
             .padding(padding)
+            .consumeWindowInsets(padding)
+            .imePadding()
             .padding(16.dp)
         val result = state.result
         val editor = library.editor

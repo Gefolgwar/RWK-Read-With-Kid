@@ -1,8 +1,17 @@
 package com.gefolgwar.readwithkid
 
 import android.graphics.Bitmap
+import android.view.View
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.Insets
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -47,16 +56,23 @@ class ScreenshotsTest {
         helpedWords = listOf("пирогом")
     )
 
-    private fun shot(name: String, dark: Boolean = false, content: @Composable (Modifier) -> Unit) {
+    /** [dark] null follows the system setting, as the app does. */
+    private fun shot(name: String, dark: Boolean? = false, content: @Composable (Modifier) -> Unit) {
         compose.setContent {
-            ReadWithKidTheme(dark = dark) {
-                Scaffold { padding -> content(Modifier.fillMaxSize().padding(padding).padding(16.dp)) }
+            ReadWithKidTheme(dark = dark ?: isSystemInDarkTheme()) {
+                // The same insets handling as the app's Scaffold
+                Scaffold { padding ->
+                    content(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).imePadding().padding(16.dp))
+                }
             }
         }
         compose.waitForIdle()
         compose.mainClock.advanceTimeBy(3_000)
+        save(name, compose.activity.window.decorView)
+    }
+
+    private fun save(name: String, view: View) {
         val dir = File("build/screens").apply { mkdirs() }
-        val view = compose.activity.window.decorView
         val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
         view.draw(Canvas(bitmap))
         File(dir, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
@@ -157,6 +173,67 @@ class ScreenshotsTest {
     @Test
     fun settings() = shot("7-settings") {
         SettingsScreen(UiLanguage.SYSTEM, {}, syllableColors = true, {}, {}, {}, {}, it)
+    }
+
+    @Test
+    @Config(qualifiers = "uk-w412dp-h915dp-night-xhdpi")
+    fun libraryFollowsSystemDarkMode() = shot("d0-library-system-night", dark = null) {
+        LibraryScreen(texts, {}, {}, {}, {}, {}, {}, it)
+    }
+
+    /** The editor while the keyboard is open: the keyboard's insets are given to the window as the phone does. */
+    @Test
+    fun editorWithKeyboard() {
+        compose.runOnUiThread { WindowCompat.setDecorFitsSystemWindows(compose.activity.window, false) }
+        compose.setContent {
+            ReadWithKidTheme {
+                Scaffold { padding ->
+                    TextEditorScreen(
+                        TextEditorState(rawText = "Кіт Мурко має 3 кошенят. Вони граються м'ячем."),
+                        {}, {}, {}, {},
+                        Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).imePadding().padding(16.dp)
+                    )
+                }
+            }
+        }
+        compose.waitForIdle()
+        compose.runOnUiThread {
+            val keyboard = WindowInsetsCompat.Builder()
+                .setInsets(WindowInsetsCompat.Type.ime(), Insets.of(0, 0, 0, 1_100))
+                .setVisible(WindowInsetsCompat.Type.ime(), true)
+                .build()
+            ViewCompat.dispatchApplyWindowInsets(compose.activity.window.decorView, keyboard)
+        }
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(1_000)
+        save("2b-editor-keyboard", compose.activity.window.decorView)
+    }
+
+    /** The launcher icon: the adaptive layers in a circle mask, and the themed (monochrome) layer. */
+    @Test
+    fun launcherIcon() {
+        val context = compose.activity
+        val size = 432
+        val bitmap = Bitmap.createBitmap(size * 2 + 48, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(android.graphics.Color.rgb(239, 242, 247))
+        val path = android.graphics.Path().apply { addCircle(size / 2f, size / 2f, size / 2f * 0.92f, android.graphics.Path.Direction.CW) }
+        canvas.save()
+        canvas.clipPath(path)
+        canvas.drawColor(ContextCompat.getColor(context, R.color.ic_launcher_background))
+        ContextCompat.getDrawable(context, R.drawable.ic_launcher_foreground)!!.apply { setBounds(-size / 4, -size / 4, size * 5 / 4, size * 5 / 4) }.draw(canvas)
+        canvas.restore()
+        canvas.translate(size + 48f, 0f)
+        canvas.save()
+        canvas.clipPath(path)
+        canvas.drawColor(android.graphics.Color.rgb(220, 228, 245))
+        ContextCompat.getDrawable(context, R.drawable.ic_launcher_monochrome)!!.apply {
+            setTint(android.graphics.Color.rgb(29, 60, 140))
+            setBounds(-size / 4, -size / 4, size * 5 / 4, size * 5 / 4)
+        }.draw(canvas)
+        canvas.restore()
+        val dir = File("build/screens").apply { mkdirs() }
+        File(dir, "0-icon.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
     @Test

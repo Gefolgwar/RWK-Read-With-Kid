@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themed icon (Android 13+): the tile with the letter cut out of it. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd" android:pathData="M38,32 L70,32 A8,8 0 0 1 78,40 L78,64 A8,8 0 0 1 70,72 L38,72 A8,8 0 0 1 30,64 L30,40 A8,8 0 0 1 38,32 Z M42,64.8 L51.6,39.2 L56.4,39.2 L66,64.8 L60.4,64.8 L58.48,59.2 L49.52,59.2 L47.6,64.8 Z M51.12,54.4 L56.88,54.4 L54,46 Z" />
+</vector>
