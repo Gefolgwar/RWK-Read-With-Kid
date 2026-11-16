@@ -13,7 +13,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** The child makes the reading text smaller or bigger, step by step. */
+/** The child makes the reading text smaller or bigger, step by step, before and during reading. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class ReadingScreenTest {
@@ -44,6 +44,30 @@ class ReadingScreenTest {
                 onTextSizeChange = { chosen += it }
             )
         }
+    }
+
+    @Test
+    fun `before reading starts the text gets one step bigger or smaller too`() {
+        compose.setContent {
+            ReadWithKidTheme {
+                ReadyToReadScreen(
+                    "Мама мила раму",
+                    Magnets.forText(1),
+                    ReadingUiState(SessionState.READY, rawText = "Мама мила раму.", text = TextPreparation.prepare("Мама мила раму.")),
+                    ModelState.Installed,
+                    onStart = {},
+                    onRetryModel = {},
+                    onConfirmModel = {},
+                    onOpenAppSettings = {},
+                    onBack = {},
+                    textSize = 30,
+                    onTextSizeChange = { chosen += it }
+                )
+            }
+        }
+        compose.onNodeWithContentDescription(string(R.string.text_bigger)).performClick()
+        compose.onNodeWithContentDescription(string(R.string.text_smaller)).performClick()
+        assertEquals(listOf(34, 26), chosen)
     }
 
     @Test

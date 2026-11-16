@@ -100,15 +100,11 @@
     <string name="delete_reading_message">Der Versuch vom %1$s wird endgültig gelöscht.</string>
 
     <string name="norms_title">Richtwerte zum Lesen</string>
-    <string name="norms_intro">Richtwerte für lautes Lesen, in Wörtern pro Minute. Vergleichen Sie sie mit dem Ergebnis. Sie dienen der Orientierung beim Üben, nicht als Test.</string>
-    <string name="norms_ukraine">Ukraine</string>
-    <string name="norms_ukraine_speed">Klasse 2: 35–45 im 1. Halbjahr, 50–60 im 2.\nKlasse 3: 65–70 im 1. Halbjahr, 75–80 im 2.\nKlasse 4: 80–85 im 1. Halbjahr, 90–95 im 2.</string>
-    <string name="norms_ukraine_daily">Pro Tag: Es gibt keinen offiziellen Wert.</string>
-    <string name="norms_ukraine_source">Quelle: Ministerium für Bildung und Wissenschaft der Ukraine, Erlass Nr. 1222 vom 21.08.2013 in der Fassung des Erlasses Nr. 1009 vom 19.08.2016, Literarisches Lesen, Klassen 2–4. Für Klasse 1 gibt es keine Werte.</string>
-    <string name="norms_germany">Deutschland</string>
-    <string name="norms_germany_speed">Ende Klasse 2: etwa 80–90 richtig gelesene Wörter, sehr gute Leser etwa 115\nEnde Klasse 4: etwa 130–140, sehr gute Leser etwa 165</string>
-    <string name="norms_germany_daily">Pro Tag: 20 Minuten Lesezeit an jedem Schultag (Leseband in Brandenburg und Schleswig-Holstein).</string>
-    <string name="norms_germany_source">Quellen: ISB Bayern, LehrplanPLUS Grundschule, nach Rosebrock u. a. (2011), Leseflüssigkeit fördern; Bildungsministerium Brandenburg; Bildungsministerium Schleswig-Holstein (2024). Für die Klassen 1 und 3 gibt es keine Werte.</string>
+    <string name="norms_intro">Orientierung für lautes Lesen nach Klassenstufe: wie schnell und wie viele Wörter am Tag (etwa 10–20 Minuten Lesezeit).</string>
+    <string name="norms_grade">Klasse %d</string>
+    <string name="norms_speed">Wörter pro Minute</string>
+    <string name="norms_daily">Wörter pro Tag</string>
+    <string name="norms_note">Das sind ungefähre Werte. Sie müssen nicht eingehalten werden: Jedes Kind liest in seinem eigenen Tempo.</string>
     <string name="norms_close">Schließen</string>
 
     <string name="language_uk">Ukrainisch</string>
@@ -118,6 +114,10 @@
         <item quantity="other">%d Wörter</item>
     </plurals>
     <string name="text_read_today">heute: %d</string>
+    <plurals name="words_read_today">
+        <item quantity="one">Heute gelesen: %d Wort</item>
+        <item quantity="other">Heute gelesen: %d Wörter</item>
+    </plurals>
     <string name="model_retry">Erneut versuchen</string>
     <string name="model_downloading">Download: %1$s von %2$s</string>
     <string name="model_needs_confirmation">Der Download wartet auf WLAN oder Ihre Erlaubnis.</string>

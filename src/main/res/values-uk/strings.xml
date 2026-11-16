@@ -100,15 +100,11 @@
     <string name="delete_reading_message">Спробу від %1$s буде видалено назавжди.</string>
 
     <string name="norms_title">Норми читання</string>
-    <string name="norms_intro">Орієнтири для читання вголос, у словах за хвилину. Порівняйте їх із результатом. Це орієнтир для тренування, а не перевірка.</string>
-    <string name="norms_ukraine">Україна</string>
-    <string name="norms_ukraine_speed">2 клас: 35–45 у 1-му семестрі, 50–60 у 2-му\n3 клас: 65–70 у 1-му семестрі, 75–80 у 2-му\n4 клас: 80–85 у 1-му семестрі, 90–95 у 2-му</string>
-    <string name="norms_ukraine_daily">На день: офіційної норми немає.</string>
-    <string name="norms_ukraine_source">Джерело: МОН України, наказ № 1222 від 21.08.2013 зі змінами згідно з наказом № 1009 від 19.08.2016, літературне читання, 2–4 класи. Для 1 класу показників немає.</string>
-    <string name="norms_germany">Німеччина</string>
-    <string name="norms_germany_speed">Кінець 2 класу: близько 80–90 правильно прочитаних слів, дуже добрі читачі — близько 115\nКінець 4 класу: близько 130–140, дуже добрі читачі — близько 165</string>
-    <string name="norms_germany_daily">На день: 20 хвилин читання в кожен шкільний день (Leseband у Бранденбурзі та Шлезвіг-Гольштейні).</string>
-    <string name="norms_germany_source">Джерела: ISB Баварії, LehrplanPLUS для початкової школи, за Rosebrock et al. (2011), Leseflüssigkeit fördern; Міністерство освіти Бранденбурга; Міністерство освіти Шлезвіг-Гольштейну (2024). Для 1 і 3 класів показників немає.</string>
+    <string name="norms_intro">Орієнтир для читання вголос за класами: з якою швидкістю і скільки слів на день (це приблизно 10–20 хвилин читання).</string>
+    <string name="norms_grade">%d клас</string>
+    <string name="norms_speed">Слів за хвилину</string>
+    <string name="norms_daily">Слів на день</string>
+    <string name="norms_note">Це орієнтовні цифри. Їх не обов’язково дотримуватися: кожна дитина читає у своєму темпі.</string>
     <string name="norms_close">Закрити</string>
 
     <string name="language_uk">Українська</string>
@@ -120,6 +116,12 @@
         <item quantity="other">%d слова</item>
     </plurals>
     <string name="text_read_today">сьогодні: %d</string>
+    <plurals name="words_read_today">
+        <item quantity="one">Сьогодні прочитано: %d слово</item>
+        <item quantity="few">Сьогодні прочитано: %d слова</item>
+        <item quantity="many">Сьогодні прочитано: %d слів</item>
+        <item quantity="other">Сьогодні прочитано: %d слова</item>
+    </plurals>
     <string name="model_retry">Спробувати ще раз</string>
     <string name="model_downloading">Завантаження: %1$s з %2$s</string>
     <string name="model_needs_confirmation">Завантаження чекає на Wi-Fi або на ваш дозвіл.</string>
