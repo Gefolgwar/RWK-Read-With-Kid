@@ -22,8 +22,6 @@ import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.*
@@ -331,7 +329,8 @@ private fun TextCard(
 }
 
 /**
- * Earlier readings of a text, newest first: date, stars, accuracy and words correct per minute. A reading opens its result.
+ * Earlier readings of a text, newest first: the score (words correct per minute) large, with date, accuracy and duration.
+ * A reading opens its result.
  * [onDelete] is null in child mode, where readings cannot be deleted.
  */
 @Composable
@@ -381,25 +380,44 @@ fun HistoryScreen(
                 modifier = Modifier.weight(1f)
             ) {
                 items(history.readings, key = { it.id }) { reading ->
+                    val date = dateFormat.format(Date(reading.readAt))
+                    val score = reading.result.wordsCorrectPerMinute
+                    val percent = (reading.result.accuracy * 100).roundToInt()
+                    val seconds = (reading.result.durationMs / 1000).toInt()
+                    val duration = "%d:%02d".format(seconds / 60, seconds % 60)
+                    val description = stringResource(R.string.history_reading_description, date, score, percent, duration)
                     Card(onClick = { onShow(reading) }, colors = cardColors(), shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth()) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp)
                         ) {
-                            Column(Modifier.weight(1f)) {
-                                Text(dateFormat.format(Date(reading.readAt)), style = MaterialTheme.typography.titleMedium)
-                                Text(
-                                    stringResource(
-                                        R.string.history_reading,
-                                        (reading.result.accuracy * 100).roundToInt(),
-                                        reading.result.wordsCorrectPerMinute
-                                    ),
-                                    style = MaterialTheme.typography.bodyLarge.merge(TabularNumbers),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(top = 2.dp)
-                                )
+                            // Read out as one sentence; the delete button stays a separate target.
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f).clearAndSetSemantics { contentDescription = description }
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(date, style = MaterialTheme.typography.titleMedium)
+                                    Text(
+                                        stringResource(R.string.history_reading, percent, duration),
+                                        style = MaterialTheme.typography.bodyLarge.merge(TabularNumbers),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(top = 2.dp)
+                                    )
+                                }
+                                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(start = 12.dp)) {
+                                    Text(
+                                        score.toString(),
+                                        style = MaterialTheme.typography.headlineMedium.merge(TabularNumbers),
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        stringResource(R.string.history_score_unit),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
-                            SmallStars(reading.result.stars)
                             if (onDelete != null) {
                                 IconButton(onClick = { pendingDelete = reading }) {
                                     Icon(
@@ -409,7 +427,7 @@ fun HistoryScreen(
                                     )
                                 }
                             } else {
-                                // The stars keep their distance from the card's edge.
+                                // The score keeps its distance from the card's edge.
                                 Spacer(Modifier.width(12.dp))
                             }
                         }
@@ -433,22 +451,6 @@ fun TextHeading(title: String, magnet: Magnet, modifier: Modifier = Modifier, co
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.semantics { heading() }
         )
-    }
-}
-
-/** The stars a reading earned, small, for lists. */
-@Composable
-private fun SmallStars(stars: Int) {
-    val description = stringResource(R.string.result_stars, stars, ReadingResult.MAX_STARS)
-    Row(Modifier.clearAndSetSemantics { this.contentDescription = description }) {
-        repeat(ReadingResult.MAX_STARS) { i ->
-            Icon(
-                if (i < stars) Icons.Default.Star else Icons.Default.StarBorder,
-                contentDescription = null,
-                tint = if (i < stars) Magnets.Yellow.edge else MaterialTheme.colorScheme.outlineVariant,
-                modifier = Modifier.size(20.dp)
-            )
-        }
     }
 }
 

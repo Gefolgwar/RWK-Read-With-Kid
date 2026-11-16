@@ -199,18 +199,22 @@ class ScreenshotsTest {
         ResultScreen(result, texts[0].title, Magnets.forText(1), onClose = {}, modifier = it)
     }
 
+    /** Several readings of a text, newest first, each with its score. */
+    private val readings = listOf(
+        ReadingRecord(1, 1, texts[0].title, 1_763_000_000_000, result),
+        ReadingRecord(2, 1, texts[0].title, 1_762_500_000_000, result.copy(correctWords = 28, durationMs = 61_000)),
+        ReadingRecord(3, 1, texts[0].title, 1_762_000_000_000, result.copy(correctWords = 25, durationMs = 70_000)),
+        ReadingRecord(4, 1, texts[0].title, 1_761_500_000_000, result.copy(correctWords = 19, durationMs = 105_000))
+    )
+
     @Test
     fun history() = shot("6-history") {
-        HistoryScreen(
-            TextHistory(
-                texts[0],
-                listOf(
-                    ReadingRecord(1, 1, texts[0].title, 1_763_000_000_000, result),
-                    ReadingRecord(2, 1, texts[0].title, 1_762_500_000_000, result.copy(correctWords = 25, durationMs = 70_000))
-                )
-            ),
-            {}, {}, {}, it
-        )
+        HistoryScreen(TextHistory(texts[0], readings), {}, {}, {}, it)
+    }
+
+    @Test
+    fun historyDark() = shot("d6-history", dark = true) {
+        HistoryScreen(TextHistory(texts[0], readings), {}, {}, {}, it)
     }
 
     @Test

@@ -79,7 +79,9 @@
     <string name="result_back">До тексту</string>
 
     <string name="history_title">Попередні спроби</string>
-    <string name="history_reading">%1$d %% · %2$d слів/хв</string>
+    <string name="history_reading">%1$d %% · %2$s</string>
+    <string name="history_score_unit">слів/хв</string>
+    <string name="history_reading_description">%1$s. Результат: %2$d правильних слів за хвилину. Точність %3$d %%, тривалість %4$s.</string>
     <string name="history_empty">Цей текст ще не читали.</string>
     <string name="delete_reading_title">Видалити спробу?</string>
     <string name="delete_reading_message">Спробу від %1$s буде видалено назавжди.</string>

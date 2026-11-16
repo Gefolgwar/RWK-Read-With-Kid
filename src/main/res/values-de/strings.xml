@@ -79,7 +79,9 @@
     <string name="result_back">Zurück zum Text</string>
 
     <string name="history_title">Bisherige Versuche</string>
-    <string name="history_reading">%1$d %% · %2$d Wörter/Min.</string>
+    <string name="history_reading">%1$d %% · %2$s</string>
+    <string name="history_score_unit">Wörter/Min.</string>
+    <string name="history_reading_description">%1$s. Ergebnis: %2$d richtige Wörter pro Minute. Genauigkeit %3$d %%, Dauer %4$s.</string>
     <string name="history_empty">Dieser Text wurde noch nicht gelesen.</string>
     <string name="delete_reading_title">Versuch löschen?</string>
     <string name="delete_reading_message">Der Versuch vom %1$s wird endgültig gelöscht.</string>

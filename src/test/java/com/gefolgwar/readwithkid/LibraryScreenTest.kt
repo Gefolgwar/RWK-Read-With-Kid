@@ -16,6 +16,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.text.DateFormat
+import java.util.Date
 
 /** The lock in the top bar, and what the library offers in parent mode and child mode. */
 @RunWith(RobolectricTestRunner::class)
@@ -86,6 +88,23 @@ class LibraryScreenTest {
         compose.onNodeWithContentDescription(string(R.string.delete)).assertIsDisplayed()
         deleteOffered = false
         compose.onNodeWithContentDescription(string(R.string.delete)).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a history row tells its score, accuracy and duration instead of stars`() {
+        val readAt = 1_763_000_000_000
+        // 31 of 34 words in 52 seconds: 36 words correct per minute, 91 %
+        val reading = ReadingRecord(1, text.id, text.title, readAt, ReadingResult(34, 31, 52_000, emptyList(), emptyList()))
+        compose.setContent {
+            ReadWithKidTheme {
+                HistoryScreen(TextHistory(text, listOf(reading)), onShow = {}, onDelete = null, onBack = {})
+            }
+        }
+        val date = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(readAt))
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.history_reading_description, date, 36, 91, "0:52"))
+            .assertIsDisplayed()
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.result_stars, 3, ReadingResult.MAX_STARS))
+            .assertDoesNotExist()
     }
 
     @Test
