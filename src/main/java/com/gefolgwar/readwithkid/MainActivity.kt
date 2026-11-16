@@ -62,6 +62,7 @@ import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -223,7 +224,9 @@ fun ReadWithKidApp(
                     onConfirmModel = { onConfirmModel(state.language) },
                     onOpenAppSettings = openAppSettings,
                     onBack = { readingTitle = null },
-                    modifier = modifier
+                    modifier = modifier,
+                    textSize = readingTextSize,
+                    onTextSizeChange = onReadingTextSizeChange
                 )
             editor != null ->
                 TextEditorScreen(
@@ -324,7 +327,10 @@ fun ReadyToReadScreen(
     onConfirmModel: () -> Unit,
     onOpenAppSettings: () -> Unit,
     onBack: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Reading text size in sp; the child can choose it here before starting. */
+    textSize: Int = DEFAULT_READING_TEXT_SIZE,
+    onTextSizeChange: (Int) -> Unit = {}
 ) {
     val context = LocalContext.current
     var showRationale by remember { mutableStateOf(false) }
@@ -363,6 +369,7 @@ fun ReadyToReadScreen(
             }
             Spacer(Modifier.width(8.dp))
             TextHeading(title, magnet, Modifier.weight(1f))
+            TextSizeButtons(textSize, onTextSizeChange)
         }
         Spacer(Modifier.height(16.dp))
         Column(
@@ -390,11 +397,11 @@ fun ReadyToReadScreen(
                 }
             }
 
-            // Just the text the child is about to read, on its page.
+            // Just the text the child is about to read, on its page, at the size it will be read.
             Card(colors = cardColors(), shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth()) {
                 Text(
                     state.rawText,
-                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = 24.sp, lineHeight = 38.sp),
+                    style = readingTextStyle(textSize),
                     modifier = Modifier.padding(20.dp)
                 )
             }
@@ -570,15 +577,7 @@ fun ReadingScreen(
                     modifier = Modifier.weight(1f)
                 )
             } else Spacer(Modifier.weight(1f))
-            // The child makes the text smaller or bigger, one step at a time; the size is kept for the next reading.
-            val smaller = ReadingTextSizes.lastOrNull { it < textSize }
-            val bigger = ReadingTextSizes.firstOrNull { it > textSize }
-            IconButton(onClick = { smaller?.let(onTextSizeChange) }, enabled = smaller != null) {
-                Icon(Icons.Default.TextDecrease, contentDescription = stringResource(R.string.text_smaller))
-            }
-            IconButton(onClick = { bigger?.let(onTextSizeChange) }, enabled = bigger != null) {
-                Icon(Icons.Default.TextIncrease, contentDescription = stringResource(R.string.text_bigger))
-            }
+            TextSizeButtons(textSize, onTextSizeChange)
         }
         Spacer(Modifier.height(12.dp))
         Card(
@@ -599,8 +598,7 @@ fun ReadingScreen(
                     // Andika comes from the theme's typography.
                     Text(
                         text = annotated,
-                        // At every size the line height keeps the 30/52 proportion, so the band and the magnet still fit.
-                        style = MaterialTheme.typography.bodyLarge.copy(fontSize = fontSize, lineHeight = fontSize * (52f / 30f)),
+                        style = readingTextStyle(textSize),
                         onTextLayout = { layout = it },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -652,6 +650,24 @@ fun ReadingScreen(
                 modifier = Modifier.weight(1f)
             )
         }
+    }
+}
+
+/** The reading text at [textSize] sp; the line height keeps the 30/52 proportion, so the band and the magnet still fit. */
+@Composable
+private fun readingTextStyle(textSize: Int): TextStyle =
+    MaterialTheme.typography.bodyLarge.copy(fontSize = textSize.sp, lineHeight = textSize.sp * (52f / 30f))
+
+/** The child makes the text smaller or bigger, one step through [ReadingTextSizes]; the size is kept for the next reading. */
+@Composable
+private fun TextSizeButtons(textSize: Int, onTextSizeChange: (Int) -> Unit) {
+    val smaller = ReadingTextSizes.lastOrNull { it < textSize }
+    val bigger = ReadingTextSizes.firstOrNull { it > textSize }
+    IconButton(onClick = { smaller?.let(onTextSizeChange) }, enabled = smaller != null) {
+        Icon(Icons.Default.TextDecrease, contentDescription = stringResource(R.string.text_smaller))
+    }
+    IconButton(onClick = { bigger?.let(onTextSizeChange) }, enabled = bigger != null) {
+        Icon(Icons.Default.TextIncrease, contentDescription = stringResource(R.string.text_bigger))
     }
 }
 
