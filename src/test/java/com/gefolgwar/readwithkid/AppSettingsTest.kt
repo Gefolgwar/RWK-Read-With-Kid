@@ -39,6 +39,15 @@ class AppSettingsTest {
         assertEquals(2L, AppSettings(context).activeChildId)
     }
 
+    @Test
+    fun `first launch is in parent mode and the mode is remembered`() {
+        assertFalse(AppSettings(context).childMode)
+        AppSettings(context).childMode = true
+        assertTrue(AppSettings(context).childMode)
+        AppSettings(context).childMode = false
+        assertFalse(AppSettings(context).childMode)
+    }
+
     private val Context.language get() = resources.configuration.locales[0].language
 
     @Test

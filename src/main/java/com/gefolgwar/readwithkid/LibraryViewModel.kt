@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.random.Random
 
 /** A text being added ([id] 0) or edited. */
 data class TextEditorState(
@@ -49,8 +50,23 @@ data class LibraryUiState(
     /** Open history of a text, or null. */
     val history: TextHistory? = null,
     /** The child whose library is open, or null until the children are loaded. */
-    val activeChild: Child? = null
+    val activeChild: Child? = null,
+    /** Locked for the child: texts can be read and their history viewed, nothing can be changed. */
+    val childMode: Boolean = false,
+    /** Question a grown-up answers to leave child mode, or null while not asked. */
+    val unlockQuestion: UnlockQuestion? = null,
+    val settingsOpen: Boolean = false
 )
+
+/** "How much is [a] × [b]?" — easy for a parent, hard for a 5–7-year-old. */
+data class UnlockQuestion(val a: Int, val b: Int) {
+    val answer: Int get() = a * b
+
+    companion object {
+        /** Each factor from 3 to 9. */
+        fun random(random: Random) = UnlockQuestion(random.nextInt(3, 10), random.nextInt(3, 10))
+    }
+}
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LibraryViewModel(
@@ -58,7 +74,8 @@ class LibraryViewModel(
     private val readings: ReadingRepository,
     private val children: ChildRepository,
     private val session: LibrarySession,
-    private val clockMs: () -> Long = System::currentTimeMillis
+    private val clockMs: () -> Long = System::currentTimeMillis,
+    private val random: Random = Random.Default
 ) : ViewModel() {
 
     /** The child who was active last time, or the first child if that one no longer exists; with their texts. */
@@ -81,9 +98,49 @@ class LibraryViewModel(
         shownReadingId
     ) { history, shownId -> history?.copy(shown = history.readings.find { it.id == shownId }) }
 
-    val uiState: StateFlow<LibraryUiState> = combine(library, editor, history) { (child, texts), editor, history ->
-        LibraryUiState(texts, editor, history, child)
+    private val childMode = MutableStateFlow(session.childMode)
+    private val unlockQuestion = MutableStateFlow<UnlockQuestion?>(null)
+    private val settingsOpen = MutableStateFlow(false)
+
+    val uiState: StateFlow<LibraryUiState> = combine(
+        library, editor, history, childMode, combine(unlockQuestion, settingsOpen, ::Pair)
+    ) { (child, texts), editor, history, childMode, (question, settingsOpen) ->
+        LibraryUiState(texts, editor, history, child, childMode, question, settingsOpen)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, LibraryUiState())
+
+    private val parentMode get() = !childMode.value
+
+    private fun setChildMode(on: Boolean) {
+        session.childMode = on
+        childMode.value = on
+    }
+
+    /** One tap hands the phone to the child. */
+    fun lock() = setChildMode(true)
+
+    /** Asks a new question; only its correct answer leaves child mode. */
+    fun askToUnlock() {
+        if (childMode.value) unlockQuestion.value = UnlockQuestion.random(random)
+    }
+
+    /** A correct [answer] switches to parent mode; any other answer keeps child mode. Either way the question closes. */
+    fun answerUnlock(answer: String) {
+        val question = unlockQuestion.value ?: return
+        unlockQuestion.value = null
+        if (answer.trim().toIntOrNull() == question.answer) setChildMode(false)
+    }
+
+    fun dismissUnlock() {
+        unlockQuestion.value = null
+    }
+
+    fun openSettings() {
+        if (parentMode) settingsOpen.value = true
+    }
+
+    fun closeSettings() {
+        settingsOpen.value = false
+    }
 
     fun openHistory(text: SavedText) {
         shownReadingId.value = null
@@ -105,15 +162,17 @@ class LibraryViewModel(
     }
 
     fun deleteReading(reading: ReadingRecord) {
+        if (!parentMode) return
         if (shownReadingId.value == reading.id) shownReadingId.value = null
         viewModelScope.launch { readings.deleteReading(reading.id) }
     }
 
     fun newText() {
-        editor.value = TextEditorState()
+        if (parentMode) editor.value = TextEditorState()
     }
 
     fun edit(text: SavedText) {
+        if (!parentMode) return
         // A stored language the alphabet would suggest anyway keeps following the text.
         val chosen = text.language.takeIf { it != TextPreparation.detectLanguage(text.rawText) }
         editor.value = TextEditorState(text.id, text.createdAt, text.rawText, chosen)
@@ -129,7 +188,7 @@ class LibraryViewModel(
 
     fun save() {
         val current = editor.value ?: return
-        if (!current.canSave) return
+        if (!current.canSave || !parentMode) return
         // Texts are added and edited in the open library, so they belong to its child.
         val child = uiState.value.activeChild ?: return
         val text = SavedText(
@@ -145,6 +204,7 @@ class LibraryViewModel(
     }
 
     fun delete(text: SavedText) {
+        if (!parentMode) return
         viewModelScope.launch { repository.delete(text.id) }
     }
 

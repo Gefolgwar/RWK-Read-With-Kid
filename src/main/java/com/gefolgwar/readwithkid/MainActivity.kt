@@ -152,7 +152,6 @@ fun ReadWithKidApp(
     var readingTitle by rememberSaveable { mutableStateOf<String?>(null) }
     // Id of that text, for its magnet colour
     var readingId by rememberSaveable { mutableStateOf(0L) }
-    var showSettings by rememberSaveable { mutableStateOf(false) }
     var showPrivacy by rememberSaveable { mutableStateOf(false) }
     var showLicenses by rememberSaveable { mutableStateOf(false) }
     // The only place the app leaves itself: the phone settings, to allow the microphone.
@@ -238,7 +237,7 @@ fun ReadWithKidApp(
                 HistoryScreen(
                     history,
                     onShow = libraryVm::showReading,
-                    onDelete = libraryVm::deleteReading,
+                    onDelete = if (library.childMode) null else libraryVm::deleteReading,
                     onBack = libraryVm::closeHistory,
                     modifier = modifier
                 )
@@ -246,7 +245,7 @@ fun ReadWithKidApp(
                 PrivacyPolicyScreen(onBack = { showPrivacy = false }, modifier = modifier)
             showLicenses ->
                 LicensesScreen(onBack = { showLicenses = false }, modifier = modifier)
-            showSettings ->
+            library.settingsOpen ->
                 SettingsScreen(
                     uiLanguage,
                     onLanguageChange = { if (it != uiLanguage) onUiLanguageChange(it) },
@@ -254,7 +253,7 @@ fun ReadWithKidApp(
                     onSyllableColorsChange = onSyllableColorsChange,
                     onPrivacy = { showPrivacy = true },
                     onLicenses = { showLicenses = true },
-                    onBack = { showSettings = false },
+                    onBack = libraryVm::closeSettings,
                     modifier = modifier
                 )
             else ->
@@ -266,8 +265,14 @@ fun ReadWithKidApp(
                     onEdit = libraryVm::edit,
                     onDelete = libraryVm::delete,
                     onHistory = libraryVm::openHistory,
-                    onSettings = { showSettings = true },
-                    modifier = modifier
+                    onSettings = libraryVm::openSettings,
+                    modifier = modifier,
+                    childMode = library.childMode,
+                    unlockQuestion = library.unlockQuestion,
+                    onLock = libraryVm::lock,
+                    onUnlock = libraryVm::askToUnlock,
+                    onAnswerUnlock = libraryVm::answerUnlock,
+                    onDismissUnlock = libraryVm::dismissUnlock
                 )
         }
     }

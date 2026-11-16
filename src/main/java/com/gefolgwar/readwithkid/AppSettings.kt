@@ -14,6 +14,9 @@ enum class UiLanguage(val tag: String?) {
 interface LibrarySession {
     /** The child whose library was open last, or null before any was. */
     var activeChildId: Long?
+
+    /** Whether the library is locked for the child; false (parent mode) until locked. */
+    var childMode: Boolean
 }
 
 /** App-wide settings kept on the phone. */
@@ -23,6 +26,10 @@ class AppSettings(context: Context) : LibrarySession {
     override var activeChildId: Long?
         get() = if (prefs.contains(KEY_ACTIVE_CHILD)) prefs.getLong(KEY_ACTIVE_CHILD, 0) else null
         set(value) = prefs.edit { if (value == null) remove(KEY_ACTIVE_CHILD) else putLong(KEY_ACTIVE_CHILD, value) }
+
+    override var childMode: Boolean
+        get() = prefs.getBoolean(KEY_CHILD_MODE, false)
+        set(value) = prefs.edit { putBoolean(KEY_CHILD_MODE, value) }
 
     var uiLanguage: UiLanguage
         get() = UiLanguage.entries.firstOrNull { it.tag == prefs.getString(KEY_UI_LANGUAGE, null) } ?: UiLanguage.SYSTEM
@@ -37,6 +44,7 @@ class AppSettings(context: Context) : LibrarySession {
         const val KEY_UI_LANGUAGE = "ui_language"
         const val KEY_SYLLABLE_COLORS = "syllable_colors"
         const val KEY_ACTIVE_CHILD = "active_child"
+        const val KEY_CHILD_MODE = "child_mode"
     }
 }
 

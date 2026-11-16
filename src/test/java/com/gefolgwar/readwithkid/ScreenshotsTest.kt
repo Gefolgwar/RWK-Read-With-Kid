@@ -1,6 +1,7 @@
 package com.gefolgwar.readwithkid
 
 import android.graphics.Bitmap
+import android.os.Looper
 import android.view.View
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -17,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import android.graphics.Canvas
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -25,10 +27,12 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import org.robolectric.shadows.ShadowDialog
 import java.io.File
+import java.time.Duration
 
 /**
  * Renders every screen on the JVM into build/screens/ to look at the design without a phone.
@@ -112,6 +116,37 @@ class ScreenshotsTest {
     @Test
     fun libraryEmpty() = shot("1b-library-empty") {
         LibraryScreen(emptyList(), unnamed, {}, {}, {}, {}, {}, {}, it)
+    }
+
+    /** Locked for the child: no adding, no text menu, no settings; the closed lock asks a grown-up's question. */
+    @Test
+    fun libraryChildMode() = shot("1c-library-child-mode") {
+        LibraryScreen(texts, olya, {}, {}, {}, {}, {}, {}, it, childMode = true)
+    }
+
+    @Test
+    fun unlockQuestion() = unlockShot("1d-unlock-question", dark = false)
+
+    /**
+     * The question is its own window, so it is captured alone. With a text field in a dialog the compose rule never
+     * gets idle under native graphics, so the dialog is shown on the activity directly and the main looper is run.
+     */
+    private fun unlockShot(name: String, dark: Boolean) {
+        compose.activity.setContent {
+            ReadWithKidTheme(dark = dark) {
+                LibraryScreen(texts, olya, {}, {}, {}, {}, {}, {}, childMode = true, unlockQuestion = UnlockQuestion(7, 8))
+            }
+        }
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(1))
+        save(name, ShadowDialog.getLatestDialog().window!!.decorView)
+    }
+
+    @Test
+    fun historyChildMode() = shot("6b-history-child-mode") {
+        HistoryScreen(
+            TextHistory(texts[0], listOf(ReadingRecord(1, 1, texts[0].title, 1_763_000_000_000, result))),
+            onShow = {}, onDelete = null, onBack = {}, modifier = it
+        )
     }
 
     @Test
@@ -266,6 +301,14 @@ class ScreenshotsTest {
     fun libraryEmptyDark() = shot("d1b-library-empty", dark = true) {
         LibraryScreen(emptyList(), unnamed, {}, {}, {}, {}, {}, {}, it)
     }
+
+    @Test
+    fun libraryChildModeDark() = shot("d1c-library-child-mode", dark = true) {
+        LibraryScreen(emptyList(), olya, {}, {}, {}, {}, {}, {}, it, childMode = true)
+    }
+
+    @Test
+    fun unlockQuestionDark() = unlockShot("d1d-unlock-question", dark = true)
 
     @Test
     fun editorDark() = shot("d2-editor", dark = true) {

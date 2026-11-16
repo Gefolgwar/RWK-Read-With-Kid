@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -15,6 +17,8 @@ import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
@@ -35,6 +39,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -58,9 +64,18 @@ fun LibraryScreen(
     onDelete: (SavedText) -> Unit,
     onHistory: (SavedText) -> Unit,
     onSettings: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** In child mode texts can only be read and their history viewed. */
+    childMode: Boolean = false,
+    unlockQuestion: UnlockQuestion? = null,
+    onLock: () -> Unit = {},
+    onUnlock: () -> Unit = {},
+    onAnswerUnlock: (String) -> Unit = {},
+    onDismissUnlock: () -> Unit = {}
 ) {
     var pendingDelete by remember { mutableStateOf<SavedText?>(null) }
+
+    unlockQuestion?.let { UnlockDialog(it, onAnswerUnlock, onDismissUnlock) }
 
     pendingDelete?.let { text ->
         AlertDialog(
@@ -90,8 +105,17 @@ fun LibraryScreen(
                     .padding(start = 4.dp, top = 8.dp)
             ) {
                 if (activeChild != null) ActiveChild(activeChild, Modifier.weight(1f, fill = false))
-                IconButton(onClick = onSettings) {
-                    Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings_title))
+                // Open lock: parent mode, one tap locks. Closed lock: child mode, a question unlocks.
+                IconButton(onClick = if (childMode) onUnlock else onLock) {
+                    Icon(
+                        if (childMode) Icons.Default.Lock else Icons.Default.LockOpen,
+                        contentDescription = stringResource(if (childMode) R.string.lock_child_mode else R.string.lock_parent_mode)
+                    )
+                }
+                if (!childMode) {
+                    IconButton(onClick = onSettings) {
+                        Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings_title))
+                    }
                 }
             }
             Text(
@@ -103,7 +127,7 @@ fun LibraryScreen(
             )
             Spacer(Modifier.height(16.dp))
             if (texts.isEmpty()) {
-                EmptyLibrary(Modifier.weight(1f))
+                EmptyLibrary(childMode, Modifier.weight(1f))
             } else {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -114,6 +138,7 @@ fun LibraryScreen(
                     items(texts, key = { it.id }) { text ->
                         TextCard(
                             text,
+                            childMode,
                             onRead = { onRead(text) },
                             onEdit = { onEdit(text) },
                             onDelete = { pendingDelete = text },
@@ -123,15 +148,55 @@ fun LibraryScreen(
                 }
             }
         }
-        ExtendedFloatingActionButton(
-            onClick = onAdd,
-            icon = { Icon(Icons.Default.Add, contentDescription = null) },
-            text = { Text(stringResource(R.string.add_text), style = MaterialTheme.typography.titleMedium) },
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
-            modifier = Modifier.align(Alignment.BottomEnd)
-        )
+        if (!childMode) {
+            ExtendedFloatingActionButton(
+                onClick = onAdd,
+                icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                text = { Text(stringResource(R.string.add_text), style = MaterialTheme.typography.titleMedium) },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.align(Alignment.BottomEnd)
+            )
+        }
     }
+}
+
+/** A grown-up's question to leave child mode: the product of two numbers, typed in. */
+@Composable
+private fun UnlockDialog(question: UnlockQuestion, onAnswer: (String) -> Unit, onDismiss: () -> Unit) {
+    var answer by remember(question) { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Default.Lock, contentDescription = null) },
+        title = { Text(stringResource(R.string.unlock_title), textAlign = TextAlign.Center) },
+        text = {
+            Column {
+                Text(
+                    stringResource(R.string.unlock_question, question.a, question.b),
+                    style = MaterialTheme.typography.headlineSmall.merge(TabularNumbers),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = answer,
+                    onValueChange = { typed -> answer = typed.filter(Char::isDigit).take(3) },
+                    label = { Text(stringResource(R.string.unlock_answer)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { if (answer.isNotEmpty()) onAnswer(answer) }),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onAnswer(answer) }, enabled = answer.isNotEmpty()) {
+                Text(stringResource(R.string.unlock_confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+        }
+    )
 }
 
 /** The child whose library is open: the name in large letters next to the avatar; a placeholder while not named. */
@@ -177,9 +242,9 @@ fun ChildAvatar(child: Child, size: Dp = 48.dp) {
     }
 }
 
-/** A few magnet letters on an empty door, and what to do first. */
+/** A few magnet letters on an empty door, and what to do first; in [childMode] the child asks a grown-up. */
 @Composable
-private fun EmptyLibrary(modifier: Modifier = Modifier) {
+private fun EmptyLibrary(childMode: Boolean, modifier: Modifier = Modifier) {
     val letters = stringResource(R.string.empty_magnets)
     val magnets = listOf(Magnets.Red, Magnets.Blue, Magnets.Green)
     Column(
@@ -196,7 +261,7 @@ private fun EmptyLibrary(modifier: Modifier = Modifier) {
         }
         Spacer(Modifier.height(24.dp))
         Text(
-            stringResource(R.string.library_empty),
+            stringResource(if (childMode) R.string.library_empty_child else R.string.library_empty),
             style = MaterialTheme.typography.titleLarge,
             textAlign = TextAlign.Center
         )
@@ -206,6 +271,7 @@ private fun EmptyLibrary(modifier: Modifier = Modifier) {
 @Composable
 private fun TextCard(
     text: SavedText,
+    childMode: Boolean,
     onRead: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -234,40 +300,45 @@ private fun TextCard(
             IconButton(onClick = onHistory) {
                 Icon(Icons.Default.History, contentDescription = stringResource(R.string.history_title))
             }
-            var menuOpen by remember { mutableStateOf(false) }
-            Box {
-                IconButton(onClick = { menuOpen = true }) {
-                    Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more_actions))
-                }
-                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.edit)) },
-                        leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
-                        onClick = {
-                            menuOpen = false
-                            onEdit()
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.delete)) },
-                        leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
-                        onClick = {
-                            menuOpen = false
-                            onDelete()
-                        }
-                    )
+            if (!childMode) {
+                var menuOpen by remember { mutableStateOf(false) }
+                Box {
+                    IconButton(onClick = { menuOpen = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more_actions))
+                    }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.edit)) },
+                            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                            onClick = {
+                                menuOpen = false
+                                onEdit()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.delete)) },
+                            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
+                            onClick = {
+                                menuOpen = false
+                                onDelete()
+                            }
+                        )
+                    }
                 }
             }
         }
     }
 }
 
-/** Earlier readings of a text, newest first: date, stars, accuracy and words correct per minute. A reading opens its result. */
+/**
+ * Earlier readings of a text, newest first: date, stars, accuracy and words correct per minute. A reading opens its result.
+ * [onDelete] is null in child mode, where readings cannot be deleted.
+ */
 @Composable
 fun HistoryScreen(
     history: TextHistory,
     onShow: (ReadingRecord) -> Unit,
-    onDelete: (ReadingRecord) -> Unit,
+    onDelete: ((ReadingRecord) -> Unit)?,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -284,7 +355,7 @@ fun HistoryScreen(
             confirmButton = {
                 TextButton(onClick = {
                     pendingDelete = null
-                    onDelete(reading)
+                    onDelete?.invoke(reading)
                 }) { Text(stringResource(R.string.delete)) }
             },
             dismissButton = {
@@ -329,12 +400,17 @@ fun HistoryScreen(
                                 )
                             }
                             SmallStars(reading.result.stars)
-                            IconButton(onClick = { pendingDelete = reading }) {
-                                Icon(
-                                    Icons.Outlined.Delete,
-                                    contentDescription = stringResource(R.string.delete),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                            if (onDelete != null) {
+                                IconButton(onClick = { pendingDelete = reading }) {
+                                    Icon(
+                                        Icons.Outlined.Delete,
+                                        contentDescription = stringResource(R.string.delete),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            } else {
+                                // The stars keep their distance from the card's edge.
+                                Spacer(Modifier.width(12.dp))
                             }
                         }
                     }

@@ -4,6 +4,13 @@
     <string name="library_title">Meine Texte</string>
     <string name="child_name_placeholder">Name des Kindes</string>
     <string name="library_empty">Noch keine Texte. Fügen Sie den ersten hinzu.</string>
+    <string name="library_empty_child">Noch keine Texte. Bitte einen Erwachsenen, einen hinzuzufügen.</string>
+    <string name="lock_parent_mode">Elternmodus. Für das Kind sperren</string>
+    <string name="lock_child_mode">Kindermodus. Für Eltern entsperren</string>
+    <string name="unlock_title">Elternmodus</string>
+    <string name="unlock_question">Wie viel ist %1$d × %2$d?</string>
+    <string name="unlock_answer">Antwort</string>
+    <string name="unlock_confirm">Entsperren</string>
     <string name="add_text">Text hinzufügen</string>
     <string name="empty_magnets">ABC</string>
     <string name="edit">Bearbeiten</string>

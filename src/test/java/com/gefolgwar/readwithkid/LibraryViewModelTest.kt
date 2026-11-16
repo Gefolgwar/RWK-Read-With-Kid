@@ -11,6 +11,7 @@ import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
+import kotlin.random.Random
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LibraryViewModelTest {
@@ -387,5 +388,132 @@ class LibraryViewModelTest {
         assertEquals(cat, state.history!!.text)
         assertNull(state.history!!.shown)
         assertEquals(emptyList<ReadingRecord>(), state.history!!.readings)
+    }
+
+    // --- parent mode and child mode ---
+
+    /** Gives the factors of the unlock questions in order. */
+    private class FakeRandom(vararg factors: Int) : Random() {
+        private val factors = ArrayDeque(factors.toList())
+        override fun nextBits(bitCount: Int): Int = error("only factors are drawn")
+        override fun nextInt(from: Int, until: Int): Int = factors.removeFirst().also { assertTrue(it in from until until) }
+    }
+
+    private fun lockedViewModel(vararg factors: Int): LibraryViewModel {
+        session.childMode = true
+        return LibraryViewModel(repository, readings, children, session, clockMs = { nowMs }, random = FakeRandom(*factors))
+    }
+
+    @Test
+    fun `first launch is in parent mode`() {
+        assertFalse(state.childMode)
+        assertNull(state.unlockQuestion)
+    }
+
+    @Test
+    fun `one tap locks, and the mode survives a restart`() {
+        vm.lock()
+        assertTrue(state.childMode)
+        assertTrue(session.childMode)
+        assertTrue(newViewModel().uiState.value.childMode)
+    }
+
+    @Test
+    fun `the correct product unlocks`() {
+        vm = lockedViewModel(7, 8)
+        vm.askToUnlock()
+        assertEquals(UnlockQuestion(7, 8), state.unlockQuestion)
+
+        vm.answerUnlock(" 56 ")
+        assertFalse(state.childMode)
+        assertFalse(session.childMode)
+        assertNull(state.unlockQuestion)
+    }
+
+    @Test
+    fun `a wrong answer keeps child mode and closes the question`() {
+        vm = lockedViewModel(7, 8, 3, 4)
+        vm.askToUnlock()
+        vm.answerUnlock("54")
+        assertTrue(state.childMode)
+        assertTrue(session.childMode)
+        assertNull(state.unlockQuestion)
+
+        vm.askToUnlock()
+        vm.answerUnlock("")
+        assertTrue(state.childMode)
+    }
+
+    @Test
+    fun `a new question is asked each time`() {
+        vm = lockedViewModel(7, 8, 3, 9)
+        vm.askToUnlock()
+        vm.dismissUnlock()
+        assertNull(state.unlockQuestion)
+        assertTrue(state.childMode)
+        vm.askToUnlock()
+        assertEquals(UnlockQuestion(3, 9), state.unlockQuestion)
+        vm.answerUnlock("56")
+        assertTrue(state.childMode)
+    }
+
+    @Test
+    fun `nothing is asked in parent mode`() {
+        vm.askToUnlock()
+        assertNull(state.unlockQuestion)
+    }
+
+    @Test
+    fun `settings open only in parent mode`() {
+        vm.openSettings()
+        assertTrue(state.settingsOpen)
+        vm.closeSettings()
+        assertFalse(state.settingsOpen)
+
+        vm.lock()
+        vm.openSettings()
+        assertFalse(state.settingsOpen)
+    }
+
+    @Test
+    fun `in child mode texts and readings cannot be added, changed or deleted`() {
+        addText("Мама мила раму.")
+        val text = state.texts.single()
+        val reading = saveReading(text, readAt = 1)
+        vm.lock()
+
+        vm.newText()
+        assertNull(state.editor)
+        vm.edit(text)
+        assertNull(state.editor)
+        vm.delete(text)
+        assertEquals(listOf(text), state.texts)
+
+        vm.openHistory(text)
+        vm.deleteReading(reading)
+        assertEquals(listOf(reading), state.history!!.readings)
+        assertEquals(listOf(reading), readings.all)
+    }
+
+    @Test
+    fun `an editor left open is not saved in child mode`() {
+        vm.newText()
+        vm.updateRawText("Мама мила раму.")
+        vm.lock()
+        vm.save()
+        assertTrue(state.texts.isEmpty())
+    }
+
+    @Test
+    fun `in child mode texts can be read and their history viewed`() {
+        addText("Мама мила раму.")
+        val text = state.texts.single()
+        val reading = saveReading(text, readAt = 1)
+        vm.lock()
+
+        vm.openHistory(text)
+        assertEquals(listOf(reading), state.history!!.readings)
+        vm.showReading(reading)
+        assertEquals(reading, state.history!!.shown)
     }
 }

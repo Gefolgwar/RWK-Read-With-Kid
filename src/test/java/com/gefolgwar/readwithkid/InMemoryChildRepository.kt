@@ -23,4 +23,7 @@ class InMemoryChildRepository : ChildRepository {
     }
 }
 
-class FakeLibrarySession(override var activeChildId: Long? = null) : LibrarySession
+class FakeLibrarySession(
+    override var activeChildId: Long? = null,
+    override var childMode: Boolean = false
+) : LibrarySession
