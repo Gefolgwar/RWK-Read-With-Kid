@@ -234,7 +234,7 @@ The system is deliberately two-handed. The parent screens (library, editor, hist
 
 Depth is physical only where the world is physical. Magnets stand off the door with a darker edge, a soft drop shadow and a gloss across the top; everything else is flat tonal layering. The system rejects the category defaults it replaced: pastel mascot cards, cream-and-serif "storybook", and the clinical assessment dashboard.
 
-The app is light-only by decision. A dark theme is an open item, not an omission to fill silently.
+The app follows the system theme. The dark door is the same world at night: dark blue-grey enamel (#11151D), cards one step lighter (#1B212C), light ink (#E6EAF2), a lighter magnet blue for actions (#6E98FF). The magnets keep their plastic faces; only their pale containers turn into deep tints, syllables switch to light blue and red, and the word on the yellow tile is always in dark ink.
 
 **Key Characteristics:**
 - Cool blue-grey enamel ground, white cards, near-black blue ink.
@@ -392,4 +392,4 @@ Motion is limited to the reading moment: the tile spring, the stars' pop, the co
 - **Don't** give cards, buttons or fields the magnet edge, offset shadow or gloss; that treatment is for magnets only.
 - **Don't** introduce a second typeface.
 - **Don't** mark reading progress with colour alone; skipped words also differ by their dashed stroke.
-- **Don't** ship a dark theme by inverting tokens; the app is light-only until that open item is designed.
+- **Don't** derive dark colours by inverting tokens; the dark door has its own scheme (AppDarkColors) and every new colour needs both values.

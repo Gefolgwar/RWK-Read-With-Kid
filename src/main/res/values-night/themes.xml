@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The dark door: light status bar icons and a dark window while the app starts. -->
+    <style name="Theme.ReadWithKid" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#FF11151D</item>
+    </style>
+</resources>

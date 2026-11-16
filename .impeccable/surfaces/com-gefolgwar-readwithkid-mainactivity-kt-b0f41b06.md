@@ -25,4 +25,4 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 ## Unresolved
 
-- Dark theme: the app is light-only today; the use scene (a child reading at home, daylight or room light) keeps it light. Not added in this pass.
+- Dark theme: added after the first pass as the same door at night (AppDarkColors), following the system setting.

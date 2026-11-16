@@ -13,11 +13,25 @@ class SyllableColorsTest {
         return (light + 0.05) / (dark + 0.05)
     }
 
+    private fun assertReadable(colors: List<Color>, background: Color) = colors.forEach { color ->
+        val ratio = contrast(color, background)
+        assertTrue("$color on $background: $ratio", ratio >= 4.5)
+    }
+
     @Test
     fun `blue and red have at least 4_5 to 1 contrast with the background`() {
-        SyllableColors.forEach { color ->
-            val ratio = contrast(color, AppColors.background)
-            assertTrue("$color: $ratio", ratio >= 4.5)
-        }
+        assertReadable(SyllableColorsOnMagnet, AppColors.background)
+        assertReadable(SyllableColorsOnMagnet, AppColors.surfaceContainerLowest)
+    }
+
+    @Test
+    fun `on the dark page blue and red have at least 4_5 to 1 contrast`() {
+        assertReadable(SyllableColorsOnDark, AppDarkColors.surfaceContainerLowest)
+        assertReadable(SyllableColorsOnDark, AppDarkColors.primaryContainer)
+    }
+
+    @Test
+    fun `the word on the yellow magnet is readable`() {
+        assertReadable(SyllableColorsOnMagnet + InkOnMagnet, Magnets.Yellow.face)
     }
 }

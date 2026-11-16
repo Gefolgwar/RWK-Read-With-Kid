@@ -115,10 +115,11 @@ fun SettingsScreen(
 private fun SyllablePreview(modifier: Modifier = Modifier) {
     val word = stringResource(R.string.syllable_preview_word)
     val syllables = Syllables.split(word, TextPreparation.detectLanguage(word) ?: TextLanguage.UK)
+    val palette = SyllableColors
     Text(
         buildAnnotatedString {
             syllables.forEachIndexed { i, syllable ->
-                withStyle(SpanStyle(color = SyllableColors[i % SyllableColors.size])) { append(syllable) }
+                withStyle(SpanStyle(color = palette[i % palette.size])) { append(syllable) }
             }
         },
         style = MaterialTheme.typography.bodyLarge.copy(fontSize = 26.sp),

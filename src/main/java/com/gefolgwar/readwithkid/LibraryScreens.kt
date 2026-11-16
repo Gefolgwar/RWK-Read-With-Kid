@@ -315,7 +315,11 @@ private fun SmallStars(stars: Int) {
     }
 }
 
-/** One big field for the text; the title is made from its first words. */
+/**
+ * One big field for the text; the title is made from its first words.
+ * While the keyboard is open only the field and the buttons stay, so the text being typed stays visible.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TextEditorScreen(
     editor: TextEditorState,
@@ -326,6 +330,7 @@ fun TextEditorScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val typing = WindowInsets.isImeVisible
 
     BackHandler(onBack = onCancel)
 
@@ -350,13 +355,15 @@ fun TextEditorScreen(
                 Text(stringResource(R.string.paste))
             }
         }
-        Text(
-            stringResource(R.string.private_use_note),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 4.dp, top = 8.dp)
-        )
-        Spacer(Modifier.height(16.dp))
+        if (!typing) {
+            Text(
+                stringResource(R.string.private_use_note),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 4.dp, top = 8.dp)
+            )
+        }
+        Spacer(Modifier.height(if (typing) 8.dp else 16.dp))
         OutlinedTextField(
             value = editor.rawText,
             onValueChange = onRawTextChange,
@@ -371,12 +378,15 @@ fun TextEditorScreen(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
+                .heightIn(min = 120.dp)
         )
-        HardPartsHint(editor.warnings)
-        Spacer(Modifier.height(16.dp))
-        LanguageChoice(editor, onLanguageChange)
+        if (!typing) {
+            HardPartsHint(editor.warnings)
+            Spacer(Modifier.height(16.dp))
+            LanguageChoice(editor, onLanguageChange)
+        }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(if (typing) 8.dp else 16.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f).heightIn(min = 56.dp)) {
                 Text(stringResource(R.string.cancel), style = MaterialTheme.typography.titleMedium)
@@ -424,7 +434,11 @@ private fun HardPartsHint(warnings: TextWarnings) {
             .padding(top = 12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-            Icon(Icons.Outlined.Info, contentDescription = null, tint = Magnets.Orange.edge)
+            Icon(
+                Icons.Outlined.Info,
+                contentDescription = null,
+                tint = if (LocalDarkDoor.current) Magnets.Orange.face else Magnets.Orange.edge
+            )
             Spacer(Modifier.width(12.dp))
             Text(
                 stringResource(

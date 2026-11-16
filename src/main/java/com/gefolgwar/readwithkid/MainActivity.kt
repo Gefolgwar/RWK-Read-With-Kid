@@ -471,16 +471,22 @@ fun ReadingScreen(
     // Words keep their look while their state changes: the states are drawn behind the text, so lines never reflow.
     val noLinkStyle = TextLinkStyles(style = SpanStyle())
 
+    val pagePalette = SyllableColors
     val annotated = buildAnnotatedString {
         words.forEachIndexed { index, word ->
             wordStarts[index] = length
+            // The yellow magnet is yellow on the dark page too, so the word on it is always in dark ink (colour only, no reflow).
+            val onMagnet = index == state.currentWordIndex
+            val palette = if (onMagnet) SyllableColorsOnMagnet else pagePalette
             // Tapping a word says it, when the phone has a voice for the language, and shows what was heard in its place
             withLink(LinkAnnotation.Clickable("word$index", noLinkStyle) { onWordTap(index) }) {
                 // With coloured syllables the letters' colour shows the syllables; progress is drawn behind them.
                 if (syllableColors) {
                     Syllables.split(word.display, state.language).forEachIndexed { i, syllable ->
-                        withStyle(SpanStyle(color = SyllableColors[i % SyllableColors.size])) { append(syllable) }
+                        withStyle(SpanStyle(color = palette[i % palette.size])) { append(syllable) }
                     }
+                } else if (onMagnet) {
+                    withStyle(SpanStyle(color = InkOnMagnet)) { append(word.display) }
                 } else append(word.display)
             }
             if (index < words.lastIndex) append(" ")

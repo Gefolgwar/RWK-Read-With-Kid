@@ -47,9 +47,9 @@ class ScreenshotsTest {
         helpedWords = listOf("пирогом")
     )
 
-    private fun shot(name: String, content: @Composable (Modifier) -> Unit) {
+    private fun shot(name: String, dark: Boolean = false, content: @Composable (Modifier) -> Unit) {
         compose.setContent {
-            ReadWithKidTheme {
+            ReadWithKidTheme(dark = dark) {
                 Scaffold { padding -> content(Modifier.fillMaxSize().padding(padding).padding(16.dp)) }
             }
         }
@@ -157,5 +157,40 @@ class ScreenshotsTest {
     @Test
     fun settings() = shot("7-settings") {
         SettingsScreen(UiLanguage.SYSTEM, {}, syllableColors = true, {}, {}, {}, {}, it)
+    }
+
+    @Test
+    fun libraryDark() = shot("d1-library", dark = true) {
+        LibraryScreen(texts, {}, {}, {}, {}, {}, {}, it)
+    }
+
+    @Test
+    fun editorDark() = shot("d2-editor", dark = true) {
+        TextEditorScreen(TextEditorState(rawText = "Кіт Мурко має 3 кошенят. Вони граються м'ячем."), {}, {}, {}, {}, it)
+    }
+
+    @Test
+    fun readingDark() = shot("d4-reading", dark = true) {
+        ReadingScreen(reading(), texts[0].title, Magnets.forText(1), syllableColors = false, {}, {}, {}, {}, {}, {}, {}, it)
+    }
+
+    @Test
+    fun readingSyllablesDark() = shot("d4b-reading-syllables", dark = true) {
+        ReadingScreen(reading(SessionState.PAUSED), texts[0].title, Magnets.forText(1), syllableColors = true, {}, {}, {}, {}, {}, {}, {}, it)
+    }
+
+    @Test
+    fun resultDark() = shot("d5-result", dark = true) {
+        ResultScreen(result, texts[0].title, Magnets.forText(1), onClose = {}, modifier = it)
+    }
+
+    @Test
+    fun settingsDark() = shot("d7-settings", dark = true) {
+        SettingsScreen(UiLanguage.SYSTEM, {}, syllableColors = true, {}, {}, {}, {}, it)
+    }
+
+    @Test
+    fun readyDark() = shot("d3-ready", dark = true) {
+        ReadyToReadScreen(texts[0].title, Magnets.forText(1), reading(SessionState.READY), ModelState.Installed, {}, {}, {}, {}, {}, it)
     }
 }

@@ -7,8 +7,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Text
 import androidx.compose.material3.Typography
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
@@ -64,15 +69,18 @@ val TabularNumbers = TextStyle(fontFeatureSettings = "tnum")
  * The colours of plastic fridge magnets: a glossy [face] and the darker [edge] that shows the plastic's thickness.
  * Each text keeps one magnet colour everywhere it appears.
  */
-data class Magnet(val face: Color, val edge: Color, val container: Color)
+data class Magnet(val face: Color, val edge: Color, val lightContainer: Color, val darkContainer: Color) {
+    /** A soft background in this magnet's colour, for the light or dark door. */
+    val container: Color @Composable @ReadOnlyComposable get() = if (LocalDarkDoor.current) darkContainer else lightContainer
+}
 
 object Magnets {
-    val Red = Magnet(Color(0xFFE0322B), Color(0xFF9E1C17), Color(0xFFFFE3E0))
-    val Blue = Magnet(Color(0xFF1D5BD8), Color(0xFF113A8F), Color(0xFFDDE7FF))
-    val Green = Magnet(Color(0xFF14975A), Color(0xFF0A6339), Color(0xFFD5F2E2))
-    val Orange = Magnet(Color(0xFFF06A0E), Color(0xFFA84604), Color(0xFFFFE6D3))
-    val Purple = Magnet(Color(0xFF7A45D6), Color(0xFF4F2794), Color(0xFFEDE3FF))
-    val Yellow = Magnet(Color(0xFFFFC20E), Color(0xFFD69A00), Color(0xFFFFF1C4))
+    val Red = Magnet(Color(0xFFE0322B), Color(0xFF9E1C17), Color(0xFFFFE3E0), Color(0xFF4A1E1C))
+    val Blue = Magnet(Color(0xFF1D5BD8), Color(0xFF113A8F), Color(0xFFDDE7FF), Color(0xFF1E2F57))
+    val Green = Magnet(Color(0xFF14975A), Color(0xFF0A6339), Color(0xFFD5F2E2), Color(0xFF173D2B))
+    val Orange = Magnet(Color(0xFFF06A0E), Color(0xFFA84604), Color(0xFFFFE6D3), Color(0xFF4A2D17))
+    val Purple = Magnet(Color(0xFF7A45D6), Color(0xFF4F2794), Color(0xFFEDE3FF), Color(0xFF33254F))
+    val Yellow = Magnet(Color(0xFFFFC20E), Color(0xFFD69A00), Color(0xFFFFF1C4), Color(0xFF45391A))
 
     /** Magnets for texts; yellow is kept for the word being read. */
     private val forTexts = listOf(Red, Blue, Green, Orange, Purple)
@@ -85,7 +93,7 @@ object Magnets {
 internal val AppColors = lightColorScheme(
     primary = Magnets.Blue.face,
     onPrimary = Color.White,
-    primaryContainer = Magnets.Blue.container,
+    primaryContainer = Magnets.Blue.lightContainer,
     onPrimaryContainer = Color(0xFF0A2463),
     secondary = Magnets.Green.edge,
     onSecondary = Color.White,
@@ -93,7 +101,7 @@ internal val AppColors = lightColorScheme(
     onSecondaryContainer = Color(0xFF161B26),
     tertiary = Magnets.Green.edge,
     onTertiary = Color.White,
-    tertiaryContainer = Magnets.Green.container,
+    tertiaryContainer = Magnets.Green.lightContainer,
     onTertiaryContainer = Color(0xFF053A20),
     background = Color(0xFFEFF2F7),
     onBackground = Color(0xFF161B26),
@@ -113,6 +121,45 @@ internal val AppColors = lightColorScheme(
     onErrorContainer = Color(0xFF5F0D08)
 )
 
+// The same door at night: dark blue-grey enamel, slightly lighter cards, the magnets keep their plastic colours.
+internal val AppDarkColors = darkColorScheme(
+    primary = Color(0xFF6E98FF),
+    onPrimary = Color(0xFF071A45),
+    primaryContainer = Magnets.Blue.darkContainer,
+    onPrimaryContainer = Color(0xFFDDE7FF),
+    secondary = Color(0xFF5CC995),
+    onSecondary = Color(0xFF00391F),
+    secondaryContainer = Color(0xFF2A3242),
+    onSecondaryContainer = Color(0xFFE6EAF2),
+    tertiary = Color(0xFF5CC995),
+    onTertiary = Color(0xFF00391F),
+    tertiaryContainer = Magnets.Green.darkContainer,
+    onTertiaryContainer = Color(0xFFD5F2E2),
+    background = Color(0xFF11151D),
+    onBackground = Color(0xFFE6EAF2),
+    surface = Color(0xFF11151D),
+    onSurface = Color(0xFFE6EAF2),
+    surfaceVariant = Color(0xFF2A3242),
+    onSurfaceVariant = Color(0xFFA9B2C3),
+    surfaceContainerLowest = Color(0xFF1B212C),
+    surfaceContainerLow = Color(0xFF181D27),
+    surfaceContainer = Color(0xFF1F2531),
+    surfaceContainerHigh = Color(0xFF262D3A),
+    surfaceContainerHighest = Color(0xFF2E3644),
+    outline = Color(0xFF8590A3),
+    outlineVariant = Color(0xFF353E4D),
+    error = Color(0xFFFF8A80),
+    onError = Color(0xFF5F0D08),
+    errorContainer = Magnets.Red.darkContainer,
+    onErrorContainer = Color(0xFFFFE3E0)
+)
+
+/** Whether the door is dark, for the colours a colour scheme does not carry. */
+val LocalDarkDoor = staticCompositionLocalOf { false }
+
+/** Ink for the word on the yellow magnet: always dark, the tile is yellow in both themes. */
+val InkOnMagnet = Color(0xFF161B26)
+
 private val AppShapes = Shapes(
     extraSmall = RoundedCornerShape(8.dp),
     small = RoundedCornerShape(12.dp),
@@ -121,8 +168,14 @@ private val AppShapes = Shapes(
     extraLarge = RoundedCornerShape(32.dp)
 )
 
-/** Coloured syllables alternate these, starting each word with blue; dark enough to read on the reading highlights too. */
-val SyllableColors = listOf(Magnets.Blue.edge, Magnets.Red.edge)
+/** Coloured syllables alternate these, starting each word with blue; dark enough to read on the yellow magnet too. */
+val SyllableColorsOnMagnet = listOf(Magnets.Blue.edge, Magnets.Red.edge)
+
+/** Coloured syllables on the page: the magnet edges on the light door, light blue and red on the dark one. */
+val SyllableColors: List<Color>
+    @Composable @ReadOnlyComposable get() = if (LocalDarkDoor.current) SyllableColorsOnDark else SyllableColorsOnMagnet
+
+internal val SyllableColorsOnDark = listOf(Color(0xFF8DB2FF), Color(0xFFFF9C94))
 
 /**
  * A letter as a plastic fridge magnet: the glossy face over its darker edge, casting a soft shadow on the door.
@@ -161,6 +214,13 @@ fun magnetLetterOf(title: String): String =
     title.firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString() ?: "•"
 
 @Composable
-fun ReadWithKidTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = AppColors, typography = AppTypography, shapes = AppShapes, content = content)
+fun ReadWithKidTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalDarkDoor provides dark) {
+        MaterialTheme(
+            colorScheme = if (dark) AppDarkColors else AppColors,
+            typography = AppTypography,
+            shapes = AppShapes,
+            content = content
+        )
+    }
 }
