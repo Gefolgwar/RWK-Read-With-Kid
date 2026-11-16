@@ -61,7 +61,11 @@ data class LibraryUiState(
     val childMode: Boolean = false,
     /** Question a grown-up answers to leave child mode, or null while not asked. */
     val unlockQuestion: UnlockQuestion? = null,
-    val settingsOpen: Boolean = false
+    val settingsOpen: Boolean = false,
+    /** All children, in the order they were added. */
+    val children: List<Child> = emptyList(),
+    /** The list of children to switch between or add to is open. */
+    val childrenOpen: Boolean = false
 )
 
 /** "How much is [a] × [b]?" — easy for a parent, hard for a 5–7-year-old. */
@@ -84,9 +88,12 @@ class LibraryViewModel(
     private val random: Random = Random.Default
 ) : ViewModel() {
 
-    /** The child who was active last time, or the first child if that one no longer exists; with their texts and their stats. */
-    private val library: Flow<Triple<Child?, List<SavedText>, Map<Long, TextStats>>> = children.observeAll()
-        .map { all -> all.find { it.id == session.activeChildId } ?: all.firstOrNull() }
+    /** The child chosen last, kept across app starts. */
+    private val activeChildId = MutableStateFlow(session.activeChildId)
+
+    /** The active child, or the first child if that one no longer exists; with their texts and their stats. */
+    private val library: Flow<Triple<Child?, List<SavedText>, Map<Long, TextStats>>> =
+        combine(children.observeAll(), activeChildId) { all, id -> all.find { it.id == id } ?: all.firstOrNull() }
         .distinctUntilChanged()
         .flatMapLatest { child ->
             if (child == null) {
@@ -133,11 +140,16 @@ class LibraryViewModel(
     private val childMode = MutableStateFlow(session.childMode)
     private val unlockQuestion = MutableStateFlow<UnlockQuestion?>(null)
     private val settingsOpen = MutableStateFlow(false)
+    private val childrenOpen = MutableStateFlow(false)
 
     val uiState: StateFlow<LibraryUiState> = combine(
-        library, editor, history, childMode, combine(unlockQuestion, settingsOpen, ::Pair)
-    ) { (child, texts, stats), editor, history, childMode, (question, settingsOpen) ->
-        LibraryUiState(texts, stats, editor, history, child, childMode, question, settingsOpen)
+        library,
+        editor,
+        history,
+        combine(childMode, unlockQuestion, settingsOpen, ::Triple),
+        combine(children.observeAll(), childrenOpen, ::Pair)
+    ) { (child, texts, stats), editor, history, (childMode, question, settingsOpen), (allChildren, childrenOpen) ->
+        LibraryUiState(texts, stats, editor, history, child, childMode, question, settingsOpen, allChildren, childrenOpen)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, LibraryUiState())
 
     private val parentMode get() = !childMode.value
@@ -164,6 +176,33 @@ class LibraryViewModel(
 
     fun dismissUnlock() {
         unlockQuestion.value = null
+    }
+
+    fun openChildren() {
+        if (parentMode) childrenOpen.value = true
+    }
+
+    fun closeChildren() {
+        childrenOpen.value = false
+    }
+
+    /** Opens [child]'s library and remembers it for the next app start. */
+    fun switchChild(child: Child) {
+        if (!parentMode) return
+        childrenOpen.value = false
+        makeActive(child.id)
+    }
+
+    /** Adds a child, named [name] or not named yet when blank, and opens their (empty) library. */
+    fun addChild(name: String) {
+        if (!parentMode) return
+        childrenOpen.value = false
+        viewModelScope.launch { makeActive(children.save(Child(name = name.trim()))) }
+    }
+
+    private fun makeActive(id: Long) {
+        session.activeChildId = id
+        activeChildId.value = id
     }
 
     fun openSettings() {

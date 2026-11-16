@@ -231,6 +231,75 @@ class LibraryViewModelTest {
     }
 
     @Test
+    fun `the children list shows all children and closes again`() {
+        val olya = addChild("Оля")
+        assertEquals(listOf(Child(1, ""), olya), state.children)
+
+        vm.openChildren()
+        assertTrue(state.childrenOpen)
+        vm.closeChildren()
+        assertFalse(state.childrenOpen)
+    }
+
+    @Test
+    fun `switching the child shows their texts and is remembered across restarts`() {
+        val first = state.activeChild!!
+        val olya = addChild("Оля")
+        saveText("Кіт", first)
+        saveText("Katze", olya)
+
+        vm.openChildren()
+        vm.switchChild(olya)
+
+        assertFalse(state.childrenOpen)
+        assertEquals(olya, state.activeChild)
+        assertEquals(listOf("Katze"), state.texts.map { it.title })
+        assertEquals(olya, newViewModel().uiState.value.activeChild)
+
+        vm.switchChild(first)
+        assertEquals(listOf("Кіт"), state.texts.map { it.title })
+        assertEquals(first, newViewModel().uiState.value.activeChild)
+    }
+
+    @Test
+    fun `an added child becomes active with an empty library`() {
+        saveText("Кіт", state.activeChild!!)
+
+        vm.openChildren()
+        vm.addChild("  Оля ")
+
+        assertFalse(state.childrenOpen)
+        val olya = state.children.last()
+        assertEquals("Оля", olya.name)
+        assertEquals(olya, state.activeChild)
+        assertEquals(emptyList<SavedText>(), state.texts)
+        assertEquals(olya, newViewModel().uiState.value.activeChild)
+    }
+
+    @Test
+    fun `a child added without a name is not named yet`() {
+        vm.addChild(" ")
+        assertEquals(listOf("", ""), state.children.map { it.name })
+        assertEquals(state.children.last(), state.activeChild)
+    }
+
+    @Test
+    fun `in child mode the children list does not open and children cannot be switched or added`() {
+        val first = state.activeChild!!
+        val olya = addChild("Оля")
+        vm.lock()
+
+        vm.openChildren()
+        assertFalse(state.childrenOpen)
+        vm.switchChild(olya)
+        assertEquals(first, state.activeChild)
+        vm.addChild("Петрик")
+        assertEquals(listOf(first, olya), state.children)
+        assertEquals(first, state.activeChild)
+        assertNull(session.activeChildId)
+    }
+
+    @Test
     fun `a renamed active child is shown with the new name`() {
         runBlocking { children.save(Child(1, "Оля")) }
         assertEquals(Child(1, "Оля"), state.activeChild)

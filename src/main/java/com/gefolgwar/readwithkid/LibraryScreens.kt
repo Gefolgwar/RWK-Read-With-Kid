@@ -3,6 +3,8 @@ package com.gefolgwar.readwithkid
 import android.content.ClipboardManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
@@ -13,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -28,6 +31,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -35,10 +39,12 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -72,11 +78,32 @@ fun LibraryScreen(
     onLock: () -> Unit = {},
     onUnlock: () -> Unit = {},
     onAnswerUnlock: (String) -> Unit = {},
-    onDismissUnlock: () -> Unit = {}
+    onDismissUnlock: () -> Unit = {},
+    /** All children, listed when [childrenOpen]. */
+    children: List<Child> = emptyList(),
+    childrenOpen: Boolean = false,
+    onOpenChildren: () -> Unit = {},
+    onCloseChildren: () -> Unit = {},
+    onSwitchChild: (Child) -> Unit = {},
+    onAddChild: (String) -> Unit = {}
 ) {
     var pendingDelete by remember { mutableStateOf<SavedText?>(null) }
+    // The new child's name is asked in place of the list; cancelling goes back to the list.
+    var naming by remember { mutableStateOf(false) }
 
     unlockQuestion?.let { UnlockDialog(it, onAnswerUnlock, onDismissUnlock) }
+
+    if (childrenOpen && naming) {
+        AddChildDialog(
+            onAdd = { name ->
+                naming = false
+                onAddChild(name)
+            },
+            onDismiss = { naming = false }
+        )
+    } else if (childrenOpen) {
+        ChildrenDialog(children, activeChild, onSwitchChild, onAdd = { naming = true }, onDismiss = onCloseChildren)
+    }
 
     pendingDelete?.let { text ->
         AlertDialog(
@@ -105,7 +132,13 @@ fun LibraryScreen(
                     .fillMaxWidth()
                     .padding(start = 4.dp, top = 8.dp)
             ) {
-                if (activeChild != null) ActiveChild(activeChild, Modifier.weight(1f, fill = false))
+                if (activeChild != null) {
+                    // Only a parent opens the list of children.
+                    val choose = if (childMode) Modifier else Modifier
+                        .clip(MaterialTheme.shapes.small)
+                        .clickable(onClickLabel = stringResource(R.string.choose_child), onClick = onOpenChildren)
+                    ActiveChild(activeChild, Modifier.weight(1f, fill = false).then(choose))
+                }
                 // Open lock: parent mode, one tap locks. Closed lock: child mode, a question unlocks.
                 IconButton(onClick = if (childMode) onUnlock else onLock) {
                     Icon(
@@ -242,6 +275,97 @@ fun ChildAvatar(child: Child, size: Dp = 48.dp) {
             )
         }
     }
+}
+
+/** The children to switch between, the [active] one marked, and adding a child at the end. */
+@Composable
+private fun ChildrenDialog(
+    children: List<Child>,
+    active: Child?,
+    onSwitch: (Child) -> Unit,
+    onAdd: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.children_title)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                children.forEach { child ->
+                    val isActive = child.id == active?.id
+                    val named = child.name.isNotBlank()
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(MaterialTheme.shapes.medium)
+                            .selectable(selected = isActive, role = Role.RadioButton, onClick = { onSwitch(child) })
+                            .padding(vertical = 8.dp, horizontal = 4.dp)
+                    ) {
+                        ChildAvatar(child, size = 40.dp)
+                        Spacer(Modifier.width(16.dp))
+                        Text(
+                            if (named) child.name else stringResource(R.string.child_name_placeholder),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = if (named) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (isActive) Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(MaterialTheme.shapes.medium)
+                        .clickable(role = Role.Button, onClick = onAdd)
+                        .padding(vertical = 8.dp, horizontal = 4.dp)
+                ) {
+                    Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    }
+                    Spacer(Modifier.width(16.dp))
+                    Text(
+                        stringResource(R.string.add_child),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.children_close)) }
+        }
+    )
+}
+
+/** Names a new child; an empty name is allowed and shows the placeholder until the child is renamed. */
+@Composable
+private fun AddChildDialog(onAdd: (String) -> Unit, onDismiss: () -> Unit) {
+    var name by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.add_child)) },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text(stringResource(R.string.child_name_placeholder)) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { onAdd(name) }),
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onAdd(name) }) { Text(stringResource(R.string.add_child_confirm)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+        }
+    )
 }
 
 /** A few magnet letters on an empty door, and what to do first; in [childMode] the child asks a grown-up. */

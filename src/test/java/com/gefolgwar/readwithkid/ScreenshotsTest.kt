@@ -148,6 +148,28 @@ class ScreenshotsTest {
     }
 
     @Test
+    fun children() = childrenShot("1e-children", dark = false)
+
+    @Test
+    fun childrenDark() = childrenShot("d1e-children", dark = true)
+
+    /** The list of children opened from the avatar, the active one marked: the dialog is its own window, so it is captured alone. */
+    private fun childrenShot(name: String, dark: Boolean) {
+        compose.setContent {
+            ReadWithKidTheme(dark = dark) {
+                LibraryScreen(
+                    texts, olya, {}, {}, {}, {}, {}, {},
+                    children = listOf(unnamed, olya, Child(3, "Петрик")),
+                    childrenOpen = true
+                )
+            }
+        }
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(1_000)
+        save(name, ShadowDialog.getLatestDialog().window!!.decorView)
+    }
+
+    @Test
     fun historyChildMode() = shot("6b-history-child-mode") {
         HistoryScreen(
             TextHistory(texts[0], listOf(ReadingRecord(1, 1, texts[0].title, 1_763_000_000_000, result))),

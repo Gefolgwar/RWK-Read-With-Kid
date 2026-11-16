@@ -4,6 +4,11 @@
 
     <string name="library_title">My texts</string>
     <string name="child_name_placeholder">Child\'s name</string>
+    <string name="children_title">Children</string>
+    <string name="choose_child">Choose a child</string>
+    <string name="add_child">Add child</string>
+    <string name="add_child_confirm">Add</string>
+    <string name="children_close">Close</string>
     <string name="library_empty">No texts yet. Add the first one.</string>
     <string name="library_empty_child">No texts yet. Ask a grown-up to add one.</string>
     <string name="lock_parent_mode">Parent mode. Lock for the child</string>

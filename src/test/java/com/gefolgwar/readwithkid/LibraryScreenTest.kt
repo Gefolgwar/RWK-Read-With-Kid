@@ -4,6 +4,7 @@ import androidx.activity.ComponentActivity
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -143,5 +144,66 @@ class LibraryScreenTest {
         compose.onNodeWithText(string(R.string.unlock_answer)).performTextInput("56")
         compose.onNodeWithText(string(R.string.unlock_confirm)).performClick()
         assertEquals(listOf("answer 56"), events)
+    }
+
+    // --- children list ---
+
+    private val olya = Child(1, "Оля")
+    private val unnamed = Child(2)
+
+    private fun openChildren(childMode: Boolean = false, childrenOpen: Boolean = false) = compose.setContent {
+        ReadWithKidTheme {
+            LibraryScreen(
+                listOf(text), olya, {}, {}, {}, {}, {}, {},
+                childMode = childMode,
+                children = listOf(olya, unnamed),
+                childrenOpen = childrenOpen,
+                onOpenChildren = { events += "children" },
+                onSwitchChild = { events += "switch ${it.id}" },
+                onAddChild = { events += "add '$it'" }
+            )
+        }
+    }
+
+    @Test
+    fun `in parent mode tapping the active child opens the children list`() {
+        openChildren()
+        compose.onNodeWithText(olya.name).performClick()
+        assertEquals(listOf("children"), events)
+    }
+
+    @Test
+    fun `in child mode the active child is not tappable`() {
+        openChildren(childMode = true)
+        compose.onNodeWithText(olya.name).assertHasNoClickAction()
+    }
+
+    @Test
+    fun `choosing a child in the list switches to them`() {
+        openChildren(childrenOpen = true)
+        compose.onNodeWithText(string(R.string.children_title)).assertIsDisplayed()
+        compose.onNodeWithText(string(R.string.child_name_placeholder)).performClick()
+        assertEquals(listOf("switch 2"), events)
+    }
+
+    @Test
+    fun `a new child is added with the typed name, or with none`() {
+        openChildren(childrenOpen = true)
+        compose.onNodeWithText(string(R.string.add_child)).performClick()
+        compose.onNodeWithText(string(R.string.child_name_placeholder)).performTextInput("Петрик")
+        compose.onNodeWithText(string(R.string.add_child_confirm)).performClick()
+
+        compose.onNodeWithText(string(R.string.add_child)).performClick()
+        compose.onNodeWithText(string(R.string.add_child_confirm)).performClick()
+        assertEquals(listOf("add 'Петрик'", "add ''"), events)
+    }
+
+    @Test
+    fun `cancelling the name goes back to the children list`() {
+        openChildren(childrenOpen = true)
+        compose.onNodeWithText(string(R.string.add_child)).performClick()
+        compose.onNodeWithText(string(R.string.cancel)).performClick()
+        compose.onNodeWithText(string(R.string.children_title)).assertIsDisplayed()
+        assertEquals(emptyList<String>(), events)
     }
 }

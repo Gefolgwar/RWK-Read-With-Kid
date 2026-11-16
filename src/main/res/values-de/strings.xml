@@ -3,6 +3,11 @@
 
     <string name="library_title">Meine Texte</string>
     <string name="child_name_placeholder">Name des Kindes</string>
+    <string name="children_title">Kinder</string>
+    <string name="choose_child">Kind auswählen</string>
+    <string name="add_child">Kind hinzufügen</string>
+    <string name="add_child_confirm">Hinzufügen</string>
+    <string name="children_close">Schließen</string>
     <string name="library_empty">Noch keine Texte. Fügen Sie den ersten hinzu.</string>
     <string name="library_empty_child">Noch keine Texte. Bitte einen Erwachsenen, einen hinzuzufügen.</string>
     <string name="lock_parent_mode">Elternmodus. Für das Kind sperren</string>

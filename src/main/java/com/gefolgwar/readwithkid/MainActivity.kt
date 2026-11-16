@@ -273,7 +273,13 @@ fun ReadWithKidApp(
                     onLock = libraryVm::lock,
                     onUnlock = libraryVm::askToUnlock,
                     onAnswerUnlock = libraryVm::answerUnlock,
-                    onDismissUnlock = libraryVm::dismissUnlock
+                    onDismissUnlock = libraryVm::dismissUnlock,
+                    children = library.children,
+                    childrenOpen = library.childrenOpen,
+                    onOpenChildren = libraryVm::openChildren,
+                    onCloseChildren = libraryVm::closeChildren,
+                    onSwitchChild = libraryVm::switchChild,
+                    onAddChild = libraryVm::addChild
                 )
         }
     }

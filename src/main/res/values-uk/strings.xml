@@ -3,6 +3,11 @@
 
     <string name="library_title">Мої тексти</string>
     <string name="child_name_placeholder">Ім\'я дитини</string>
+    <string name="children_title">Діти</string>
+    <string name="choose_child">Вибрати дитину</string>
+    <string name="add_child">Додати дитину</string>
+    <string name="add_child_confirm">Додати</string>
+    <string name="children_close">Закрити</string>
     <string name="library_empty">Текстів ще немає. Додайте перший.</string>
     <string name="library_empty_child">Текстів ще немає. Попроси дорослого додати.</string>
     <string name="lock_parent_mode">Режим батьків. Заблокувати для дитини</string>
