@@ -31,6 +31,8 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.filled.TextDecrease
+import androidx.compose.material.icons.filled.TextIncrease
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -69,6 +71,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
@@ -103,6 +106,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             var syllableColors by remember { mutableStateOf(settings.syllableColors) }
+            var readingTextSize by remember { mutableIntStateOf(settings.readingTextSize) }
             ReadWithKidTheme {
                 ReadWithKidApp(
                     vm = vm,
@@ -119,6 +123,11 @@ class MainActivity : ComponentActivity() {
                     onSyllableColorsChange = {
                         settings.syllableColors = it
                         syllableColors = it
+                    },
+                    readingTextSize = readingTextSize,
+                    onReadingTextSizeChange = {
+                        settings.readingTextSize = it
+                        readingTextSize = it
                     }
                 )
             }
@@ -141,7 +150,9 @@ fun ReadWithKidApp(
     uiLanguage: UiLanguage,
     onUiLanguageChange: (UiLanguage) -> Unit,
     syllableColors: Boolean,
-    onSyllableColorsChange: (Boolean) -> Unit
+    onSyllableColorsChange: (Boolean) -> Unit,
+    readingTextSize: Int,
+    onReadingTextSizeChange: (Int) -> Unit
 ) {
     val context = LocalContext.current
     val state by vm.uiState.collectAsState()
@@ -197,7 +208,9 @@ fun ReadWithKidApp(
                     onResume = vm::resume,
                     onFinish = vm::finish,
                     onLeave = vm::leave,
-                    modifier = modifier
+                    modifier = modifier,
+                    textSize = readingTextSize,
+                    onTextSizeChange = onReadingTextSizeChange
                 )
             title != null ->
                 ReadyToReadScreen(
@@ -462,7 +475,10 @@ fun ReadingScreen(
     onResume: () -> Unit,
     onFinish: () -> Unit,
     onLeave: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Reading text size in sp; the child steps it through [ReadingTextSizes]. */
+    textSize: Int = DEFAULT_READING_TEXT_SIZE,
+    onTextSizeChange: (Int) -> Unit = {}
 ) {
     // Leaving loses the reading, so it is confirmed first.
     var confirmLeave by remember { mutableStateOf(false) }
@@ -492,6 +508,7 @@ fun ReadingScreen(
     // Words keep their look while their state changes: the states are drawn behind the text, so lines never reflow.
     val noLinkStyle = TextLinkStyles(style = SpanStyle())
 
+    val fontSize = textSize.sp
     val pagePalette = SyllableColors
     val annotated = buildAnnotatedString {
         words.forEachIndexed { index, word ->
@@ -549,8 +566,18 @@ fun ReadingScreen(
                 Text(
                     stringResource(R.string.reading_help_hint),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
                 )
+            } else Spacer(Modifier.weight(1f))
+            // The child makes the text smaller or bigger, one step at a time; the size is kept for the next reading.
+            val smaller = ReadingTextSizes.lastOrNull { it < textSize }
+            val bigger = ReadingTextSizes.firstOrNull { it > textSize }
+            IconButton(onClick = { smaller?.let(onTextSizeChange) }, enabled = smaller != null) {
+                Icon(Icons.Default.TextDecrease, contentDescription = stringResource(R.string.text_smaller))
+            }
+            IconButton(onClick = { bigger?.let(onTextSizeChange) }, enabled = bigger != null) {
+                Icon(Icons.Default.TextIncrease, contentDescription = stringResource(R.string.text_bigger))
             }
         }
         Spacer(Modifier.height(12.dp))
@@ -572,11 +599,12 @@ fun ReadingScreen(
                     // Andika comes from the theme's typography.
                     Text(
                         text = annotated,
-                        style = MaterialTheme.typography.bodyLarge.copy(fontSize = ReadingFontSize, lineHeight = 52.sp),
+                        // At every size the line height keeps the 30/52 proportion, so the band and the magnet still fit.
+                        style = MaterialTheme.typography.bodyLarge.copy(fontSize = fontSize, lineHeight = fontSize * (52f / 30f)),
                         onTextLayout = { layout = it },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .readingProgress(boxes, state.wordStatuses, state.currentWordIndex)
+                            .readingProgress(boxes, state.wordStatuses, state.currentWordIndex, fontSize)
                     )
                     val check = state.wordCheck
                     val wordBounds = check?.takeIf { it.index in wordStarts.indices }?.let {
@@ -627,11 +655,9 @@ fun ReadingScreen(
     }
 }
 
-private val ReadingFontSize = 30.sp
-
 /** Read words underlined in green, skipped ones in dashed orange, the current line banded and the current word on a yellow magnet. */
 @Composable
-private fun Modifier.readingProgress(boxes: List<WordBox>, statuses: List<WordStatus>, current: Int): Modifier {
+private fun Modifier.readingProgress(boxes: List<WordBox>, statuses: List<WordStatus>, current: Int, fontSize: TextUnit): Modifier {
     val band = MaterialTheme.colorScheme.primaryContainer
     val reduceMotion = reduceMotion()
     val target = boxes.getOrNull(current)
@@ -646,7 +672,7 @@ private fun Modifier.readingProgress(boxes: List<WordBox>, statuses: List<WordSt
         tileLine = word.line
     }
     return drawBehind {
-        val font = ReadingFontSize.toPx()
+        val font = fontSize.toPx()
         if (target != null) {
             // The line being read, like a reading ruler across the page
             drawRoundRect(

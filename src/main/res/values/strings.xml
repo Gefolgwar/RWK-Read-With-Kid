@@ -70,6 +70,8 @@
     <string name="leave_reading">Leave</string>
     <string name="keep_reading">Keep reading</string>
     <string name="reading_help_hint">Tap a word to hear it</string>
+    <string name="text_smaller">Smaller text</string>
+    <string name="text_bigger">Bigger text</string>
     <string name="word_heard">Heard: %1$s</string>
     <string name="word_heard_nothing">Nothing was heard</string>
     <string name="word_retry">Read again</string>

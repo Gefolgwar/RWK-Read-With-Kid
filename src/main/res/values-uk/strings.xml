@@ -69,6 +69,8 @@
     <string name="leave_reading">Вийти</string>
     <string name="keep_reading">Читати далі</string>
     <string name="reading_help_hint">Натисни на слово, щоб почути його</string>
+    <string name="text_smaller">Менші літери</string>
+    <string name="text_bigger">Більші літери</string>
     <string name="word_heard">Почуто: %1$s</string>
     <string name="word_heard_nothing">Нічого не почуто</string>
     <string name="word_retry">Повторити</string>

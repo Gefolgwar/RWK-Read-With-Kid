@@ -40,13 +40,24 @@ class AppSettings(context: Context) : LibrarySession {
         get() = prefs.getBoolean(KEY_SYLLABLE_COLORS, false)
         set(value) = prefs.edit { putBoolean(KEY_SYLLABLE_COLORS, value) }
 
+    /** Size of the reading text in sp, one of [ReadingTextSizes]; the usual 30 until the child chooses. */
+    var readingTextSize: Int
+        get() = prefs.getInt(KEY_READING_TEXT_SIZE, DEFAULT_READING_TEXT_SIZE)
+        set(value) = prefs.edit { putInt(KEY_READING_TEXT_SIZE, value) }
+
     private companion object {
+        const val KEY_READING_TEXT_SIZE = "reading_text_size"
         const val KEY_UI_LANGUAGE = "ui_language"
         const val KEY_SYLLABLE_COLORS = "syllable_colors"
         const val KEY_ACTIVE_CHILD = "active_child"
         const val KEY_CHILD_MODE = "child_mode"
     }
 }
+
+/** The sizes (sp) the child can step through on the reading screen, smallest first. */
+val ReadingTextSizes = listOf(22, 26, 30, 34, 38)
+
+const val DEFAULT_READING_TEXT_SIZE = 30
 
 /** This context with its resources in [language]; unchanged for [UiLanguage.SYSTEM]. */
 fun Context.withUiLanguage(language: UiLanguage): Context {

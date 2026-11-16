@@ -8,7 +8,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** Interface language and coloured syllables, kept across app starts. */
+/** Interface language, coloured syllables and reading text size, kept across app starts. */
 @RunWith(RobolectricTestRunner::class)
 class AppSettingsTest {
 
@@ -30,6 +30,13 @@ class AppSettingsTest {
         assertTrue(AppSettings(context).syllableColors)
         AppSettings(context).syllableColors = false
         assertFalse(AppSettings(context).syllableColors)
+    }
+
+    @Test
+    fun `reading text size is the usual one until chosen`() {
+        assertEquals(30, AppSettings(context).readingTextSize)
+        AppSettings(context).readingTextSize = 38
+        assertEquals(38, AppSettings(context).readingTextSize)
     }
 
     @Test

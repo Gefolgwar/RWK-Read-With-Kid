@@ -258,6 +258,14 @@ class ScreenshotsTest {
     }
 
     @Test
+    fun readingBiggestText() = shot("4c-reading-biggest-text") {
+        ReadingScreen(
+            reading(), texts[0].title, Magnets.forText(1), syllableColors = false, {}, {}, {}, {}, {}, {}, {}, it,
+            textSize = ReadingTextSizes.last()
+        )
+    }
+
+    @Test
     fun resultScreen() = shot("5-result") {
         ResultScreen(result, texts[0].title, Magnets.forText(1), onClose = {}, modifier = it)
     }

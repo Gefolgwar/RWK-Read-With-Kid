@@ -69,6 +69,8 @@
     <string name="leave_reading">Abbrechen</string>
     <string name="keep_reading">Weiterlesen</string>
     <string name="reading_help_hint">Tippe auf ein Wort, um es zu hören</string>
+    <string name="text_smaller">Kleinere Schrift</string>
+    <string name="text_bigger">Größere Schrift</string>
     <string name="word_heard">Gehört: %1$s</string>
     <string name="word_heard_nothing">Nichts gehört</string>
     <string name="word_retry">Nochmal</string>
