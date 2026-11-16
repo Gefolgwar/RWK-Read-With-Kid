@@ -2,6 +2,7 @@
 <resources>
 
     <string name="library_title">Meine Texte</string>
+    <string name="child_name_placeholder">Name des Kindes</string>
     <string name="library_empty">Noch keine Texte. Fügen Sie den ersten hinzu.</string>
     <string name="add_text">Text hinzufügen</string>
     <string name="empty_magnets">ABC</string>

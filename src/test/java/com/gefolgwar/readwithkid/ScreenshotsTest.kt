@@ -44,11 +44,14 @@ class ScreenshotsTest {
 
     private val story = "Лисичка знайшла на стежці червоне яблуко. Вона понесла його додому, щоб поділитися з братиком. " +
         "Братик дуже зрадів і сказав: «Дякую, сестричко!» Увечері вони разом пили чай з яблучним пирогом."
+    /** The child the texts belong to, and a child who has no name yet, as in a new library. */
+    private val olya = Child(2, "Оля")
+    private val unnamed = Child(1)
     private val texts = listOf(
-        SavedText(1, TextPreparation.autoTitle(story), story, 0, TextLanguage.UK),
-        SavedText(2, "Der kleine Igel", "Der kleine Igel sucht im Garten nach Äpfeln. Er findet drei und trägt sie nach Hause.", 0, TextLanguage.DE),
-        SavedText(3, "Мама мила раму", "Мама мила раму. Тато читав книжку. Оля малювала сонце.", 0, TextLanguage.UK),
-        SavedText(4, "Kater Paul", "Kater Paul schläft gern in der Sonne. Am Abend spielt er mit einem Ball.", 0, TextLanguage.DE)
+        SavedText(1, TextPreparation.autoTitle(story), story, 0, TextLanguage.UK, childId = 2),
+        SavedText(2, "Der kleine Igel", "Der kleine Igel sucht im Garten nach Äpfeln. Er findet drei und trägt sie nach Hause.", 0, TextLanguage.DE, childId = 2),
+        SavedText(3, "Мама мила раму", "Мама мила раму. Тато читав книжку. Оля малювала сонце.", 0, TextLanguage.UK, childId = 2),
+        SavedText(4, "Kater Paul", "Kater Paul schläft gern in der Sonne. Am Abend spielt er mit einem Ball.", 0, TextLanguage.DE, childId = 2)
     )
     private val result = ReadingResult(
         totalWords = 34,
@@ -103,12 +106,12 @@ class ScreenshotsTest {
 
     @Test
     fun library() = shot("1-library") {
-        LibraryScreen(texts, {}, {}, {}, {}, {}, {}, it)
+        LibraryScreen(texts, olya, {}, {}, {}, {}, {}, {}, it)
     }
 
     @Test
     fun libraryEmpty() = shot("1b-library-empty") {
-        LibraryScreen(emptyList(), {}, {}, {}, {}, {}, {}, it)
+        LibraryScreen(emptyList(), unnamed, {}, {}, {}, {}, {}, {}, it)
     }
 
     @Test
@@ -184,7 +187,8 @@ class ScreenshotsTest {
     @Test
     @Config(qualifiers = "de-w412dp-h915dp-xhdpi", fontScale = 1.3f)
     fun libraryGermanLargeFont() = shot("9-library-de-font130") {
-        LibraryScreen(texts, {}, {}, {}, {}, {}, {}, it)
+        // The longest placeholder at the largest font
+        LibraryScreen(texts, unnamed, {}, {}, {}, {}, {}, {}, it)
     }
 
     @Test
@@ -195,7 +199,7 @@ class ScreenshotsTest {
     @Test
     @Config(qualifiers = "uk-w412dp-h915dp-night-xhdpi")
     fun libraryFollowsSystemDarkMode() = shot("d0-library-system-night", dark = null) {
-        LibraryScreen(texts, {}, {}, {}, {}, {}, {}, it)
+        LibraryScreen(texts, olya, {}, {}, {}, {}, {}, {}, it)
     }
 
     /** The editor while the keyboard is open: the keyboard's insets are given to the window as the phone does. */
@@ -255,7 +259,12 @@ class ScreenshotsTest {
 
     @Test
     fun libraryDark() = shot("d1-library", dark = true) {
-        LibraryScreen(texts, {}, {}, {}, {}, {}, {}, it)
+        LibraryScreen(texts, olya, {}, {}, {}, {}, {}, {}, it)
+    }
+
+    @Test
+    fun libraryEmptyDark() = shot("d1b-library-empty", dark = true) {
+        LibraryScreen(emptyList(), unnamed, {}, {}, {}, {}, {}, {}, it)
     }
 
     @Test

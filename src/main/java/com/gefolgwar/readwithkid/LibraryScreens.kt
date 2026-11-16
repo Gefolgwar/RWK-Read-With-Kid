@@ -2,7 +2,9 @@ package com.gefolgwar.readwithkid
 
 import android.content.ClipboardManager
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,6 +16,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
@@ -23,14 +26,18 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.text.DateFormat
@@ -44,6 +51,7 @@ fun cardColors() = CardDefaults.cardColors(containerColor = MaterialTheme.colorS
 @Composable
 fun LibraryScreen(
     texts: List<SavedText>,
+    activeChild: Child?,
     onAdd: () -> Unit,
     onRead: (SavedText) -> Unit,
     onEdit: (SavedText) -> Unit,
@@ -73,18 +81,26 @@ fun LibraryScreen(
 
     Box(modifier = modifier) {
         Column(Modifier.fillMaxSize()) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 4.dp, top = 8.dp)) {
-                Text(
-                    stringResource(R.string.library_title),
-                    style = MaterialTheme.typography.headlineMedium,
-                    modifier = Modifier
-                        .weight(1f)
-                        .semantics { heading() }
-                )
+            // Whose library this is, top right
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.End,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 4.dp, top = 8.dp)
+            ) {
+                if (activeChild != null) ActiveChild(activeChild, Modifier.weight(1f, fill = false))
                 IconButton(onClick = onSettings) {
                     Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings_title))
                 }
             }
+            Text(
+                stringResource(R.string.library_title),
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier
+                    .padding(start = 4.dp, top = 8.dp)
+                    .semantics { heading() }
+            )
             Spacer(Modifier.height(16.dp))
             if (texts.isEmpty()) {
                 EmptyLibrary(Modifier.weight(1f))
@@ -115,6 +131,49 @@ fun LibraryScreen(
             contentColor = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier.align(Alignment.BottomEnd)
         )
+    }
+}
+
+/** The child whose library is open: the name in large letters next to the avatar; a placeholder while not named. */
+@Composable
+private fun ActiveChild(child: Child, modifier: Modifier = Modifier) {
+    val named = child.name.isNotBlank()
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier.semantics(mergeDescendants = true) {}) {
+        Text(
+            if (named) child.name else stringResource(R.string.child_name_placeholder),
+            style = MaterialTheme.typography.headlineSmall,
+            color = if (named) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false)
+        )
+        Spacer(Modifier.width(12.dp))
+        ChildAvatar(child)
+    }
+}
+
+/** A round avatar in the child's own colour with the first letter of the name, or a person icon while not named. */
+@Composable
+fun ChildAvatar(child: Child, size: Dp = 48.dp) {
+    // The letter grows with the circle, not with the font size setting, so it always fits.
+    val letterSize = with(LocalDensity.current) { (size * 0.45f).toSp() }
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(size)
+            .background(Magnets.forChild(child.id).face, CircleShape)
+            .clearAndSetSemantics { }
+    ) {
+        if (child.name.isBlank()) {
+            Icon(Icons.Default.Person, contentDescription = null, tint = Color.White, modifier = Modifier.size(size * 0.6f))
+        } else {
+            Text(
+                magnetLetterOf(child.name),
+                style = MaterialTheme.typography.titleLarge.copy(fontSize = letterSize, lineHeight = letterSize),
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+        }
     }
 }
 

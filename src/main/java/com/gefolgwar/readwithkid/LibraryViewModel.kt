@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -41,19 +42,32 @@ data class TextHistory(
 )
 
 data class LibraryUiState(
+    /** Texts of the [activeChild]. */
     val texts: List<SavedText> = emptyList(),
     /** Open editor, or null when the library list is shown. */
     val editor: TextEditorState? = null,
     /** Open history of a text, or null. */
-    val history: TextHistory? = null
+    val history: TextHistory? = null,
+    /** The child whose library is open, or null until the children are loaded. */
+    val activeChild: Child? = null
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LibraryViewModel(
     private val repository: TextRepository,
     private val readings: ReadingRepository,
+    private val children: ChildRepository,
+    private val session: LibrarySession,
     private val clockMs: () -> Long = System::currentTimeMillis
 ) : ViewModel() {
+
+    /** The child who was active last time, or the first child if that one no longer exists; with their texts. */
+    private val library: Flow<Pair<Child?, List<SavedText>>> = children.observeAll()
+        .map { all -> all.find { it.id == session.activeChildId } ?: all.firstOrNull() }
+        .distinctUntilChanged()
+        .flatMapLatest { child ->
+            if (child == null) flowOf(null to emptyList()) else repository.observeAll(child.id).map { child to it }
+        }
 
     private val editor = MutableStateFlow<TextEditorState?>(null)
     /** Text whose history is open, and the id of the reading shown from it. */
@@ -67,8 +81,9 @@ class LibraryViewModel(
         shownReadingId
     ) { history, shownId -> history?.copy(shown = history.readings.find { it.id == shownId }) }
 
-    val uiState: StateFlow<LibraryUiState> = combine(repository.observeAll(), editor, history, ::LibraryUiState)
-        .stateIn(viewModelScope, SharingStarted.Eagerly, LibraryUiState())
+    val uiState: StateFlow<LibraryUiState> = combine(library, editor, history) { (child, texts), editor, history ->
+        LibraryUiState(texts, editor, history, child)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, LibraryUiState())
 
     fun openHistory(text: SavedText) {
         shownReadingId.value = null
@@ -115,12 +130,15 @@ class LibraryViewModel(
     fun save() {
         val current = editor.value ?: return
         if (!current.canSave) return
+        // Texts are added and edited in the open library, so they belong to its child.
+        val child = uiState.value.activeChild ?: return
         val text = SavedText(
             id = current.id,
             title = current.title,
             rawText = current.rawText.trim(),
             createdAt = if (current.id == 0L) clockMs() else current.createdAt,
-            language = current.language
+            language = current.language,
+            childId = child.id
         )
         editor.value = null
         viewModelScope.launch { repository.save(text) }
@@ -131,9 +149,14 @@ class LibraryViewModel(
     }
 
     companion object {
-        fun factory(createTexts: () -> TextRepository, createReadings: () -> ReadingRepository): ViewModelProvider.Factory =
+        fun factory(
+            createTexts: () -> TextRepository,
+            createReadings: () -> ReadingRepository,
+            createChildren: () -> ChildRepository,
+            createSession: () -> LibrarySession
+        ): ViewModelProvider.Factory =
             viewModelFactory {
-                initializer { LibraryViewModel(createTexts(), createReadings()) }
+                initializer { LibraryViewModel(createTexts(), createReadings(), createChildren(), createSession()) }
             }
     }
 }

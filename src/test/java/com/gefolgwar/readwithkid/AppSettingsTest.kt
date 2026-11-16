@@ -32,6 +32,13 @@ class AppSettingsTest {
         assertFalse(AppSettings(context).syllableColors)
     }
 
+    @Test
+    fun `active child is remembered once chosen`() {
+        assertNull(AppSettings(context).activeChildId)
+        AppSettings(context).activeChildId = 2
+        assertEquals(2L, AppSettings(context).activeChildId)
+    }
+
     private val Context.language get() = resources.configuration.locales[0].language
 
     @Test

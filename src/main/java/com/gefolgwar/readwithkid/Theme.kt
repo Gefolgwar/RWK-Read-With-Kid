@@ -87,6 +87,9 @@ object Magnets {
 
     /** A text keeps its magnet; texts added one after another get different ones. */
     fun forText(id: Long): Magnet = forTexts[Math.floorMod(id, forTexts.size.toLong()).toInt()]
+
+    /** A child keeps the colour of their avatar; children added one after another get different ones. */
+    fun forChild(id: Long): Magnet = forText(id)
 }
 
 // A cool enamel-white door, white cards, near-black blue ink; magnet blue for actions.

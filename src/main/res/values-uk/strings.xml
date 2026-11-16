@@ -2,6 +2,7 @@
 <resources>
 
     <string name="library_title">Мої тексти</string>
+    <string name="child_name_placeholder">Ім\'я дитини</string>
     <string name="library_empty">Текстів ще немає. Додайте перший.</string>
     <string name="add_text">Додати текст</string>
     <string name="empty_magnets">АБВ</string>

@@ -10,9 +10,19 @@ enum class UiLanguage(val tag: String?) {
     SYSTEM(null), UK("uk"), DE("de"), EN("en")
 }
 
+/** What the library keeps across app starts. */
+interface LibrarySession {
+    /** The child whose library was open last, or null before any was. */
+    var activeChildId: Long?
+}
+
 /** App-wide settings kept on the phone. */
-class AppSettings(context: Context) {
+class AppSettings(context: Context) : LibrarySession {
     private val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+
+    override var activeChildId: Long?
+        get() = if (prefs.contains(KEY_ACTIVE_CHILD)) prefs.getLong(KEY_ACTIVE_CHILD, 0) else null
+        set(value) = prefs.edit { if (value == null) remove(KEY_ACTIVE_CHILD) else putLong(KEY_ACTIVE_CHILD, value) }
 
     var uiLanguage: UiLanguage
         get() = UiLanguage.entries.firstOrNull { it.tag == prefs.getString(KEY_UI_LANGUAGE, null) } ?: UiLanguage.SYSTEM
@@ -26,6 +36,7 @@ class AppSettings(context: Context) {
     private companion object {
         const val KEY_UI_LANGUAGE = "ui_language"
         const val KEY_SYLLABLE_COLORS = "syllable_colors"
+        const val KEY_ACTIVE_CHILD = "active_child"
     }
 }
 

@@ -86,7 +86,7 @@ class MainActivity : ComponentActivity() {
         }
     }
     private val libraryVm: LibraryViewModel by viewModels {
-        LibraryViewModel.factory({ db.texts() }, { db.readings() })
+        LibraryViewModel.factory({ db.texts() }, { db.readings() }, { db.children() }, { settings })
     }
 
     private val settings by lazy { AppSettings(applicationContext) }
@@ -260,6 +260,7 @@ fun ReadWithKidApp(
             else ->
                 LibraryScreen(
                     library.texts,
+                    library.activeChild,
                     onAdd = libraryVm::newText,
                     onRead = read,
                     onEdit = libraryVm::edit,

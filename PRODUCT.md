@@ -35,7 +35,9 @@ Text list → "+" → paste or type a text (language detected automatically, swi
 - The child holds the phone and reads alone; the parent sets up before and reviews after.
 - During reading: the current word is highlighted, read words are marked, long text auto-scrolls to keep the current line visible, Pause/Continue and Done are available; tapping a word speaks it (pronunciation help).
 - Reading pauses automatically when the app goes to the background.
-- Result history is shared (no child profiles) and shown per text, on the text screen before reading.
+- Child profiles (#35): each child has a profile with only a name, and each text belongs to exactly one child. The active child is shown top right as a round avatar with the first letter of the name and the name next to it; the app reopens with the child who was active last. Everything stays on the one library screen: there is no separate parent area, child start screen, onboarding or text assignment.
+- Parent mode and child mode (#35), shown by a lock icon on the library screen: in child mode nothing can be added, edited, deleted or configured; unlocking needs a simple adult question.
+- Result history is per child (it belongs to the child's texts) and shown per text.
 - Settings is a single icon on the main screen: interface language (uk/de/en/system), privacy policy (shown in the app), open-source licences.
 - Intended to run on older, low-memory hand-me-down phones (2–3 GB RAM).
 
@@ -46,7 +48,8 @@ Text list → "+" → paste or type a text (language detected automatically, swi
 - Pronunciation help uses Android TextToSpeech in the text's locale; hidden if no voice for the language exists.
 - Optional coloured syllables in the reading text.
 - Storage: Room, local only.
-- Removed in v1.1 and not to be reintroduced without a decision: parent zone, parental lock, onboarding, child profiles, text assignment, separate language-models screen, .txt import, sentence/word split preview, separate title field (title is generated from the first words).
+- Removed in v1.1 and not to be reintroduced without a decision: parent zone, onboarding, text assignment, separate language-models screen, .txt import, sentence/word split preview, separate title field (title is generated from the first words).
+- Child profiles and the parental lock were also removed in v1.1; #35 is the decision that deliberately brings them back, in the simpler form above (on the one library screen, texts belong to one child, no assignments).
 - No external links from the app (so no parental gate is required under the Google Play Families Policy); the only exception is opening system settings for the microphone permission.
 - Microphone permission is requested only when reading starts, with an explanation; a denied permission gets guidance to enable it in settings.
 - Google Play requirements: Families Policy (target audience includes children), Data Safety (audio not collected), 16 KB page size.

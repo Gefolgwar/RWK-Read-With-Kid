@@ -9,8 +9,11 @@ class InMemoryTextRepository : TextRepository {
     private val texts = MutableStateFlow<Map<Long, SavedText>>(emptyMap())
     private var nextId = 1L
 
-    override fun observeAll(): Flow<List<SavedText>> =
-        texts.map { all -> all.values.sortedWith(compareByDescending<SavedText> { it.createdAt }.thenByDescending { it.id }) }
+    override fun observeAll(childId: Long): Flow<List<SavedText>> =
+        texts.map { all ->
+            all.values.filter { it.childId == childId }
+                .sortedWith(compareByDescending<SavedText> { it.createdAt }.thenByDescending { it.id })
+        }
 
     override suspend fun save(text: SavedText): Long {
         val saved = if (text.id == 0L) text.copy(id = nextId++) else text

@@ -17,6 +17,8 @@ class LibraryViewModelTest {
 
     private lateinit var repository: InMemoryTextRepository
     private lateinit var readings: InMemoryReadingRepository
+    private lateinit var children: InMemoryChildRepository
+    private lateinit var session: FakeLibrarySession
     private var nowMs = 1_000L
     private lateinit var vm: LibraryViewModel
 
@@ -28,8 +30,12 @@ class LibraryViewModelTest {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         repository = InMemoryTextRepository()
         readings = InMemoryReadingRepository()
-        vm = LibraryViewModel(repository, readings, clockMs = { nowMs })
+        children = InMemoryChildRepository()
+        session = FakeLibrarySession()
+        vm = newViewModel()
     }
+
+    private fun newViewModel() = LibraryViewModel(repository, readings, children, session, clockMs = { nowMs })
 
     @After
     fun tearDown() {
@@ -146,9 +152,86 @@ class LibraryViewModelTest {
     @Test
     fun `texts are read from the repository, so a new viewmodel sees saved texts`() {
         addText("Жив собі кіт.")
-        val afterRestart = LibraryViewModel(repository, readings)
+        val afterRestart = LibraryViewModel(repository, readings, children, session)
         assertEquals(listOf("Жив собі кіт"), afterRestart.uiState.value.texts.map { it.title })
-        assertEquals("Жив собі кіт", runBlocking { repository.observeAll().first() }.single().title)
+        assertEquals("Жив собі кіт", runBlocking { repository.observeAll(1).first() }.single().title)
+    }
+
+    // --- children ---
+
+    private fun addChild(name: String): Child {
+        val child = Child(name = name)
+        return child.copy(id = runBlocking { children.save(child) })
+    }
+
+    private fun saveText(title: String, child: Child, createdAt: Long = 1) {
+        runBlocking { repository.save(SavedText(title = title, rawText = "$title.", createdAt = createdAt, childId = child.id)) }
+    }
+
+    @Test
+    fun `a new library belongs to the first child, who has no name yet`() {
+        assertEquals(Child(1, ""), state.activeChild)
+    }
+
+    @Test
+    fun `the library lists only the active child's texts`() {
+        val first = state.activeChild!!
+        val olya = addChild("Оля")
+        saveText("Кіт", first)
+        saveText("Katze", olya)
+        saveText("Пес", first, createdAt = 2)
+
+        assertEquals(listOf("Пес", "Кіт"), state.texts.map { it.title })
+
+        session.activeChildId = olya.id
+        assertEquals(olya, newViewModel().uiState.value.activeChild)
+        assertEquals(listOf("Katze"), newViewModel().uiState.value.texts.map { it.title })
+    }
+
+    @Test
+    fun `a new text is saved for the active child`() {
+        val olya = addChild("Оля")
+        session.activeChildId = olya.id
+        vm = newViewModel()
+
+        addText("Мама мила раму.")
+
+        assertEquals(listOf(olya.id), state.texts.map { it.childId })
+        assertEquals(emptyList<SavedText>(), runBlocking { repository.observeAll(1).first() })
+    }
+
+    @Test
+    fun `an edited text stays with its child`() {
+        val olya = addChild("Оля")
+        session.activeChildId = olya.id
+        vm = newViewModel()
+        addText("Старий текст.")
+
+        vm.edit(state.texts.single())
+        vm.updateRawText("Новий текст.")
+        vm.save()
+
+        assertEquals(listOf("Новий текст" to olya.id), state.texts.map { it.title to it.childId })
+    }
+
+    @Test
+    fun `when the active child no longer exists, the first child is active`() {
+        val olya = addChild("Оля")
+        session.activeChildId = olya.id
+        vm = newViewModel()
+        assertEquals(olya, state.activeChild)
+
+        runBlocking { children.delete(olya.id) }
+        assertEquals(Child(1, ""), state.activeChild)
+
+        session.activeChildId = 42
+        assertEquals(Child(1, ""), newViewModel().uiState.value.activeChild)
+    }
+
+    @Test
+    fun `a renamed active child is shown with the new name`() {
+        runBlocking { children.save(Child(1, "Оля")) }
+        assertEquals(Child(1, "Оля"), state.activeChild)
     }
 
     @Test

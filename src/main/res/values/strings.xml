@@ -3,6 +3,7 @@
     <string name="app_name" translatable="false">Read With Kid</string>
 
     <string name="library_title">My texts</string>
+    <string name="child_name_placeholder">Child\'s name</string>
     <string name="library_empty">No texts yet. Add the first one.</string>
     <string name="add_text">Add text</string>
     <string name="empty_magnets">ABC</string>

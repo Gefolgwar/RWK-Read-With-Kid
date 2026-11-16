@@ -41,8 +41,8 @@ class RoomReadingRepositoryTest {
         val first = ReadingResult(6, 4, 30_000, listOf("раму", "будь-який"), listOf("читав"), listOf("книжку", "раму"))
         val second = ReadingResult(6, 6, 20_000, emptyList(), emptyList())
         val text = withDb { db ->
-            val text = db.texts().save(SavedText(title = "Казка", rawText = "Мама мила раму.", createdAt = 1))
-            val other = db.texts().save(SavedText(title = "Інша", rawText = "Кіт спав.", createdAt = 2))
+            val text = db.texts().save(SavedText(title = "Казка", rawText = "Мама мила раму.", createdAt = 1, childId = 1))
+            val other = db.texts().save(SavedText(title = "Інша", rawText = "Кіт спав.", createdAt = 2, childId = 1))
             db.readings().saveReading(reading(text, readAt = 100, result = first))
             db.readings().saveReading(reading(other, readAt = 150, result = first))
             db.readings().saveReading(reading(text, readAt = 200, result = second))
@@ -57,8 +57,8 @@ class RoomReadingRepositoryTest {
     @Test
     fun `deleting a text removes its readings`() {
         withDb { db ->
-            val text = db.texts().save(SavedText(title = "Казка", rawText = "Мама мила раму.", createdAt = 1))
-            val other = db.texts().save(SavedText(title = "Інша", rawText = "Кіт спав.", createdAt = 2))
+            val text = db.texts().save(SavedText(title = "Казка", rawText = "Мама мила раму.", createdAt = 1, childId = 1))
+            val other = db.texts().save(SavedText(title = "Інша", rawText = "Кіт спав.", createdAt = 2, childId = 1))
             val result = ReadingResult(3, 3, 3_000, emptyList(), emptyList())
             db.readings().saveReading(reading(text, readAt = 1, result = result))
             db.readings().saveReading(reading(other, readAt = 2, result = result))
@@ -73,7 +73,7 @@ class RoomReadingRepositoryTest {
     @Test
     fun `deleting a reading removes only that reading`() {
         withDb { db ->
-            val text = db.texts().save(SavedText(title = "Казка", rawText = "Мама мила раму.", createdAt = 1))
+            val text = db.texts().save(SavedText(title = "Казка", rawText = "Мама мила раму.", createdAt = 1, childId = 1))
             val result = ReadingResult(3, 3, 3_000, emptyList(), emptyList())
             val first = db.readings().saveReading(reading(text, readAt = 1, result = result))
             db.readings().saveReading(reading(text, readAt = 2, result = result))
@@ -81,7 +81,7 @@ class RoomReadingRepositoryTest {
             db.readings().deleteReading(first)
 
             assertEquals(listOf(2L), db.readings().observeReadings(text).first().map { it.readAt })
-            assertEquals(1, db.texts().observeAll().first().size)
+            assertEquals(1, db.texts().observeAll(1).first().size)
         }
     }
 
@@ -125,7 +125,7 @@ class RoomReadingRepositoryTest {
         }
 
         withDb { db ->
-            val text = db.texts().observeAll().first().single()
+            val text = db.texts().observeAll(1).first().single()
             assertEquals("Казка", text.title)
             db.readings().saveReading(reading(text.id, readAt = 1, result = ReadingResult(3, 2, 3_000, listOf("раму"), emptyList())))
             assertEquals(listOf(listOf("раму")), db.readings().observeReadings(text.id).first().map { it.result.skippedWords })
@@ -176,7 +176,7 @@ class RoomReadingRepositoryTest {
         }
 
         withDb { db ->
-            val texts = db.texts().observeAll().first()
+            val texts = db.texts().observeAll(1).first()
             assertEquals(listOf("Katze" to TextLanguage.DE, "Казка" to TextLanguage.UK), texts.map { it.title to it.language })
 
             val history = db.readings().observeReadings(1).first()
@@ -193,8 +193,9 @@ class RoomReadingRepositoryTest {
             val tables = db.openHelper.readableDatabase.query("SELECT name FROM sqlite_master WHERE type = 'table'").use { cursor ->
                 generateSequence { if (cursor.moveToNext()) cursor.getString(0) else null }.toList()
             }
-            assertFalse("children" in tables)
             assertFalse("assignments" in tables)
+            // The old profiles are gone; the texts belong to the one unnamed child of the later upgrade.
+            assertEquals(listOf(""), db.children().observeAll().first().map { it.name })
         }
     }
 }
