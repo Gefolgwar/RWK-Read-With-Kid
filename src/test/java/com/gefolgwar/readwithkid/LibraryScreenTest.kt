@@ -108,6 +108,20 @@ class LibraryScreenTest {
     }
 
     @Test
+    fun `the info button opens the reading norms in child mode too, and they close`() {
+        compose.setContent {
+            ReadWithKidTheme {
+                HistoryScreen(TextHistory(text, emptyList()), onShow = {}, onDelete = null, onBack = {})
+            }
+        }
+        compose.onNodeWithContentDescription(string(R.string.norms_title)).performClick()
+        compose.onNodeWithText(string(R.string.norms_ukraine_speed)).assertIsDisplayed()
+        compose.onNodeWithText(string(R.string.norms_germany_source)).assertExists()
+        compose.onNodeWithText(string(R.string.norms_close)).performClick()
+        compose.onNodeWithText(string(R.string.norms_ukraine_speed)).assertDoesNotExist()
+    }
+
+    @Test
     fun `the typed product is given as the answer`() {
         open(childMode = true, question = UnlockQuestion(7, 8))
         compose.onNodeWithText(compose.activity.getString(R.string.unlock_question, 7, 8)).assertIsDisplayed()

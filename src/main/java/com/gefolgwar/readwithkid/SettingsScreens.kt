@@ -155,15 +155,22 @@ private fun SettingsItem(icon: ImageVector, title: Int, onClick: () -> Unit) {
     }
 }
 
-/** Back arrow and the screen's title. */
+/** Back arrow and the screen's title; [action] at the end of the row. */
 @Composable
-fun ScreenHeader(title: Int, onBack: () -> Unit) {
+fun ScreenHeader(title: Int, onBack: () -> Unit, action: @Composable () -> Unit = {}) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
         IconButton(onClick = onBack) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
         }
         Spacer(Modifier.width(4.dp))
-        Text(stringResource(title), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
+        Text(
+            stringResource(title),
+            style = MaterialTheme.typography.headlineSmall,
+            modifier = Modifier
+                .weight(1f)
+                .semantics { heading() }
+        )
+        action()
     }
     Spacer(Modifier.height(16.dp))
 }

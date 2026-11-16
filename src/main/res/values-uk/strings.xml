@@ -86,6 +86,18 @@
     <string name="delete_reading_title">Видалити спробу?</string>
     <string name="delete_reading_message">Спробу від %1$s буде видалено назавжди.</string>
 
+    <string name="norms_title">Норми читання</string>
+    <string name="norms_intro">Орієнтири для читання вголос, у словах за хвилину. Порівняйте їх із результатом. Це орієнтир для тренування, а не перевірка.</string>
+    <string name="norms_ukraine">Україна</string>
+    <string name="norms_ukraine_speed">2 клас: 35–45 у 1-му семестрі, 50–60 у 2-му\n3 клас: 65–70 у 1-му семестрі, 75–80 у 2-му\n4 клас: 80–85 у 1-му семестрі, 90–95 у 2-му</string>
+    <string name="norms_ukraine_daily">На день: офіційної норми немає.</string>
+    <string name="norms_ukraine_source">Джерело: МОН України, наказ № 1222 від 21.08.2013 зі змінами згідно з наказом № 1009 від 19.08.2016, літературне читання, 2–4 класи. Для 1 класу показників немає.</string>
+    <string name="norms_germany">Німеччина</string>
+    <string name="norms_germany_speed">Кінець 2 класу: близько 80–90 правильно прочитаних слів, дуже добрі читачі — близько 115\nКінець 4 класу: близько 130–140, дуже добрі читачі — близько 165</string>
+    <string name="norms_germany_daily">На день: 20 хвилин читання в кожен шкільний день (Leseband у Бранденбурзі та Шлезвіг-Гольштейні).</string>
+    <string name="norms_germany_source">Джерела: ISB Баварії, LehrplanPLUS для початкової школи, за Rosebrock et al. (2011), Leseflüssigkeit fördern; Міністерство освіти Бранденбурга; Міністерство освіти Шлезвіг-Гольштейну (2024). Для 1 і 3 класів показників немає.</string>
+    <string name="norms_close">Закрити</string>
+
     <string name="language_uk">Українська</string>
     <string name="language_de">Німецька</string>
     <string name="model_retry">Спробувати ще раз</string>

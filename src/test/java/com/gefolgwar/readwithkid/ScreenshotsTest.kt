@@ -20,6 +20,7 @@ import android.graphics.Canvas
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
@@ -215,6 +216,29 @@ class ScreenshotsTest {
     @Test
     fun historyDark() = shot("d6-history", dark = true) {
         HistoryScreen(TextHistory(texts[0], readings), {}, {}, {}, it)
+    }
+
+    @Test
+    fun readingNorms() = normsShot("6c-reading-norms", dark = false)
+
+    @Test
+    fun readingNormsDark() = normsShot("d6c-reading-norms", dark = true)
+
+    @Test
+    @Config(qualifiers = "de-w412dp-h915dp-xhdpi", fontScale = 1.3f)
+    fun readingNormsGermanLargeFont() = normsShot("6d-reading-norms-de-font130", dark = false)
+
+    /** The info button in the history header opens the norms: the dialog is its own window, so it is captured alone. */
+    private fun normsShot(name: String, dark: Boolean) {
+        compose.setContent {
+            ReadWithKidTheme(dark = dark) {
+                HistoryScreen(TextHistory(texts[0], readings), onShow = {}, onDelete = null, onBack = {})
+            }
+        }
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.norms_title)).performClick()
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(1_000)
+        save(name, ShadowDialog.getLatestDialog().window!!.decorView)
     }
 
     @Test

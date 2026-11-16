@@ -332,6 +332,7 @@ private fun TextCard(
  * Earlier readings of a text, newest first: the score (words correct per minute) large, with date, accuracy and duration.
  * A reading opens its result.
  * [onDelete] is null in child mode, where readings cannot be deleted.
+ * The info button opens the reading norms to compare the scores with.
  */
 @Composable
 fun HistoryScreen(
@@ -343,6 +344,7 @@ fun HistoryScreen(
 ) {
     val dateFormat = remember { DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT) }
     var pendingDelete by remember { mutableStateOf<ReadingRecord?>(null) }
+    var showNorms by remember { mutableStateOf(false) }
 
     BackHandler(onBack = onBack)
 
@@ -363,8 +365,15 @@ fun HistoryScreen(
         )
     }
 
+    if (showNorms) ReadingNormsDialog(onClose = { showNorms = false })
+
     Column(modifier = modifier) {
-        ScreenHeader(R.string.history_title, onBack)
+        // The norms are open in child mode too: they only explain the scores.
+        ScreenHeader(R.string.history_title, onBack) {
+            IconButton(onClick = { showNorms = true }) {
+                Icon(Icons.Outlined.Info, contentDescription = stringResource(R.string.norms_title))
+            }
+        }
         TextHeading(history.text.title, Magnets.forText(history.text.id), Modifier.padding(start = 8.dp), compact = true)
         Spacer(Modifier.height(16.dp))
         if (history.readings.isEmpty()) {
@@ -436,6 +445,48 @@ fun HistoryScreen(
             }
         }
     }
+}
+
+/**
+ * How fast and how much children read by school grade, in Ukraine and in Germany, with the sources.
+ * The figures come from docs/research/reading-norms.md; the app has no links, so sources are named, not linked.
+ */
+@Composable
+private fun ReadingNormsDialog(onClose: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onClose,
+        icon = { Icon(Icons.Outlined.Info, contentDescription = null) },
+        title = { Text(stringResource(R.string.norms_title), textAlign = TextAlign.Center) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text(stringResource(R.string.norms_intro), style = MaterialTheme.typography.bodyMedium)
+                NormsCountry(R.string.norms_ukraine, R.string.norms_ukraine_speed, R.string.norms_ukraine_daily, R.string.norms_ukraine_source)
+                NormsCountry(R.string.norms_germany, R.string.norms_germany_speed, R.string.norms_germany_daily, R.string.norms_germany_source)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onClose) { Text(stringResource(R.string.norms_close)) }
+        }
+    )
+}
+
+/** One country: its name as a heading, reading speed by grade, the daily amount and the sources. */
+@Composable
+private fun NormsCountry(nameRes: Int, speedRes: Int, dailyRes: Int, sourceRes: Int) {
+    Spacer(Modifier.height(20.dp))
+    Text(
+        stringResource(nameRes),
+        style = MaterialTheme.typography.titleMedium,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.semantics { heading() }
+    )
+    Text(stringResource(speedRes), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp))
+    Text(stringResource(dailyRes), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp))
+    Text(
+        stringResource(sourceRes),
+        style = MaterialTheme.typography.bodySmall,
+        modifier = Modifier.padding(top = 6.dp)
+    )
 }
 
 /** A text's magnet and its title, at the top of the screens about that text; [compact] under another heading. */
