@@ -7,6 +7,11 @@
     <string name="choose_child">Вибрати дитину</string>
     <string name="add_child">Додати дитину</string>
     <string name="add_child_confirm">Додати</string>
+    <string name="rename_child">Перейменувати дитину</string>
+    <string name="delete_child">Видалити дитину</string>
+    <string name="delete_child_title">Видалити дитину?</string>
+    <string name="delete_child_message">«%1$s» і всі тексти та результати цієї дитини буде видалено назавжди.</string>
+    <string name="delete_child_message_unnamed">Цю дитину і всі її тексти та результати буде видалено назавжди.</string>
     <string name="children_close">Закрити</string>
     <string name="library_empty">Текстів ще немає. Додайте перший.</string>
     <string name="library_empty_child">Текстів ще немає. Попроси дорослого додати.</string>

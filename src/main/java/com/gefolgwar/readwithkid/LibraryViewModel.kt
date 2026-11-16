@@ -203,6 +203,21 @@ class LibraryViewModel(
         viewModelScope.launch { makeActive(children.save(Child(name = name.trim()))) }
     }
 
+    /** Gives [child] the [name]; a blank name shows the placeholder again. */
+    fun renameChild(child: Child, name: String) {
+        if (!parentMode) return
+        viewModelScope.launch { children.save(child.copy(name = name.trim())) }
+    }
+
+    /** Deletes [child] with their texts and readings. The last child stays; deleting the active child opens another child's library. */
+    fun deleteChild(child: Child) {
+        if (!parentMode) return
+        val others = uiState.value.children.filter { it.id != child.id }
+        if (others.isEmpty()) return
+        if (child.id == uiState.value.activeChild?.id) makeActive(others.first().id)
+        viewModelScope.launch { children.delete(child.id) }
+    }
+
     private fun makeActive(id: Long) {
         session.activeChildId = id
         activeChildId.value = id

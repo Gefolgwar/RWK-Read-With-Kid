@@ -170,6 +170,41 @@ class ScreenshotsTest {
     }
 
     @Test
+    fun renameChild() = renameChildShot("1f-rename-child", dark = false)
+
+    @Test
+    fun renameChildDark() = renameChildShot("d1f-rename-child", dark = true)
+
+    /** The new name starts from the old one. A text field in a dialog: shown on the activity directly, as the unlock question. */
+    private fun renameChildShot(name: String, dark: Boolean) {
+        compose.activity.setContent {
+            ReadWithKidTheme(dark = dark) {
+                ChildNameDialog(R.string.rename_child, R.string.save, initialName = olya.name, onConfirm = {}, onDismiss = {})
+            }
+        }
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(1))
+        save(name, ShadowDialog.getLatestDialog().window!!.decorView)
+    }
+
+    @Test
+    fun deleteChild() = deleteChildShot("1g-delete-child", dark = false)
+
+    @Test
+    fun deleteChildDark() = deleteChildShot("d1g-delete-child", dark = true)
+
+    /** Deleting a child names them and warns that their texts and results go too. */
+    private fun deleteChildShot(name: String, dark: Boolean) {
+        compose.setContent {
+            ReadWithKidTheme(dark = dark) {
+                DeleteChildDialog(olya, onDelete = {}, onDismiss = {})
+            }
+        }
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(1_000)
+        save(name, ShadowDialog.getLatestDialog().window!!.decorView)
+    }
+
+    @Test
     fun historyChildMode() = shot("6b-history-child-mode") {
         HistoryScreen(
             TextHistory(texts[0], listOf(ReadingRecord(1, 1, texts[0].title, 1_763_000_000_000, result))),

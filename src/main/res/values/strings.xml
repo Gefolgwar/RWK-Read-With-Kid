@@ -8,6 +8,11 @@
     <string name="choose_child">Choose a child</string>
     <string name="add_child">Add child</string>
     <string name="add_child_confirm">Add</string>
+    <string name="rename_child">Rename child</string>
+    <string name="delete_child">Delete child</string>
+    <string name="delete_child_title">Delete child?</string>
+    <string name="delete_child_message">“%1$s” and all their texts and results will be deleted permanently.</string>
+    <string name="delete_child_message_unnamed">This child and all their texts and results will be deleted permanently.</string>
     <string name="children_close">Close</string>
     <string name="library_empty">No texts yet. Add the first one.</string>
     <string name="library_empty_child">No texts yet. Ask a grown-up to add one.</string>

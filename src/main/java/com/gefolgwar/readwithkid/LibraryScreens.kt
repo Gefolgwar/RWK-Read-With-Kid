@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -91,24 +92,60 @@ fun LibraryScreen(
     onOpenChildren: () -> Unit = {},
     onCloseChildren: () -> Unit = {},
     onSwitchChild: (Child) -> Unit = {},
-    onAddChild: (String) -> Unit = {}
+    onAddChild: (String) -> Unit = {},
+    onRenameChild: (Child, String) -> Unit = { _, _ -> },
+    onDeleteChild: (Child) -> Unit = {}
 ) {
     var pendingDelete by remember { mutableStateOf<SavedText?>(null) }
-    // The new child's name is asked in place of the list; cancelling goes back to the list.
+    // A new child's name, a new name and deleting a child are asked in place of the list; cancelling goes back to the list.
     var naming by remember { mutableStateOf(false) }
+    var renaming by remember { mutableStateOf<Child?>(null) }
+    var deletingChild by remember { mutableStateOf<Child?>(null) }
 
     unlockQuestion?.let { UnlockDialog(it, onAnswerUnlock, onDismissUnlock) }
 
-    if (childrenOpen && naming) {
-        AddChildDialog(
-            onAdd = { name ->
-                naming = false
-                onAddChild(name)
-            },
-            onDismiss = { naming = false }
-        )
-    } else if (childrenOpen) {
-        ChildrenDialog(children, activeChild, onSwitchChild, onAdd = { naming = true }, onDismiss = onCloseChildren)
+    if (childrenOpen) {
+        val toRename = renaming
+        val toDelete = deletingChild
+        when {
+            naming -> ChildNameDialog(
+                R.string.add_child,
+                R.string.add_child_confirm,
+                initialName = "",
+                onConfirm = { name ->
+                    naming = false
+                    onAddChild(name)
+                },
+                onDismiss = { naming = false }
+            )
+            toRename != null -> ChildNameDialog(
+                R.string.rename_child,
+                R.string.save,
+                initialName = toRename.name,
+                onConfirm = { name ->
+                    renaming = null
+                    onRenameChild(toRename, name)
+                },
+                onDismiss = { renaming = null }
+            )
+            toDelete != null -> DeleteChildDialog(
+                toDelete,
+                onDelete = {
+                    deletingChild = null
+                    onDeleteChild(toDelete)
+                },
+                onDismiss = { deletingChild = null }
+            )
+            else -> ChildrenDialog(
+                children,
+                activeChild,
+                onSwitchChild,
+                onAdd = { naming = true },
+                onRename = { renaming = it },
+                onDelete = { deletingChild = it },
+                onDismiss = onCloseChildren
+            )
+        }
     }
 
     pendingDelete?.let { text ->
@@ -283,13 +320,18 @@ fun ChildAvatar(child: Child, size: Dp = 48.dp) {
     }
 }
 
-/** The children to switch between, the [active] one marked, and adding a child at the end. */
+/**
+ * The children to switch between, the [active] one marked, each to rename or delete, and adding a child at the end.
+ * The last child cannot be deleted.
+ */
 @Composable
 private fun ChildrenDialog(
     children: List<Child>,
     active: Child?,
     onSwitch: (Child) -> Unit,
     onAdd: () -> Unit,
+    onRename: (Child) -> Unit,
+    onDelete: (Child) -> Unit,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -319,6 +361,22 @@ private fun ChildrenDialog(
                             modifier = Modifier.weight(1f)
                         )
                         if (isActive) Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        IconButton(onClick = { onRename(child) }) {
+                            Icon(
+                                Icons.Outlined.Edit,
+                                contentDescription = stringResource(R.string.rename_child),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (children.size > 1) {
+                            IconButton(onClick = { onDelete(child) }) {
+                                Icon(
+                                    Icons.Outlined.Delete,
+                                    contentDescription = stringResource(R.string.delete_child),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                     }
                 }
                 Row(
@@ -347,13 +405,13 @@ private fun ChildrenDialog(
     )
 }
 
-/** Names a new child; an empty name is allowed and shows the placeholder until the child is renamed. */
+/** Names a new child or renames one; an empty name is allowed and shows the placeholder until the child is named. */
 @Composable
-private fun AddChildDialog(onAdd: (String) -> Unit, onDismiss: () -> Unit) {
-    var name by remember { mutableStateOf("") }
+fun ChildNameDialog(titleRes: Int, confirmRes: Int, initialName: String, onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
+    var name by remember { mutableStateOf(initialName) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.add_child)) },
+        title = { Text(stringResource(titleRes)) },
         text = {
             OutlinedTextField(
                 value = name,
@@ -361,12 +419,33 @@ private fun AddChildDialog(onAdd: (String) -> Unit, onDismiss: () -> Unit) {
                 label = { Text(stringResource(R.string.child_name_placeholder)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { onAdd(name) }),
+                keyboardActions = KeyboardActions(onDone = { onConfirm(name) }),
                 modifier = Modifier.fillMaxWidth()
             )
         },
         confirmButton = {
-            TextButton(onClick = { onAdd(name) }) { Text(stringResource(R.string.add_child_confirm)) }
+            TextButton(onClick = { onConfirm(name) }) { Text(stringResource(confirmRes)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+        }
+    )
+}
+
+/** Asks before deleting [child], naming them, since all their texts and results go with them. */
+@Composable
+fun DeleteChildDialog(child: Child, onDelete: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.delete_child_title)) },
+        text = {
+            Text(
+                if (child.name.isBlank()) stringResource(R.string.delete_child_message_unnamed)
+                else stringResource(R.string.delete_child_message, child.name)
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onDelete) { Text(stringResource(R.string.delete)) }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }

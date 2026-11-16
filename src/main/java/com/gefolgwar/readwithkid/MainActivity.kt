@@ -279,7 +279,9 @@ fun ReadWithKidApp(
                     onOpenChildren = libraryVm::openChildren,
                     onCloseChildren = libraryVm::closeChildren,
                     onSwitchChild = libraryVm::switchChild,
-                    onAddChild = libraryVm::addChild
+                    onAddChild = libraryVm::addChild,
+                    onRenameChild = libraryVm::renameChild,
+                    onDeleteChild = libraryVm::deleteChild
                 )
         }
     }

@@ -6,11 +6,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -173,16 +176,22 @@ class LibraryScreenTest {
     private val olya = Child(1, "Оля")
     private val unnamed = Child(2)
 
-    private fun openChildren(childMode: Boolean = false, childrenOpen: Boolean = false) = compose.setContent {
+    private fun openChildren(
+        childMode: Boolean = false,
+        childrenOpen: Boolean = false,
+        children: List<Child> = listOf(olya, unnamed)
+    ) = compose.setContent {
         ReadWithKidTheme {
             LibraryScreen(
                 listOf(text), olya, {}, {}, {}, {}, {}, {},
                 childMode = childMode,
-                children = listOf(olya, unnamed),
+                children = children,
                 childrenOpen = childrenOpen,
                 onOpenChildren = { events += "children" },
                 onSwitchChild = { events += "switch ${it.id}" },
-                onAddChild = { events += "add '$it'" }
+                onAddChild = { events += "add '$it'" },
+                onRenameChild = { child, name -> events += "rename ${child.id} '$name'" },
+                onDeleteChild = { events += "delete ${it.id}" }
             )
         }
     }
@@ -227,5 +236,40 @@ class LibraryScreenTest {
         compose.onNodeWithText(string(R.string.cancel)).performClick()
         compose.onNodeWithText(string(R.string.children_title)).assertIsDisplayed()
         assertEquals(emptyList<String>(), events)
+    }
+
+    @Test
+    fun `a child is renamed starting from their name, and cancelling goes back to the list`() {
+        openChildren(childrenOpen = true)
+        compose.onAllNodesWithContentDescription(string(R.string.rename_child))[0].performClick()
+        compose.onNodeWithText(string(R.string.cancel)).performClick()
+        compose.onNodeWithText(string(R.string.children_title)).assertIsDisplayed()
+
+        compose.onAllNodesWithContentDescription(string(R.string.rename_child))[0].performClick()
+        compose.onNodeWithText(string(R.string.rename_child)).assertIsDisplayed()
+        compose.onNodeWithText(string(R.string.child_name_placeholder)).assertTextContains(olya.name).performTextReplacement("Ольга")
+        compose.onNodeWithText(string(R.string.save)).performClick()
+        assertEquals(listOf("rename 1 'Ольга'"), events)
+    }
+
+    @Test
+    fun `deleting a child asks first, naming the child and their texts and results`() {
+        openChildren(childrenOpen = true)
+        compose.onAllNodesWithContentDescription(string(R.string.delete_child))[1].performClick()
+        compose.onNodeWithText(string(R.string.delete_child_message_unnamed)).assertIsDisplayed()
+        compose.onNodeWithText(string(R.string.cancel)).performClick()
+        compose.onNodeWithText(string(R.string.children_title)).assertIsDisplayed()
+
+        compose.onAllNodesWithContentDescription(string(R.string.delete_child))[0].performClick()
+        compose.onNodeWithText(compose.activity.getString(R.string.delete_child_message, olya.name)).assertIsDisplayed()
+        compose.onNodeWithText(string(R.string.delete)).performClick()
+        assertEquals(listOf("delete 1"), events)
+    }
+
+    @Test
+    fun `the last child can be renamed but not deleted`() {
+        openChildren(childrenOpen = true, children = listOf(olya))
+        compose.onNodeWithContentDescription(string(R.string.rename_child)).assertIsDisplayed()
+        compose.onNodeWithContentDescription(string(R.string.delete_child)).assertDoesNotExist()
     }
 }

@@ -32,7 +32,7 @@ class LibraryViewModelTest {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         repository = InMemoryTextRepository()
         readings = InMemoryReadingRepository()
-        children = InMemoryChildRepository()
+        children = InMemoryChildRepository(repository, readings)
         session = FakeLibrarySession()
         vm = newViewModel()
     }
@@ -297,6 +297,84 @@ class LibraryViewModelTest {
         assertEquals(listOf(first, olya), state.children)
         assertEquals(first, state.activeChild)
         assertNull(session.activeChildId)
+    }
+
+    @Test
+    fun `renaming a child updates the list and the avatar, and an empty name brings the placeholder back`() {
+        val olya = addChild("Оля")
+        session.activeChildId = olya.id
+        vm = newViewModel()
+
+        vm.renameChild(olya, "  Ольга ")
+        assertEquals(Child(olya.id, "Ольга"), state.activeChild)
+        assertEquals(listOf("", "Ольга"), state.children.map { it.name })
+
+        vm.renameChild(state.activeChild!!, " ")
+        assertEquals(Child(olya.id, ""), state.activeChild)
+        assertEquals(listOf("", ""), state.children.map { it.name })
+    }
+
+    @Test
+    fun `deleting a child deletes their texts and readings, and keeps the others'`() {
+        val first = state.activeChild!!
+        val olya = addChild("Оля")
+        saveText("Кіт", first)
+        saveText("Katze", olya)
+        val kit = runBlocking { repository.observeAll(first.id).first() }.single()
+        val katze = runBlocking { repository.observeAll(olya.id).first() }.single()
+        saveReading(kit, readAt = 1)
+        saveReading(katze, readAt = 2)
+
+        vm.openChildren()
+        vm.deleteChild(olya)
+
+        assertTrue(state.childrenOpen)
+        assertEquals(listOf(first), state.children)
+        assertEquals(first, state.activeChild)
+        assertEquals(listOf("Кіт"), state.texts.map { it.title })
+        assertEquals(emptyList<SavedText>(), runBlocking { repository.observeAll(olya.id).first() })
+        assertEquals(listOf(kit.id), readings.all.map { it.textId })
+    }
+
+    @Test
+    fun `deleting the active child opens another child's library, also after a restart`() {
+        val first = state.activeChild!!
+        val olya = addChild("Оля")
+        saveText("Кіт", first)
+        vm.switchChild(olya)
+
+        vm.deleteChild(olya)
+
+        assertEquals(first, state.activeChild)
+        assertEquals(listOf("Кіт"), state.texts.map { it.title })
+        assertEquals(first.id, session.activeChildId)
+        assertEquals(first, newViewModel().uiState.value.activeChild)
+    }
+
+    @Test
+    fun `the last child cannot be deleted`() {
+        val only = state.activeChild!!
+        saveText("Кіт", only)
+
+        vm.deleteChild(only)
+
+        assertEquals(listOf(only), state.children)
+        assertEquals(only, state.activeChild)
+        assertEquals(listOf("Кіт"), state.texts.map { it.title })
+    }
+
+    @Test
+    fun `in child mode children cannot be renamed or deleted`() {
+        val first = state.activeChild!!
+        val olya = addChild("Оля")
+        saveText("Katze", olya)
+        vm.lock()
+
+        vm.renameChild(first, "Марко")
+        vm.deleteChild(olya)
+
+        assertEquals(listOf(first, olya), state.children)
+        assertEquals(listOf("Katze"), runBlocking { repository.observeAll(olya.id).first() }.map { it.title })
     }
 
     @Test

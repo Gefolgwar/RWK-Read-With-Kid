@@ -2,11 +2,18 @@ package com.gefolgwar.readwithkid
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 
-/** Starts like a new database: with one child who has no name yet. Deleting a child does not delete their texts here. */
-class InMemoryChildRepository : ChildRepository {
+/**
+ * Starts like a new database: with one child who has no name yet.
+ * Like the database, deleting a child deletes their [texts] and those texts' [readings], when given.
+ */
+class InMemoryChildRepository(
+    private val texts: InMemoryTextRepository? = null,
+    private val readings: InMemoryReadingRepository? = null
+) : ChildRepository {
     private val children = MutableStateFlow(mapOf(1L to Child(1)))
     private var nextId = 2L
 
@@ -20,6 +27,11 @@ class InMemoryChildRepository : ChildRepository {
 
     override suspend fun delete(id: Long) {
         children.update { it - id }
+        val texts = texts ?: return
+        texts.observeAll(id).first().forEach { text ->
+            texts.delete(text.id)
+            readings?.let { r -> r.all.filter { it.textId == text.id }.forEach { r.deleteReading(it.id) } }
+        }
     }
 }
 

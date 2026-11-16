@@ -48,4 +48,29 @@ class RoomChildRepositoryTest {
 
         assertEquals(listOf("Марко", "Ольга"), withRepository { it.observeAll().first() }.map { it.name })
     }
+
+    @Test
+    fun `deleting a child deletes their texts and readings, and keeps the other children's`() {
+        val db = AppDatabase.build(context, dbName)
+        try {
+            runBlocking {
+                val olya = db.children().save(Child(name = "Оля"))
+                val kit = db.texts().save(SavedText(title = "Кіт", rawText = "Кіт спав.", createdAt = 1, childId = 1))
+                val katze = db.texts().save(SavedText(title = "Katze", rawText = "Die Katze schläft.", createdAt = 2, childId = olya))
+                val result = ReadingResult(2, 2, 2_000, emptyList(), emptyList())
+                db.readings().saveReading(ReadingRecord(textId = kit, textTitle = "Кіт", readAt = 1, result = result))
+                db.readings().saveReading(ReadingRecord(textId = katze, textTitle = "Katze", readAt = 2, result = result))
+
+                db.children().delete(olya)
+
+                assertEquals(listOf(1L), db.children().observeAll().first().map { it.id })
+                assertEquals(emptyList<SavedText>(), db.texts().observeAll(olya).first())
+                assertEquals(emptyList<ReadingRecord>(), db.readings().observeReadings(katze).first())
+                assertEquals(listOf("Кіт"), db.texts().observeAll(1).first().map { it.title })
+                assertEquals(listOf(1L), db.readings().observeReadings(kit).first().map { it.readAt })
+            }
+        } finally {
+            db.close()
+        }
+    }
 }
