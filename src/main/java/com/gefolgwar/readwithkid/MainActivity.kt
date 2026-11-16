@@ -171,6 +171,7 @@ fun ReadWithKidApp(
                     onPause = vm::pause,
                     onResume = vm::resume,
                     onFinish = vm::finish,
+                    onLeave = vm::leave,
                     modifier = modifier
                 )
             title != null ->
@@ -379,8 +380,29 @@ fun ReadingScreen(
     onPause: () -> Unit,
     onResume: () -> Unit,
     onFinish: () -> Unit,
+    onLeave: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Leaving loses the reading, so it is confirmed first.
+    var confirmLeave by remember { mutableStateOf(false) }
+    BackHandler { confirmLeave = true }
+    if (confirmLeave) {
+        AlertDialog(
+            onDismissRequest = { confirmLeave = false },
+            title = { Text(stringResource(R.string.leave_reading_title)) },
+            text = { Text(stringResource(R.string.leave_reading_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmLeave = false
+                    onLeave()
+                }) { Text(stringResource(R.string.leave_reading)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmLeave = false }) { Text(stringResource(R.string.keep_reading)) }
+            }
+        )
+    }
+
     val readColor = Color(0xFF4CAF50).copy(alpha = 0.3f)
     val tentativeColor = Color(0xFF4CAF50).copy(alpha = 0.15f)
     val currentColor = Color(0xFFFFEB3B).copy(alpha = 0.6f)
@@ -466,6 +488,18 @@ fun ReadingScreen(
         }
         Spacer(Modifier.height(8.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            // Icon only, so the two main buttons keep room for their labels
+            OutlinedButton(
+                onClick = { confirmLeave = true },
+                contentPadding = PaddingValues(0.dp),
+                modifier = Modifier.size(72.dp)
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.back),
+                    modifier = Modifier.size(32.dp)
+                )
+            }
             if (state.sessionState == SessionState.PAUSED) {
                 ChildButton(
                     Icons.Default.PlayArrow,

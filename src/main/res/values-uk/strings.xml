@@ -36,6 +36,10 @@
     <string name="pause">Пауза</string>
     <string name="resume">Продовжити</string>
     <string name="finish">Готово</string>
+    <string name="leave_reading_title">Вийти з читання?</string>
+    <string name="leave_reading_message">Прогрес цього читання буде втрачено. Воно не з’явиться в попередніх спробах.</string>
+    <string name="leave_reading">Вийти</string>
+    <string name="keep_reading">Читати далі</string>
     <string name="reading_help_hint">Натисни на слово, щоб почути його</string>
     <string name="word_heard">Почуто: %1$s</string>
     <string name="word_heard_nothing">Нічого не почуто</string>

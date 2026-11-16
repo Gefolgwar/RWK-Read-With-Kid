@@ -541,6 +541,47 @@ class ReadingSessionViewModelTest {
         assertNull(state.result)
     }
 
+    // --- leaving a reading ---
+
+    @Test
+    fun `leaving a reading stops the microphone and saves nothing`() {
+        val readings = InMemoryReadingRepository()
+        vm = savingVm(readings, dateMs = 1)
+        vm.updateText(text, TextLanguage.UK, TextReading(textId = 3, textTitle = "Казка"))
+        vm.start()
+        engine.simulateFinal("мама мила")
+        vm.leave()
+
+        assertEquals(SessionState.READY, state.sessionState)
+        assertNull(state.result)
+        assertFalse(engine.started)
+        assertTrue(readings.all.isEmpty())
+
+        // A new reading starts from the beginning
+        vm.start()
+        assertTrue(state.wordStatuses.all { it == WordStatus.UNREAD })
+    }
+
+    @Test
+    fun `leaving a paused reading does not stop the microphone twice`() {
+        vm.updateText(text)
+        vm.start()
+        vm.pause()
+        vm.leave()
+        assertEquals(SessionState.READY, state.sessionState)
+        assertEquals(1, engine.stopCount)
+    }
+
+    @Test
+    fun `leaving a reading closes the tapped word`() {
+        vm.updateText(text)
+        vm.start()
+        engine.simulateFinal("мама")
+        vm.checkWord(0)
+        vm.leave()
+        assertNull(state.wordCheck)
+    }
+
     // --- errors during reading ---
 
     @Test

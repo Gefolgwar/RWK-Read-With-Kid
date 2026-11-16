@@ -36,6 +36,10 @@
     <string name="pause">Pause</string>
     <string name="resume">Weiter</string>
     <string name="finish">Fertig</string>
+    <string name="leave_reading_title">Lesen abbrechen?</string>
+    <string name="leave_reading_message">Der Fortschritt geht verloren. Dieser Versuch erscheint nicht bei den bisherigen Versuchen.</string>
+    <string name="leave_reading">Abbrechen</string>
+    <string name="keep_reading">Weiterlesen</string>
     <string name="reading_help_hint">Tippe auf ein Wort, um es zu hören</string>
     <string name="word_heard">Gehört: %1$s</string>
     <string name="word_heard_nothing">Nichts gehört</string>

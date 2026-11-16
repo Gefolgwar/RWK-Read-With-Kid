@@ -37,6 +37,10 @@
     <string name="pause">Pause</string>
     <string name="resume">Continue</string>
     <string name="finish">Done</string>
+    <string name="leave_reading_title">Leave reading?</string>
+    <string name="leave_reading_message">This reading will be lost. It will not appear in earlier readings.</string>
+    <string name="leave_reading">Leave</string>
+    <string name="keep_reading">Keep reading</string>
     <string name="reading_help_hint">Tap a word to hear it</string>
     <string name="word_heard">Heard: %1$s</string>
     <string name="word_heard_nothing">Nothing was heard</string>

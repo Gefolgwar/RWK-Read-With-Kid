@@ -229,6 +229,15 @@ class ReadingSessionViewModel(
         viewModelScope.launch { readings?.saveReading(record) }
     }
 
+    /** Ends the reading without a result: nothing is saved, e.g. for a reading started by mistake. */
+    fun leave() {
+        val state = _uiState.value.sessionState
+        if (state != SessionState.READING && state != SessionState.PAUSED) return
+        stopRetry()
+        if (state == SessionState.READING) stopEngine()
+        _uiState.update { it.copy(sessionState = SessionState.READY, wordCheck = null) }
+    }
+
     /** Says the word at [index] for the child during reading; it is listed in the result. */
     fun sayWord(index: Int) {
         val state = _uiState.value
