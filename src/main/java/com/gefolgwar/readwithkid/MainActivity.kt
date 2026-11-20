@@ -615,7 +615,7 @@ fun ReadingScreen(
                         WordCheckPopup(
                             check,
                             wordBounds,
-                            misread = state.wordStatuses.getOrNull(check.index) == WordStatus.SKIPPED,
+                            canRetry = state.canRetry(check.index),
                             onRetry = onRetryWord,
                             onClose = onCloseWordCheck
                         )
@@ -655,10 +655,10 @@ fun ReadingScreen(
     }
 }
 
-/** The reading text at [textSize] sp; the line height keeps the 30/52 proportion, so the band and the magnet still fit. */
+/** The reading text at [textSize] sp; the line height keeps the 30/60 proportion, so the band, the magnet and what was heard over a word fit. */
 @Composable
 private fun readingTextStyle(textSize: Int): TextStyle =
-    MaterialTheme.typography.bodyLarge.copy(fontSize = textSize.sp, lineHeight = textSize.sp * (52f / 30f))
+    MaterialTheme.typography.bodyLarge.copy(fontSize = textSize.sp, lineHeight = textSize.sp * (60f / 30f))
 
 /** The child makes the text smaller or bigger, one step through [ReadingTextSizes]; the size is kept for the next reading. */
 @Composable
@@ -688,7 +688,7 @@ private fun Modifier.readingProgress(
     val band = MaterialTheme.colorScheme.primaryContainer
     val measurer = rememberTextMeasurer()
     val heardStyle = MaterialTheme.typography.bodyLarge.copy(
-        fontSize = fontSize * 0.45f,
+        fontSize = fontSize * 0.6f,
         color = if (LocalDarkDoor.current) Magnets.Orange.face else Magnets.Orange.edge
     )
     val reduceMotion = reduceMotion()
@@ -734,7 +734,7 @@ private fun Modifier.readingProgress(
                 label,
                 topLeft = Offset(
                     x.coerceIn(0f, maxOf(0f, size.width - label.size.width)),
-                    box.baseline - font * 0.95f - label.firstBaseline
+                    box.baseline - font * 1.0f - label.firstBaseline
                 )
             )
         }
@@ -782,9 +782,9 @@ private fun DrawScope.drawMagnetTile(word: Rect, font: Float) {
     )
 }
 
-/** Above the tapped word: what the speech model heard in its place, and for a misread word the button to read it again. */
+/** Above the tapped word: what the speech model heard in its place, and for a misread or the current word the button to read it again. */
 @Composable
-private fun WordCheckPopup(check: WordCheck, word: Rect, misread: Boolean, onRetry: () -> Unit, onClose: () -> Unit) {
+private fun WordCheckPopup(check: WordCheck, word: Rect, canRetry: Boolean, onRetry: () -> Unit, onClose: () -> Unit) {
     val position = remember(word) { OverWord(word) }
     Popup(popupPositionProvider = position, onDismissRequest = onClose) {
         Surface(
@@ -808,7 +808,7 @@ private fun WordCheckPopup(check: WordCheck, word: Rect, misread: Boolean, onRet
                         Spacer(Modifier.width(12.dp))
                         Text(stringResource(R.string.word_retry_listening), style = MaterialTheme.typography.titleLarge)
                     }
-                    misread -> ChildButton(Icons.Default.Mic, stringResource(R.string.word_retry), onClick = onRetry)
+                    canRetry -> ChildButton(Icons.Default.Mic, stringResource(R.string.word_retry), onClick = onRetry)
                 }
             }
         }

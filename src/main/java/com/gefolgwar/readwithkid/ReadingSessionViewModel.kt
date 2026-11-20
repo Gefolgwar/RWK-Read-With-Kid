@@ -76,7 +76,10 @@ data class ReadingUiState(
     val helpAvailable: Boolean = false,
     /** The word tapped during reading, or null. */
     val wordCheck: WordCheck? = null
-)
+) {
+    /** A misread word, or the word being read now, can be read again. */
+    fun canRetry(index: Int) = wordStatuses.getOrNull(index) == WordStatus.SKIPPED || index == currentWordIndex
+}
 
 /**
  * Each text language has its own engine, created by [createEngine], and its own model, see [modelInstalled].
@@ -254,7 +257,7 @@ class ReadingSessionViewModel(
         }
     }
 
-    /** Shows what the model heard in place of the word at [index] during reading; nothing for a word not read yet. */
+    /** Shows what the model heard in place of the word at [index] during reading, also the current word; nothing for a word further ahead. */
     fun checkWord(index: Int) {
         if (!isActive()) return
         if (retryIndex != null) endRetry()
@@ -268,12 +271,13 @@ class ReadingSessionViewModel(
     }
 
     /**
-     * The child reads the tapped misread word again: what the microphone hears next is taken for that word
-     * until it is read correctly or the speech ends. Then reading the text goes on from where it was.
+     * The child reads the tapped misread word, or the current word, again: what the microphone hears next is taken
+     * for that word until it is read correctly or the speech ends. Then reading the text goes on from where it was.
      */
     fun retryWord() {
-        val check = _uiState.value.wordCheck ?: return
-        if (!isActive() || check.retrying || aligner.getWordStatus(check.index) != WordStatus.SKIPPED) return
+        val state = _uiState.value
+        val check = state.wordCheck ?: return
+        if (!isActive() || check.retrying || !state.canRetry(check.index)) return
         // The microphone starts afresh, so speech heard before is not taken for the word.
         if (_uiState.value.sessionState == SessionState.READING) stopEngine()
         aligner.commitTentative()

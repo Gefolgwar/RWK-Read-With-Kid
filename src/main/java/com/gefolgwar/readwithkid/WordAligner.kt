@@ -19,7 +19,7 @@ class WordAligner(private val words: List<String>, unknownIndices: Set<Int> = em
         val retried: Set<Int> = emptySet(),
         /** The next expected word already got a wrong attempt. */
         val wrongAttempt: Boolean = false,
-        /** What the model heard in place of a word, as it spelled it: the word itself once read, else the wrong attempts. */
+        /** What the model heard in place of a word, as it spelled it: the word itself once read, else the latest wrong attempt. */
         val heard: Map<Int, String> = emptyMap(),
         /** Trailing recognised words, as heard, that need more speech to resolve: unfinished syllables or an unconfirmed jump. */
         val pending: List<String> = emptyList()
@@ -73,13 +73,15 @@ class WordAligner(private val words: List<String>, unknownIndices: Set<Int> = em
     }
 
     /**
-     * What the model heard in place of a read or skipped word, as it spelled it; "" when nothing was heard
-     * in place of a skipped word. Null for a word not passed yet and for a word the model cannot recognise.
+     * What the model heard in place of a read or skipped word, or the latest wrong attempt at the next word, as it
+     * spelled it; "" when nothing was heard. Null for a word further ahead and for a word the model cannot recognise.
      */
     fun heard(index: Int): String? {
         val k = known.binarySearch(index)
-        if (k !in confirmed.matched && k !in confirmed.skipped) return null
-        return confirmed.heard[k].orEmpty()
+        if (k < 0) return null
+        if (k in confirmed.matched || k in confirmed.skipped) return confirmed.heard[k].orEmpty()
+        val latest = tentative ?: confirmed
+        return if (k == latest.pointer + 1) latest.heard[k].orEmpty() else null
     }
 
     /**
@@ -96,28 +98,34 @@ class WordAligner(private val words: List<String>, unknownIndices: Set<Int> = em
     }
 
     /**
-     * The child reads skipped word [index] again. True once [recognizedWords] hold the word, whole or by syllables:
-     * it then counts as read after a wrong attempt. Otherwise a [final] result is what was heard in its place.
+     * The child reads skipped word [index], or the next word, again. True once [recognizedWords] hold the word, whole
+     * or by syllables: a skipped word then counts as read after a wrong attempt, the next word is read.
+     * Otherwise a [final] result is what was heard in its place, and the next word stays the next one.
      */
     fun retry(index: Int, recognizedWords: List<String>, final: Boolean): Boolean {
         val k = known.binarySearch(index)
-        if (k !in confirmed.skipped) return false
+        val next = k >= 0 && k == confirmed.pointer + 1
+        if (k !in confirmed.skipped && !next) return false
         val heardTokens = recognizedWords.filter { TextPreparation.normalize(it).isNotEmpty() }
         val tokens = heardTokens.map(TextPreparation::normalize)
         val target = normalizedWords[k]
         for (i in tokens.indices) {
             val pieces = glue(tokens, i, target)
             if (pieces > 0 && tokens.subList(i, i + pieces).joinToString("") == target) {
-                confirmed = confirmed.copy(
+                val heardAs = heardTokens.subList(i, i + pieces).joinToString("")
+                confirmed = if (next) confirmed.readTo(k, heardAs) else confirmed.copy(
                     matched = confirmed.matched + k,
                     skipped = confirmed.skipped - k,
                     retried = confirmed.retried + k,
-                    heard = confirmed.heard + (k to heardTokens.subList(i, i + pieces).joinToString(""))
+                    heard = confirmed.heard + (k to heardAs)
                 )
                 return true
             }
         }
-        if (final) confirmed = confirmed.copy(heard = confirmed.heard + (k to heardTokens.joinToString(" ")))
+        if (final) confirmed = confirmed.copy(
+            heard = confirmed.heard + (k to heardTokens.joinToString(" ")),
+            wrongAttempt = confirmed.wrongAttempt || next
+        )
         return false
     }
 
@@ -177,10 +185,8 @@ class WordAligner(private val words: List<String>, unknownIndices: Set<Int> = em
             }
 
             // Right after an unknown word the model says something else in its place: not a wrong attempt.
-            if (!followsUnknown(expected)) {
-                val attempts = listOfNotNull(p.heard[expected], heardTokens[i]).joinToString(" ")
-                p = p.copy(wrongAttempt = true, heard = p.heard + (expected to attempts))
-            }
+            // Only the latest attempt is kept: further attempts at the word are not added to the wrong one.
+            if (!followsUnknown(expected)) p = p.copy(wrongAttempt = true, heard = p.heard + (expected to heardTokens[i]))
             i++
         }
         return p

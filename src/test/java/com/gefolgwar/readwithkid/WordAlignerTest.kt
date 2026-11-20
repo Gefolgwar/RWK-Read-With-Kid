@@ -521,11 +521,55 @@ class WordAlignerTest {
     }
 
     @Test
-    fun `words not passed yet and words the model cannot recognise have nothing heard`() {
+    fun `words not reached yet and words the model cannot recognise have nothing heard`() {
         val aligner = WordAligner(kolobok, kolobokUnknown)
         aligner.processFinal(listOf("баба", "за", "місила", "тісто"))
         assertNull(aligner.heard(1))
-        assertNull(aligner.heard(3))
+        assertNull(aligner.heard(5))
+        // The next word, not attempted yet
+        assertEquals("", aligner.heard(3))
+    }
+
+    @Test
+    fun `a further attempt replaces the wrong one instead of being added to it`() {
+        read("україна є сувора", "сові")
+        assertEquals("сові", aligner.misheard(2))
+        assertEquals("сові", aligner.heard(2))
+        aligner.processPartial(listOf("сира"))
+        assertEquals("сира", aligner.misheard(2))
+    }
+
+    @Test
+    fun `the next word was heard as its latest wrong attempt`() {
+        read("україна є сувора")
+        assertEquals("сувора", aligner.heard(2))
+    }
+
+    @Test
+    fun `the next word read again correctly counts as read after a wrong attempt`() {
+        read("україна є сувора")
+        assertTrue(aligner.retry(2, listOf("суверенна"), final = true))
+        assertEquals(WordStatus.CONFIRMED, aligner.getWordStatus(2))
+        assertEquals(setOf(2), aligner.retriedIndices)
+        assertEquals(emptySet<Int>(), aligner.skippedIndices)
+        assertEquals(2, aligner.confirmedIndex)
+    }
+
+    @Test
+    fun `a wrong attempt at the next word read again keeps it the next word`() {
+        read("україна є")
+        assertFalse(aligner.retry(2, listOf("сові"), final = true))
+        assertEquals("сові", aligner.misheard(2))
+        assertEquals(WordStatus.UNREAD, aligner.getWordStatus(2))
+        read("суверенна")
+        assertEquals(setOf(2), aligner.retriedIndices)
+    }
+
+    @Test
+    fun `a word further ahead cannot be read again`() {
+        read("україна є")
+        assertFalse(aligner.retry(4, listOf("незалежна"), final = true))
+        assertEquals(WordStatus.UNREAD, aligner.getWordStatus(4))
     }
 
     @Test
@@ -569,11 +613,9 @@ class WordAlignerTest {
     }
 
     @Test
-    fun `only a skipped word can be read again`() {
+    fun `a word read correctly cannot be read again`() {
         read("україна є")
         assertFalse(aligner.retry(1, listOf("є"), final = true))
-        assertFalse(aligner.retry(2, listOf("суверенна"), final = true))
-        assertEquals(WordStatus.UNREAD, aligner.getWordStatus(2))
         assertEquals(emptySet<Int>(), aligner.retriedIndices)
     }
 }

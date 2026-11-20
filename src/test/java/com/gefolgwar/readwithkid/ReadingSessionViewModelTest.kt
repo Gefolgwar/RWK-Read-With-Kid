@@ -909,6 +909,59 @@ class ReadingSessionViewModelTest {
     }
 
     @Test
+    fun `a further attempt replaces what was heard over the word`() {
+        vm.updateText(text)
+        vm.start()
+        engine.simulateFinal("мама мила рама")
+        engine.simulatePartial("рами")
+        assertEquals(mapOf(2 to "рами"), state.misheard)
+    }
+
+    @Test
+    fun `the tapped current word shows what was heard and can be read again`() {
+        vm.updateText(text)
+        vm.start()
+        engine.simulateFinal("мама мила рама")
+        assertEquals(2, state.currentWordIndex)
+        vm.checkWord(2)
+        assertEquals(WordCheck(2, "рама"), state.wordCheck)
+
+        vm.retryWord()
+        assertTrue(state.wordCheck!!.retrying)
+        assertEquals(2, engine.startCount)
+        engine.simulatePartial("раму")
+        assertEquals(WordStatus.CONFIRMED, state.wordStatuses[2])
+        assertEquals(WordCheck(2, "раму"), state.wordCheck)
+        assertEquals(3, state.currentWordIndex)
+
+        engine.simulateFinal("тато читав книжку")
+        val result = state.result!!
+        assertEquals(6, result.correctWords)
+        assertEquals(listOf("раму"), result.retriedWords)
+    }
+
+    @Test
+    fun `a wrong attempt at the current word read again keeps it current`() {
+        vm.updateText(text)
+        vm.start()
+        engine.simulateFinal("мама мила рама")
+        vm.checkWord(2)
+        vm.retryWord()
+        engine.simulateFinal("рами")
+        assertEquals(WordCheck(2, "рами"), state.wordCheck)
+        assertEquals(2, state.currentWordIndex)
+        assertEquals(mapOf(2 to "рами"), state.misheard)
+    }
+
+    @Test
+    fun `the tapped current word before any attempt shows nothing heard`() {
+        vm.updateText(text)
+        vm.start()
+        vm.checkWord(0)
+        assertEquals(WordCheck(0, ""), state.wordCheck)
+    }
+
+    @Test
     fun `a misread word passed over keeps what was heard over it`() {
         misreadRamu()
         assertEquals(mapOf(2 to "рама"), state.misheard)
