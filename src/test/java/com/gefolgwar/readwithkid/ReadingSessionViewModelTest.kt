@@ -899,6 +899,22 @@ class ReadingSessionViewModelTest {
     }
 
     @Test
+    fun `a wrong attempt shows what was heard over the word at once, and a correction clears it`() {
+        vm.updateText(text)
+        vm.start()
+        engine.simulatePartial("мама мила рама")
+        assertEquals(mapOf(2 to "рама"), state.misheard)
+        engine.simulateFinal("мама мила рама раму")
+        assertEquals(emptyMap<Int, String>(), state.misheard)
+    }
+
+    @Test
+    fun `a misread word passed over keeps what was heard over it`() {
+        misreadRamu()
+        assertEquals(mapOf(2 to "рама"), state.misheard)
+    }
+
+    @Test
     fun `a tapped read word shows what the model heard in its place`() {
         misreadRamu()
         vm.checkWord(2)

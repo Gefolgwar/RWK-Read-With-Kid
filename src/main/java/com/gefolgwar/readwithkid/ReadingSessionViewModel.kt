@@ -68,6 +68,8 @@ data class ReadingUiState(
     val wordStatuses: List<WordStatus> = emptyList(),
     /** Word the child is expected to read next, or -1. */
     val currentWordIndex: Int = -1,
+    /** Misread words, by index, with what the speech model heard in their place; shown over them while reading. */
+    val misheard: Map<Int, String> = emptyMap(),
     val result: ReadingResult? = null,
     val recognitionError: Boolean = false,
     /** Whether the child can tap a word to hear it: the phone has a voice for the language. */
@@ -401,8 +403,9 @@ class ReadingSessionViewModel(
         val count = _uiState.value.text.words.size
         val statuses = List(count) { aligner.getWordStatus(it) }
         val next = maxOf(aligner.confirmedIndex, aligner.tentativeIndex) + 1
+        val misheard = (0 until count).mapNotNull { i -> aligner.misheard(i)?.let { i to it } }.toMap()
         _uiState.update {
-            it.copy(wordStatuses = statuses, currentWordIndex = if (next < count) next else -1)
+            it.copy(wordStatuses = statuses, currentWordIndex = if (next < count) next else -1, misheard = misheard)
         }
     }
 

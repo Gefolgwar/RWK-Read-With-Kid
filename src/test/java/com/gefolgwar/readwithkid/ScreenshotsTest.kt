@@ -110,6 +110,8 @@ class ScreenshotsTest {
             text = prepared,
             wordStatuses = statuses,
             currentWordIndex = 11,
+            // "червоне" was misread and passed over; the current word has just got a wrong attempt
+            misheard = mapOf(4 to "чорне", 11 to "подивитися"),
             helpAvailable = true
         )
     }

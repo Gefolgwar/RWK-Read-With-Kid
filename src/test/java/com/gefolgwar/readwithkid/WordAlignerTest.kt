@@ -485,6 +485,41 @@ class WordAlignerTest {
         assertEquals("", aligner.heard(1))
     }
 
+    // --- what was heard, shown over a misread word while reading ---
+
+    @Test
+    fun `a wrong attempt at the next word is shown over it at once`() {
+        read("україна є сувора")
+        assertEquals(WordStatus.UNREAD, aligner.getWordStatus(2))
+        assertEquals("сувора", aligner.misheard(2))
+    }
+
+    @Test
+    fun `a wrong attempt in a partial result is shown over the word too`() {
+        aligner.processPartial(listOf("україна", "є", "сувора"))
+        assertEquals("сувора", aligner.misheard(2))
+    }
+
+    @Test
+    fun `a self-corrected word shows nothing over it`() {
+        read("україна є сувора", "суверенна")
+        assertNull(aligner.misheard(2))
+    }
+
+    @Test
+    fun `a misread word passed over keeps what was heard over it`() {
+        read("україна є сувора і")
+        assertEquals("сувора", aligner.misheard(2))
+    }
+
+    @Test
+    fun `read, silently skipped and unread words show nothing over them`() {
+        read("україна суверенна")
+        assertNull(aligner.misheard(0))
+        assertNull(aligner.misheard(1))
+        assertNull(aligner.misheard(3))
+    }
+
     @Test
     fun `words not passed yet and words the model cannot recognise have nothing heard`() {
         val aligner = WordAligner(kolobok, kolobokUnknown)

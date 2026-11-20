@@ -83,6 +83,19 @@ class WordAligner(private val words: List<String>, unknownIndices: Set<Int> = em
     }
 
     /**
+     * What the model heard in place of a misread word, to show over it while reading: the wrong attempts at the next
+     * word as soon as they are heard (also in a partial result), or what was heard in place of a word passed over.
+     * Null for a word read correctly (also after a self-correction), skipped in silence, or not reached yet.
+     */
+    fun misheard(index: Int): String? {
+        val k = known.binarySearch(index)
+        if (k < 0) return null
+        if (k in confirmed.skipped) return confirmed.heard[k]?.takeIf { it.isNotEmpty() }
+        val latest = tentative ?: confirmed
+        return latest.heard[k].takeIf { latest.wrongAttempt && k == latest.pointer + 1 }
+    }
+
+    /**
      * The child reads skipped word [index] again. True once [recognizedWords] hold the word, whole or by syllables:
      * it then counts as read after a wrong attempt. Otherwise a [final] result is what was heard in its place.
      */

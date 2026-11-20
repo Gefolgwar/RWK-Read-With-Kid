@@ -64,6 +64,8 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withLink
@@ -602,7 +604,7 @@ fun ReadingScreen(
                         onTextLayout = { layout = it },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .readingProgress(boxes, state.wordStatuses, state.currentWordIndex, fontSize)
+                            .readingProgress(boxes, state.wordStatuses, state.currentWordIndex, state.misheard, fontSize)
                     )
                     val check = state.wordCheck
                     val wordBounds = check?.takeIf { it.index in wordStarts.indices }?.let {
@@ -671,10 +673,24 @@ private fun TextSizeButtons(textSize: Int, onTextSizeChange: (Int) -> Unit) {
     }
 }
 
-/** Read words underlined in green, skipped ones in dashed orange, the current line banded and the current word on a yellow magnet. */
+/**
+ * Read words underlined in green, skipped ones in dashed orange, the current line banded and the current word on a yellow magnet.
+ * Over a [misheard] word, in small orange letters between the lines, is what the speech model heard in its place.
+ */
 @Composable
-private fun Modifier.readingProgress(boxes: List<WordBox>, statuses: List<WordStatus>, current: Int, fontSize: TextUnit): Modifier {
+private fun Modifier.readingProgress(
+    boxes: List<WordBox>,
+    statuses: List<WordStatus>,
+    current: Int,
+    misheard: Map<Int, String>,
+    fontSize: TextUnit
+): Modifier {
     val band = MaterialTheme.colorScheme.primaryContainer
+    val measurer = rememberTextMeasurer()
+    val heardStyle = MaterialTheme.typography.bodyLarge.copy(
+        fontSize = fontSize * 0.45f,
+        color = if (LocalDarkDoor.current) Magnets.Orange.face else Magnets.Orange.edge
+    )
     val reduceMotion = reduceMotion()
     val target = boxes.getOrNull(current)
     // The magnet springs to the next word along the line; on a new line it is simply there, never sweeping across the text.
@@ -709,6 +725,19 @@ private fun Modifier.readingProgress(boxes: List<WordBox>, statuses: List<WordSt
             }
         }
         if (target != null && tile.value != Rect.Zero) drawMagnetTile(tile.value, font)
+        // Over the magnet too, so the current word shows a wrong attempt at once
+        misheard.forEach { (i, heard) ->
+            val box = boxes.getOrNull(i) ?: return@forEach
+            val label = measurer.measure(heard, heardStyle)
+            val x = (box.left + box.right) / 2 - label.size.width / 2
+            drawText(
+                label,
+                topLeft = Offset(
+                    x.coerceIn(0f, maxOf(0f, size.width - label.size.width)),
+                    box.baseline - font * 0.95f - label.firstBaseline
+                )
+            )
+        }
     }
 }
 
