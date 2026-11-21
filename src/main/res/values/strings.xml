@@ -76,6 +76,14 @@
     <string name="word_heard_nothing">Nothing was heard</string>
     <string name="word_retry">Read again</string>
     <string name="word_retry_listening">Read the word…</string>
+    <string name="reading_guide_title">How to read</string>
+    <string name="reading_guide_read_aloud">Read the text aloud, word by word.</string>
+    <string name="reading_guide_read">Words you have read get a green line.</string>
+    <string name="reading_guide_skipped">Skipped words get a dashed orange line.</string>
+    <string name="reading_guide_tap_hear">Tap a word to hear it and to see what the phone heard.</string>
+    <string name="reading_guide_tap">Tap a word to see what the phone heard.</string>
+    <string name="reading_guide_buttons">“%1$s” to take a break, “%2$s” when you have read to the end.</string>
+    <string name="reading_guide_close">Got it</string>
 
     <string name="result_praise_3">Excellent reading!</string>
     <string name="result_praise_2">Well done!</string>
@@ -116,6 +124,9 @@
         <item quantity="other">%d words</item>
     </plurals>
     <string name="text_read_today">today: %d</string>
+    <string name="text_last_read">Last read: %1$s</string>
+    <string name="text_never_read">Not read yet</string>
+    <string name="sample_tag">Example</string>
     <plurals name="words_read_today">
         <item quantity="one">Read today: %d word</item>
         <item quantity="other">Read today: %d words</item>

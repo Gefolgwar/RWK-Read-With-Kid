@@ -6,6 +6,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -68,6 +70,63 @@ class RoomTextRepositoryTest {
 
         val texts = withRepository { it.observeAll(firstChild).first() }
         assertEquals(listOf(TextLanguage.UK, TextLanguage.DE), texts.map { it.language })
+    }
+
+    @Test
+    fun `a new app database gives the first child a short Ukrainian and a German sample to try`() {
+        val db = AppDatabase.build(context, dbName, withSamples = true)
+        try {
+            val texts = runBlocking { db.texts().observeAll(firstChild).first() }
+            assertEquals(listOf(TextLanguage.UK, TextLanguage.DE), texts.map { it.language })
+            texts.forEach { text ->
+                assertTrue(text.sample)
+                assertEquals(TextPreparation.autoTitle(text.rawText), text.title)
+                assertEquals(text.language, TextPreparation.detectLanguage(text.rawText))
+                // Nothing speech recognition handles poorly, and a few sentences only
+                assertTrue(TextPreparation.findHardParts(text.rawText).isEmpty)
+                assertTrue(TextPreparation.prepare(text.rawText).sentences.size in 2..4)
+            }
+        } finally {
+            db.close()
+        }
+        // The samples are added once; deleted ones do not come back when the app starts again.
+        withRepository { repo -> repo.observeAll(firstChild).first().forEach { repo.delete(it.id) } }
+        val db2 = AppDatabase.build(context, dbName, withSamples = true)
+        try {
+            assertEquals(emptyList<SavedText>(), runBlocking { db2.texts().observeAll(firstChild).first() })
+        } finally {
+            db2.close()
+        }
+    }
+
+    @Test
+    fun `texts saved before samples existed are the parent's own after the upgrade`() {
+        // A database as version 7 of the app left it: texts without the sample mark.
+        context.openOrCreateDatabase(dbName, Context.MODE_PRIVATE, null).use { db ->
+            db.execSQL("CREATE TABLE `children` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL)")
+            db.execSQL(
+                "CREATE TABLE `texts` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, " +
+                    "`rawText` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `language` TEXT NOT NULL DEFAULT 'UK', " +
+                    "`childId` INTEGER NOT NULL, " +
+                    "FOREIGN KEY(`childId`) REFERENCES `children`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)"
+            )
+            db.execSQL("CREATE INDEX `index_texts_childId` ON `texts` (`childId`)")
+            db.execSQL(
+                "CREATE TABLE `readings` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`textId` INTEGER NOT NULL, `textTitle` TEXT NOT NULL, `readAt` INTEGER NOT NULL, " +
+                    "`totalWords` INTEGER NOT NULL, `correctWords` INTEGER NOT NULL, `durationMs` INTEGER NOT NULL, " +
+                    "`skippedWords` TEXT NOT NULL, `retriedWords` TEXT NOT NULL, `helpedWords` TEXT NOT NULL DEFAULT '', " +
+                    "FOREIGN KEY(`textId`) REFERENCES `texts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)"
+            )
+            db.execSQL("CREATE INDEX `index_readings_textId` ON `readings` (`textId`)")
+            db.execSQL("INSERT INTO children (name) VALUES ('Оля')")
+            db.execSQL("INSERT INTO texts (title, rawText, createdAt, language, childId) VALUES ('Казка', 'Жив собі кіт.', 1, 'UK', 1)")
+            db.version = 7
+        }
+
+        val text = withRepository { it.observeAll(firstChild).first().single() }
+        assertEquals("Казка", text.title)
+        assertFalse(text.sample)
     }
 
     @Test

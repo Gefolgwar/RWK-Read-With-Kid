@@ -4,7 +4,9 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -25,19 +27,21 @@ class ReadingScreenTest {
 
     private fun string(id: Int) = compose.activity.getString(id)
 
-    private fun open(textSize: Int) = compose.setContent {
+    private val events = mutableListOf<String>()
+
+    private fun open(textSize: Int = 30, sessionState: SessionState = SessionState.READING) = compose.setContent {
         ReadWithKidTheme {
             val text = TextPreparation.prepare("Мама мила раму.")
             ReadingScreen(
-                ReadingUiState(SessionState.READING, text = text, wordStatuses = List(text.words.size) { WordStatus.UNREAD }),
+                ReadingUiState(sessionState, text = text, wordStatuses = List(text.words.size) { WordStatus.UNREAD }),
                 "Мама мила раму",
                 Magnets.forText(1),
                 syllableColors = false,
                 onWordTap = {},
                 onRetryWord = {},
                 onCloseWordCheck = {},
-                onPause = {},
-                onResume = {},
+                onPause = { events += "pause" },
+                onResume = { events += "resume" },
                 onFinish = {},
                 onLeave = {},
                 textSize = textSize,
@@ -76,6 +80,26 @@ class ReadingScreenTest {
         compose.onNodeWithContentDescription(string(R.string.text_bigger)).performClick()
         compose.onNodeWithContentDescription(string(R.string.text_smaller)).performClick()
         assertEquals(listOf(34, 26), chosen)
+    }
+
+    @Test
+    fun `the help button explains what to do, and reading waits while it is open and goes on after`() {
+        open()
+        compose.onNodeWithContentDescription(string(R.string.reading_guide_title)).performClick()
+        compose.onNodeWithText(string(R.string.reading_guide_read_aloud)).assertIsDisplayed()
+        assertEquals(listOf("pause"), events)
+
+        compose.onNodeWithText(string(R.string.reading_guide_close)).performClick()
+        compose.onNodeWithText(string(R.string.reading_guide_read_aloud)).assertDoesNotExist()
+        assertEquals(listOf("pause", "resume"), events)
+    }
+
+    @Test
+    fun `the help opened during a pause leaves the pause on`() {
+        open(sessionState = SessionState.PAUSED)
+        compose.onNodeWithContentDescription(string(R.string.reading_guide_title)).performClick()
+        compose.onNodeWithText(string(R.string.reading_guide_close)).performClick()
+        assertEquals(emptyList<String>(), events)
     }
 
     @Test

@@ -102,6 +102,8 @@ class RealVoskEngine(private val modelDir: File) : VoskEngine {
 
         recordingThread = Thread {
             val buffer = ShortArray(bufferSize / 2)
+            // The model repeats the same partial result while it hears nothing new; only a change is passed on.
+            var lastPartial = ""
             while (isRecording) {
                 takePendingRecognizer()?.let { next ->
                     recognizer?.close()
@@ -121,10 +123,14 @@ class RealVoskEngine(private val modelDir: File) : VoskEngine {
                     val rec = recognizer ?: continue
                     if (rec.acceptWaveForm(byteBuffer, byteBuffer.size)) {
                         val result = rec.result
+                        lastPartial = ""
                         postToListener { it.onResult(result) }
                     } else {
                         val partial = rec.partialResult
-                        postToListener { it.onPartialResult(partial) }
+                        if (partial != lastPartial) {
+                            lastPartial = partial
+                            postToListener { it.onPartialResult(partial) }
+                        }
                     }
                 }
             }

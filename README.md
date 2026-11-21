@@ -137,6 +137,6 @@ Before uploading a new version, increase `versionCode` (and `versionName` if nee
 1. Launch the app on the phone. If the language model hasn't been downloaded yet, the app starts downloading it right away on the reading-text screen: download progress is shown, along with a clear message and a **Try again** button if there is no internet or not enough space. After that, reading works offline.
 2. Paste or type a text. Below the field you can see how the text is split into sentences and words.
 3. Tap **Start reading**. On the first start the app explains why it needs the microphone and asks for permission.
-4. The child reads aloud: the current word is highlighted in yellow, words already read in green.
+4. The child reads aloud: the current line is banded, words already read are underlined in green.
 5. **Pause** / **Continue** turn the microphone off and on again. If the app goes to the background, reading is paused automatically.
 6. Reading ends when the last word is recognised, or with the **Done** button. The result screen shows accuracy, WCPM and duration.

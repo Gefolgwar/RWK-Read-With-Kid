@@ -230,7 +230,7 @@ components:
 
 The app is the fridge door where a family's letters live. The ground is a cool enamel white with a blue-grey tint, never cream; white cards sit on it like paper held up on the door; ink is a near-black blue. Colour comes from one source only: six saturated plastic magnet colours, each with a darker same-hue edge that shows the plastic's thickness. Every text the parent adds is represented by its first letter as a chunky Andika Bold magnet, and that magnet's colour follows the text from library to reading to result.
 
-The system is deliberately two-handed. The parent screens (library, editor, history, settings) are calm, standard Material 3: hand-rolled headers matching the large top app bar, filled white cards, pill buttons, a primary extended FAB. The child's screens (ready-to-read, reading, result) use the same tokens at child scale: 72 to 96dp buttons with a big icon and a short title-large label, reading text at 30sp with 52sp line height, and the one signature motion, the current word snapping onto a lifted yellow magnet tile.
+The system is deliberately two-handed. The parent screens (library, editor, history, settings) are calm, standard Material 3: hand-rolled headers matching the large top app bar, filled white cards, pill buttons, a primary extended FAB. The child's screens (ready-to-read, reading, result) use the same tokens at child scale: 72 to 96dp buttons with a big icon and a short title-large label, reading text at 30sp with 52sp line height,. No marker chases the current word: a misheard word must never make the child stop and wait for it.
 
 Depth is physical only where the world is physical. Magnets stand off the door with a darker edge, a soft drop shadow and a gloss across the top; everything else is flat tonal layering. The system rejects the category defaults it replaced: pastel mascot cards, cream-and-serif "storybook", and the clinical assessment dashboard.
 
@@ -241,7 +241,7 @@ The app follows the system theme. The dark door is the same world at night: dark
 - Six glossy magnet colours, each a face, a darker edge and a pale container.
 - Andika throughout; Bold for every heading, title and label, Regular for body and reading.
 - Each text owns one magnet colour, derived from its id, everywhere it appears.
-- Yellow belongs to the reading moment: the current word and the reward.
+- Yellow belongs to the reading moment: the reward and retried words.
 - Rounded, chunky shapes; standard Material 3 controls.
 
 ## Colors
@@ -260,7 +260,7 @@ Saturated plastic on cool enamel: the ground and ink stay quiet so the magnets c
 ### The text magnets
 - **Magnet Red, Blue, Green, Orange, Purple**, each a face over its edge, are the five colours a text can own. `Magnets.forText(id)` picks one by `id mod 5`, so texts added one after another get different colours and a text keeps its colour forever.
 - **Magnet Yellow** (magnet-yellow over magnet-yellow-edge) is not in that set. It is the current-word tile and the earned reward stars; its pale container tints the retried-word tiles on the result.
-- **Syllable colours**: when coloured syllables are on, syllables alternate magnet-blue-edge and magnet-red-edge, starting each word with blue; the edges are dark enough to read on the band and the yellow tile.
+- **Syllable colours**: when coloured syllables are on, syllables alternate magnet-blue-edge and magnet-red-edge, starting each word with blue; the edges are dark enough to read on the band.
 
 ### Neutral
 - **Enamel Door** (enamel-door): the background and surface, the whole app's ground.
@@ -275,7 +275,7 @@ Saturated plastic on cool enamel: the ground and ink stay quiet so the magnets c
 ### Named Rules
 **The One Owner Rule.** A text has exactly one magnet colour, from its id across the five text colours, and it shows that colour on the library card, the text heading, the reading header and the result heading. Never pick a text's colour by hand or by position in a list.
 
-**The Yellow Moment Rule.** Yellow is never a text's colour and never an action colour. On the reading screen it marks only the current word; elsewhere it is the reward (earned stars) and the trace of the moment (retried words).
+**The Yellow Moment Rule.** Yellow is never a text's colour and never an action colour. It is the reward (earned stars) and the trace of the moment (retried words).
 
 **The Enamel, Not Cream Rule.** The ground is cool blue-grey (enamel-door). A warm cream or beige ground is the look this system replaced.
 
@@ -329,7 +329,7 @@ Magnets are the one place depth is drawn on purpose. A magnet letter is drawn tw
 
 ## Shapes
 
-Rounded and chunky throughout: the M3 shape scale is raised to 8 / 12 / 16 / 24 / 32dp (xs, sm, md, lg, xl). Cards, the reading page, the text field and popups use lg (24dp). Child buttons use xl (32dp), which at 72dp tall reads as a fat pill. Parent Material buttons keep their default full pill. Result word tiles use sm (12dp); the editor hint uses md (16dp). The reading band rounds at 14dp and the current-word tile at 10dp, so the tile sits inside the band's softness. Reading-progress underlines are 4dp strokes with round caps; the skipped mark is dashed 8 on 7dp.
+Rounded and chunky throughout: the M3 shape scale is raised to 8 / 12 / 16 / 24 / 32dp (xs, sm, md, lg, xl). Cards, the reading page, the text field and popups use lg (24dp). Child buttons use xl (32dp), which at 72dp tall reads as a fat pill. Parent Material buttons keep their default full pill. Result word tiles use sm (12dp); the editor hint uses md (16dp). The reading band rounds at 14dp. Reading-progress underlines are 4dp strokes with round caps; the skipped mark is dashed 8 on 7dp.
 
 ## Components
 
@@ -366,7 +366,7 @@ The library row: the text's magnet letter centred in a 52dp slot, 12dp gap, titl
 The system's signature glyph: a letter or digit from the title, uppercase, Andika Bold, drawn as a magnet in its text's colour (face over edge, shadow, gloss). Decoration only; hidden from TalkBack. The empty library shows three of them (red, blue, green) at 72sp above the empty-state line.
 
 ### Reading page and the current-word magnet
-The reading text sits on a white lg card at 30/60. Progress is drawn behind the words so lines never reflow: the current line is banded in magnet-blue-container like a reading ruler (14dp corners, overhanging the text by 12dp each side); confirmed words get a solid 4dp Magnet Green underline, tentative ones the same at 40%, skipped ones a dashed Magnet Orange underline. Over a misread word, in the gap above it at 60% of the text size, is what the speech model heard in its place, in magnet-orange-edge (magnet-orange on the dark page); it appears as soon as a wrong attempt is heard, also over the current word on its magnet, and goes once the child corrects the word. The current word sits on the lifted yellow magnet tile, which springs along the line to the next word and appears in place on a new line, never sweeping across the text. Tapping a word speaks it and opens the word-check popup; a misread word and the current word also offer Read again.
+The reading text sits on a white lg card at 30/60. Progress is drawn behind the words so lines never reflow: the current line is banded in magnet-blue-container like a reading ruler (14dp corners, overhanging the text by 12dp each side); confirmed words get a solid 4dp Magnet Green underline, tentative ones the same at 40%, skipped ones a dashed Magnet Orange underline. Over a misread word, in the gap above it at 60% of the text size, is what the speech model heard in its place, in magnet-orange-edge (magnet-orange on the dark page); it appears as soon as a wrong attempt is heard, also over the current word, and goes once the child corrects the word. The current word itself is not marked: speech recognition sometimes mishears a word read correctly, and a marker waiting on it would stop the child. Tapping a word speaks it and opens the word-check popup; a misread word and the current word also offer Read again.
 
 ### Result
 Earned stars (72dp, glossy yellow magnets) pop in one after another; unearned ones stay as hairline outlines. A praise line in Headline Medium follows, then a white card of labelled rows (label in Body Large, figure in Headline Small with tabular figures, minimum 64dp) whose numbers count up in place. Word lists follow as tiles in the reading font at 22sp on the pale container of the colour that marked them while reading: orange for skipped, yellow for retried, blue for helped.

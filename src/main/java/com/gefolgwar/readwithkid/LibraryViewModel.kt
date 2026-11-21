@@ -46,8 +46,11 @@ data class TextHistory(
     val scores: List<Int> = readings.asReversed().map { it.result.wordsCorrectPerMinute }
 }
 
-/** Shown on a text's card: [wordCount] as the reading session counts them, and the words read correctly today. */
-data class TextStats(val wordCount: Int, val wordsReadToday: Int)
+/**
+ * Shown on a text's card: [wordCount] as the reading session counts them, the words read correctly today,
+ * and when the text was last read (ms since the epoch), or null before its first reading.
+ */
+data class TextStats(val wordCount: Int, val wordsReadToday: Int, val lastReadAt: Long? = null)
 
 data class LibraryUiState(
     /** Texts of the [activeChild]. */
@@ -120,10 +123,12 @@ class LibraryViewModel(
         val start = today.timeInMillis
         val end = today.apply { add(Calendar.DAY_OF_MONTH, 1) }.timeInMillis
         val readToday = readings.filter { it.readAt in start until end }.groupBy { it.textId }
+        val lastRead = readings.groupBy { it.textId }.mapValues { (_, own) -> own.maxOf { it.readAt } }
         return texts.associate { text ->
             text.id to TextStats(
                 wordCount = TextPreparation.prepare(text.rawText).words.size,
-                wordsReadToday = readToday[text.id].orEmpty().sumOf { it.result.correctWords }
+                wordsReadToday = readToday[text.id].orEmpty().sumOf { it.result.correctWords },
+                lastReadAt = lastRead[text.id]
             )
         }
     }

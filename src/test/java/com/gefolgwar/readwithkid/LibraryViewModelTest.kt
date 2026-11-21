@@ -601,6 +601,33 @@ class LibraryViewModelTest {
         assertEquals(2, state.textStats.getValue(text.id).wordsReadToday)
     }
 
+    @Test
+    fun `a text card knows when that text was read last, from its history`() {
+        addText("Мама мила раму.")
+        addText("Кіт спав.")
+        val (cat, mama) = state.texts
+        assertNull(state.textStats.getValue(mama.id).lastReadAt)
+
+        saveReading(mama, readAt = at(day = 12, hour = 9))
+        val latest = saveReading(mama, readAt = at(day = 14, hour = 18))
+        saveReading(mama, readAt = at(day = 13, hour = 9))
+        assertEquals(at(day = 14, hour = 18), state.textStats.getValue(mama.id).lastReadAt)
+        assertNull(state.textStats.getValue(cat.id).lastReadAt)
+
+        vm.deleteReading(latest)
+        assertEquals(at(day = 13, hour = 9), state.textStats.getValue(mama.id).lastReadAt)
+    }
+
+    @Test
+    fun `an edited sample text is the parent's own text`() {
+        val sample = SavedText(title = "Кіт", rawText = "Кіт спав.", createdAt = 1, childId = 1, sample = true)
+        runBlocking { repository.save(sample) }
+        vm.edit(state.texts.single())
+        vm.updateRawText("Кіт спав на вікні.")
+        vm.save()
+        assertFalse(state.texts.single().sample)
+    }
+
     // --- parent mode and child mode ---
 
     /** Gives the factors of the unlock questions in order. */

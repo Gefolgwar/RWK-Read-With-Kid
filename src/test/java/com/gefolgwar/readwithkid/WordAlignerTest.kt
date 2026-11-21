@@ -318,6 +318,31 @@ class WordAlignerTest {
     }
 
     @Test
+    fun `reading goes on after several words in a row were misheard`() {
+        // "є суверенна і" heard as something else; the reading is heard again from "незалежна"
+        read("україна е сувора й незалежна демократична соціальна")
+        assertEquals(6, aligner.confirmedIndex)
+        assertEquals(setOf(1, 2, 3), aligner.skippedIndices)
+        assertEquals(WordStatus.CONFIRMED, aligner.getWordStatus(4))
+    }
+
+    @Test
+    fun `reading goes on after misheard words once the following final confirms it`() {
+        read("україна е сувора й незалежна демократична")
+        assertEquals(0, aligner.confirmedIndex)
+        read("соціальна")
+        assertEquals(6, aligner.confirmedIndex)
+    }
+
+    @Test
+    fun `a far jump needs two following words of the text`() {
+        // "незалежна" is 3 words ahead, but what follows does not continue the text there
+        read("україна незалежна демократична правова")
+        assertEquals(0, aligner.confirmedIndex)
+        assertEquals(emptySet<Int>(), aligner.skippedIndices)
+    }
+
+    @Test
     fun `unconfirmed jump at the end of a partial is not shown`() {
         read("україна")
         aligner.processPartial(listOf("і"))

@@ -55,13 +55,13 @@ class ScreenshotsTest {
     private val texts = listOf(
         SavedText(1, TextPreparation.autoTitle(story), story, 0, TextLanguage.UK, childId = 2),
         SavedText(2, "Der kleine Igel", "Der kleine Igel sucht im Garten nach Äpfeln. Er findet drei und trägt sie nach Hause.", 0, TextLanguage.DE, childId = 2),
-        SavedText(3, "Мама мила раму", "Мама мила раму. Тато читав книжку. Оля малювала сонце.", 0, TextLanguage.UK, childId = 2),
+        SavedText(3, "Мама мила раму", "Мама мила раму. Тато читав книжку. Оля малювала сонце.", 0, TextLanguage.UK, childId = 2, sample = true),
         SavedText(4, "Kater Paul", "Kater Paul schläft gern in der Sonne. Am Abend spielt er mit einem Ball.", 0, TextLanguage.DE, childId = 2)
     )
     /** The story and the German hedgehog were read today, the others not. */
     private val stats = texts.associate { text ->
         val today = mapOf(1L to 27, 2L to 15)[text.id] ?: 0
-        text.id to TextStats(TextPreparation.prepare(text.rawText).words.size, today)
+        text.id to TextStats(TextPreparation.prepare(text.rawText).words.size, today, lastReadAt = if (today > 0) 1_763_000_000_000 else null)
     }
     private val result = ReadingResult(
         totalWords = 34,
@@ -299,6 +299,25 @@ class ScreenshotsTest {
     @Test
     @Config(qualifiers = "de-w412dp-h915dp-xhdpi", fontScale = 1.3f)
     fun readingNormsGermanLargeFont() = normsShot("6d-reading-norms-de-font130", dark = false)
+
+    @Test
+    fun readingGuide() = guideShot("4d-reading-guide", dark = false)
+
+    @Test
+    fun readingGuideDark() = guideShot("d4d-reading-guide", dark = true)
+
+    /** The help button on the reading screen opens what to do while reading, captured alone like the norms. */
+    private fun guideShot(name: String, dark: Boolean) {
+        compose.setContent {
+            ReadWithKidTheme(dark = dark) {
+                ReadingScreen(reading(), texts[0].title, Magnets.forText(1), syllableColors = false, {}, {}, {}, {}, {}, {}, {})
+            }
+        }
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.reading_guide_title)).performClick()
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(1_000)
+        save(name, ShadowDialog.getLatestDialog().window!!.decorView)
+    }
 
     /** The info button in the history header opens the norms: the dialog is its own window, so it is captured alone. */
     private fun normsShot(name: String, dark: Boolean) {

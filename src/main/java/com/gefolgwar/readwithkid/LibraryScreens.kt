@@ -519,17 +519,23 @@ private fun TextCard(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(
-                    stringResource(text.language.nameRes),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
+                // The text's language, and whether it is a sample that came with the app
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(vertical = 4.dp)) {
+                    CardTag(stringResource(text.language.nameRes), MaterialTheme.colorScheme.surfaceContainerHigh)
+                    if (text.sample) CardTag(stringResource(R.string.sample_tag), Magnets.Blue.container)
+                }
                 if (stats != null) {
                     // "N words · today: M", the today part only once something was read today
                     val words = pluralStringResource(R.plurals.text_word_count, stats.wordCount, stats.wordCount)
                     Text(
                         if (stats.wordsReadToday > 0) "$words · ${stringResource(R.string.text_read_today, stats.wordsReadToday)}" else words,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    val dateFormat = remember { DateFormat.getDateInstance(DateFormat.MEDIUM) }
+                    Text(
+                        stats.lastReadAt?.let { stringResource(R.string.text_last_read, dateFormat.format(Date(it))) }
+                            ?: stringResource(R.string.text_never_read),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -565,6 +571,19 @@ private fun TextCard(
                 }
             }
         }
+    }
+}
+
+/** A small label on a text's card, such as its language. */
+@Composable
+private fun CardTag(label: String, color: Color) {
+    Surface(color = color, shape = MaterialTheme.shapes.small) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+        )
     }
 }
 

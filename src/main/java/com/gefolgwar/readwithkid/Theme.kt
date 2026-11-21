@@ -160,9 +160,6 @@ internal val AppDarkColors = darkColorScheme(
 /** Whether the door is dark, for the colours a colour scheme does not carry. */
 val LocalDarkDoor = staticCompositionLocalOf { false }
 
-/** Ink for the word on the yellow magnet: always dark, the tile is yellow in both themes. */
-val InkOnMagnet = Color(0xFF161B26)
-
 private val AppShapes = Shapes(
     extraSmall = RoundedCornerShape(8.dp),
     small = RoundedCornerShape(12.dp),
@@ -171,7 +168,7 @@ private val AppShapes = Shapes(
     extraLarge = RoundedCornerShape(32.dp)
 )
 
-/** Coloured syllables alternate these, starting each word with blue; dark enough to read on the yellow magnet too. */
+/** Coloured syllables alternate these, starting each word with blue; dark enough to read on the reading band too. */
 val SyllableColorsOnMagnet = listOf(Magnets.Blue.edge, Magnets.Red.edge)
 
 /** Coloured syllables on the page: the magnet edges on the light door, light blue and red on the dark one. */

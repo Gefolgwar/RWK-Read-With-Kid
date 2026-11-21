@@ -18,7 +18,10 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 
-/** A text in the library of the child [childId]; removed together with the child. [id] is 0 until the text is saved. */
+/**
+ * A text in the library of the child [childId]; removed together with the child. [id] is 0 until the text is saved.
+ * A [sample] came with the app for trying it out; once edited it is the parent's own text.
+ */
 @Entity(
     tableName = "texts",
     foreignKeys = [
@@ -32,7 +35,8 @@ data class SavedText(
     val rawText: String,
     val createdAt: Long,
     @ColumnInfo(defaultValue = "UK") val language: TextLanguage = TextLanguage.UK,
-    val childId: Long
+    val childId: Long,
+    @ColumnInfo(defaultValue = "0") val sample: Boolean = false
 )
 
 interface TextRepository {
@@ -65,7 +69,7 @@ abstract class TextDao : TextRepository {
 
 @Database(
     entities = [Child::class, SavedText::class, ReadingRecord::class],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 @TypeConverters(WordListConverter::class)
@@ -79,19 +83,33 @@ abstract class AppDatabase : RoomDatabase() {
         private var instance: AppDatabase? = null
 
         fun get(context: Context): AppDatabase = instance ?: synchronized(this) {
-            instance ?: build(context, "read_with_kid.db").also { instance = it }
+            instance ?: build(context, "read_with_kid.db", withSamples = true).also { instance = it }
         }
 
-        fun build(context: Context, name: String): AppDatabase =
+        /** [withSamples]: a new database also gets the [SampleTexts] for its first child. */
+        fun build(context: Context, name: String, withSamples: Boolean = false): AppDatabase =
             Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, name)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                 .addCallback(object : Callback() {
                     // A new library starts with one child who has no name yet.
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         db.execSQL("INSERT INTO `children` (`name`) VALUES ('')")
+                        if (withSamples) addSamples(db)
                     }
                 })
                 .build()
+
+        /** Adds the samples once, when the app is installed; the first sample is listed first. */
+        private fun addSamples(db: SupportSQLiteDatabase) {
+            val now = System.currentTimeMillis()
+            SampleTexts.all.forEachIndexed { i, (raw, language) ->
+                db.execSQL(
+                    "INSERT INTO `texts` (`title`, `rawText`, `createdAt`, `language`, `childId`, `sample`) " +
+                        "VALUES (?, ?, ?, ?, (SELECT MIN(`id`) FROM `children`), 1)",
+                    arrayOf<Any>(TextPreparation.autoTitle(raw), raw, now - i, language.name)
+                )
+            }
+        }
 
         /** Adds child profiles and text assignments; saved texts are kept. */
         private val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -184,6 +202,13 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("DROP TABLE `texts`")
                 db.execSQL("ALTER TABLE `texts_new` RENAME TO `texts`")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_texts_childId` ON `texts` (`childId`)")
+            }
+        }
+
+        /** Marks the samples that come with the app; texts saved before are the parent's own. */
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `texts` ADD COLUMN `sample` INTEGER NOT NULL DEFAULT 0")
             }
         }
     }

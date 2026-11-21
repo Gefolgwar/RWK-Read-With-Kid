@@ -17,14 +17,15 @@ import androidx.activity.viewModels
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Pause
@@ -33,6 +34,7 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.TextDecrease
 import androidx.compose.material.icons.filled.TextIncrease
+import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -43,13 +45,8 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
@@ -509,35 +506,45 @@ fun ReadingScreen(
         )
     }
 
+    // What to do while reading; reading waits while it is open and goes on after, unless it was paused already.
+    var showGuide by remember { mutableStateOf(false) }
+    var pausedForGuide by remember { mutableStateOf(false) }
+    if (showGuide) {
+        ReadingGuideDialog(state.helpAvailable, onClose = {
+            showGuide = false
+            if (pausedForGuide) onResume()
+            pausedForGuide = false
+        })
+    }
+
     val words = state.text.words
-    // Where each word starts in the shown text, to find the line of the current word
-    val wordStarts = IntArray(words.size)
     val scroll = rememberScrollState()
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
-    // Words keep their look while their state changes: the states are drawn behind the text, so lines never reflow.
-    val noLinkStyle = TextLinkStyles(style = SpanStyle())
 
     val fontSize = textSize.sp
     val pagePalette = SyllableColors
-    val annotated = buildAnnotatedString {
-        words.forEachIndexed { index, word ->
-            wordStarts[index] = length
-            // The yellow magnet is yellow on the dark page too, so the word on it is always in dark ink (colour only, no reflow).
-            val onMagnet = index == state.currentWordIndex
-            val palette = if (onMagnet) SyllableColorsOnMagnet else pagePalette
-            // Tapping a word says it, when the phone has a voice for the language, and shows what was heard in its place
-            withLink(LinkAnnotation.Clickable("word$index", noLinkStyle) { onWordTap(index) }) {
-                // With coloured syllables the letters' colour shows the syllables; progress is drawn behind them.
-                if (syllableColors) {
-                    Syllables.split(word.display, state.language).forEachIndexed { i, syllable ->
-                        withStyle(SpanStyle(color = palette[i % palette.size])) { append(syllable) }
-                    }
-                } else if (onMagnet) {
-                    withStyle(SpanStyle(color = InkOnMagnet)) { append(word.display) }
-                } else append(word.display)
+    val wordTap by rememberUpdatedState(onWordTap)
+    // Words keep their look while their state changes: the states are drawn behind the text, so lines never reflow.
+    // The text is built once, so a long text is not built and laid out again for every word read.
+    // Also where each word starts in the shown text, to find the line of the current word.
+    val (annotated, wordStarts) = remember(words, syllableColors, pagePalette, state.language) {
+        val starts = IntArray(words.size)
+        val noLinkStyle = TextLinkStyles(style = SpanStyle())
+        buildAnnotatedString {
+            words.forEachIndexed { index, word ->
+                starts[index] = length
+                // Tapping a word says it, when the phone has a voice for the language, and shows what was heard in its place
+                withLink(LinkAnnotation.Clickable("word$index", noLinkStyle) { wordTap(index) }) {
+                    // With coloured syllables the letters' colour shows the syllables; progress is drawn behind them.
+                    if (syllableColors) {
+                        Syllables.split(word.display, state.language).forEachIndexed { i, syllable ->
+                            withStyle(SpanStyle(color = pagePalette[i % pagePalette.size])) { append(syllable) }
+                        }
+                    } else append(word.display)
+                }
+                if (index < words.lastIndex) append(" ")
             }
-            if (index < words.lastIndex) append(" ")
-        }
+        } to starts
     }
 
     val boxes = remember(layout) {
@@ -579,6 +586,13 @@ fun ReadingScreen(
                     modifier = Modifier.weight(1f)
                 )
             } else Spacer(Modifier.weight(1f))
+            IconButton(onClick = {
+                pausedForGuide = state.sessionState == SessionState.READING
+                if (pausedForGuide) onPause()
+                showGuide = true
+            }) {
+                Icon(Icons.AutoMirrored.Outlined.HelpOutline, contentDescription = stringResource(R.string.reading_guide_title))
+            }
             TextSizeButtons(textSize, onTextSizeChange)
         }
         Spacer(Modifier.height(12.dp))
@@ -655,6 +669,55 @@ fun ReadingScreen(
     }
 }
 
+/**
+ * What to do on the reading screen, each point next to the mark it explains, as the child sees it on the page:
+ * read aloud, green and dashed orange lines, tapping a word, Pause and Done.
+ */
+@Composable
+private fun ReadingGuideDialog(helpAvailable: Boolean, onClose: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onClose,
+        icon = { Icon(Icons.AutoMirrored.Outlined.HelpOutline, contentDescription = null) },
+        title = { Text(stringResource(R.string.reading_guide_title), textAlign = TextAlign.Center) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                GuideRow(stringResource(R.string.reading_guide_read_aloud)) {
+                    Icon(Icons.Default.Mic, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                }
+                GuideRow(stringResource(R.string.reading_guide_read)) { GuideLine(Magnets.Green.face) }
+                GuideRow(stringResource(R.string.reading_guide_skipped)) { GuideLine(Magnets.Orange.face, dashed = true) }
+                GuideRow(stringResource(if (helpAvailable) R.string.reading_guide_tap_hear else R.string.reading_guide_tap)) {
+                    Icon(Icons.Default.TouchApp, contentDescription = null)
+                }
+                GuideRow(stringResource(R.string.reading_guide_buttons, stringResource(R.string.pause), stringResource(R.string.finish))) {
+                    Icon(Icons.Default.Check, contentDescription = null)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onClose) { Text(stringResource(R.string.reading_guide_close)) }
+        }
+    )
+}
+
+/** One point of the reading guide: its [mark] on the left, the explanation next to it. */
+@Composable
+private fun GuideRow(text: String, mark: @Composable () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.width(32.dp), contentAlignment = Alignment.Center) { mark() }
+        Spacer(Modifier.width(16.dp))
+        Text(text, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+    }
+}
+
+/** A short sample of the line drawn under read words, as on the page. */
+@Composable
+private fun GuideLine(color: Color, dashed: Boolean = false) {
+    Canvas(Modifier.size(32.dp, 8.dp)) {
+        drawProgressLine(color, WordBox(0f, size.width, 0f, 0), size.height / 2, dashed)
+    }
+}
+
 /** The reading text at [textSize] sp; the line height keeps the 30/60 proportion, so the band, the magnet and what was heard over a word fit. */
 @Composable
 private fun readingTextStyle(textSize: Int): TextStyle =
@@ -674,7 +737,7 @@ private fun TextSizeButtons(textSize: Int, onTextSizeChange: (Int) -> Unit) {
 }
 
 /**
- * Read words underlined in green, skipped ones in dashed orange, the current line banded and the current word on a yellow magnet.
+ * Read words underlined in green, skipped ones in dashed orange and the current line banded.
  * Over a [misheard] word, in small orange letters between the lines, is what the speech model heard in its place.
  */
 @Composable
@@ -691,18 +754,7 @@ private fun Modifier.readingProgress(
         fontSize = fontSize * 0.6f,
         color = if (LocalDarkDoor.current) Magnets.Orange.face else Magnets.Orange.edge
     )
-    val reduceMotion = reduceMotion()
     val target = boxes.getOrNull(current)
-    // The magnet springs to the next word along the line; on a new line it is simply there, never sweeping across the text.
-    val tile = remember { Animatable(Rect.Zero, Rect.VectorConverter) }
-    var tileLine by remember { mutableIntStateOf(-1) }
-    LaunchedEffect(target) {
-        val word = target ?: return@LaunchedEffect
-        val rect = Rect(word.left, word.baseline, word.right, word.baseline)
-        if (reduceMotion || word.line != tileLine || tile.value == Rect.Zero) tile.snapTo(rect)
-        else tile.animateTo(rect, spring(dampingRatio = 0.7f, stiffness = 450f))
-        tileLine = word.line
-    }
     return drawBehind {
         val font = fontSize.toPx()
         if (target != null) {
@@ -715,7 +767,6 @@ private fun Modifier.readingProgress(
             )
         }
         boxes.forEachIndexed { i, box ->
-            if (i == current) return@forEachIndexed
             val y = box.baseline + font * 0.28f
             when (statuses.getOrElse(i) { WordStatus.UNREAD }) {
                 WordStatus.CONFIRMED -> drawProgressLine(Magnets.Green.face, box, y)
@@ -724,8 +775,7 @@ private fun Modifier.readingProgress(
                 WordStatus.UNREAD -> Unit
             }
         }
-        if (target != null && tile.value != Rect.Zero) drawMagnetTile(tile.value, font)
-        // Over the magnet too, so the current word shows a wrong attempt at once
+        // Over the current word too, so it shows a wrong attempt at once
         misheard.forEach { (i, heard) ->
             val box = boxes.getOrNull(i) ?: return@forEach
             val label = measurer.measure(heard, heardStyle)
@@ -750,35 +800,6 @@ private fun DrawScope.drawProgressLine(color: Color, box: WordBox, y: Float, das
         strokeWidth = stroke,
         cap = StrokeCap.Round,
         pathEffect = if (dashed) PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 7.dp.toPx())) else null
-    )
-}
-
-/** A yellow plastic magnet lifted behind the word: a soft shadow on the page, its darker edge, and a glossy face. */
-private fun DrawScope.drawMagnetTile(word: Rect, font: Float) {
-    val padX = 7.dp.toPx()
-    val top = word.top - font * 0.9f
-    val bottom = word.top + font * 0.36f
-    val topLeft = Offset(word.left - padX, top)
-    val size = Size(word.width + padX * 2, bottom - top)
-    val radius = 10.dp.toPx()
-    val edge = 4.dp.toPx()
-    // The edge casts the soft shadow, so the magnet stands off the page.
-    drawIntoCanvas { canvas ->
-        val paint = Paint().asFrameworkPaint().apply {
-            isAntiAlias = true
-            color = Magnets.Yellow.edge.toArgb()
-            setShadowLayer(8.dp.toPx(), 0f, 3.dp.toPx(), Color(0x40101828).toArgb())
-        }
-        canvas.nativeCanvas.drawRoundRect(
-            topLeft.x, topLeft.y + edge, topLeft.x + size.width, topLeft.y + edge + size.height, radius, radius, paint
-        )
-    }
-    drawRoundRect(Magnets.Yellow.face, topLeft, size, CornerRadius(radius))
-    drawRoundRect(
-        Brush.verticalGradient(0f to Color.White.copy(alpha = 0.45f), 1f to Color.Transparent, startY = top, endY = top + size.height * 0.6f),
-        topLeft,
-        size,
-        CornerRadius(radius)
     )
 }
 

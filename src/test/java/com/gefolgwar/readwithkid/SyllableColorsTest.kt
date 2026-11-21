@@ -29,9 +29,4 @@ class SyllableColorsTest {
         assertReadable(SyllableColorsOnDark, AppDarkColors.surfaceContainerLowest)
         assertReadable(SyllableColorsOnDark, AppDarkColors.primaryContainer)
     }
-
-    @Test
-    fun `the word on the yellow magnet is readable`() {
-        assertReadable(SyllableColorsOnMagnet + InkOnMagnet, Magnets.Yellow.face)
-    }
 }

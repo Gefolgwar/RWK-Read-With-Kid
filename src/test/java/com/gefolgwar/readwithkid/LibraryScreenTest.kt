@@ -96,6 +96,39 @@ class LibraryScreenTest {
     }
 
     @Test
+    fun `a text card tells its language and when it was read last, or that it was not read yet`() {
+        val readAt = 1_763_000_000_000
+        var stats by mutableStateOf(TextStats(wordCount = 3, wordsReadToday = 0))
+        compose.setContent {
+            ReadWithKidTheme {
+                LibraryScreen(listOf(text), Child(1, "Оля"), {}, {}, {}, {}, {}, {}, textStats = mapOf(text.id to stats))
+            }
+        }
+        compose.onNodeWithText(string(R.string.language_uk)).assertIsDisplayed()
+        compose.onNodeWithText(string(R.string.text_never_read)).assertIsDisplayed()
+
+        stats = stats.copy(lastReadAt = readAt)
+        val date = DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(readAt))
+        compose.onNodeWithText(compose.activity.getString(R.string.text_last_read, date)).assertIsDisplayed()
+        compose.onNodeWithText(string(R.string.text_never_read)).assertDoesNotExist()
+    }
+
+    @Test
+    fun `only a sample text is marked as an example, and it has the text menu like any text`() {
+        var texts by mutableStateOf(listOf(text.copy(sample = true)))
+        compose.setContent {
+            ReadWithKidTheme {
+                LibraryScreen(texts, Child(1, "Оля"), {}, {}, {}, {}, {}, {})
+            }
+        }
+        compose.onNodeWithText(string(R.string.sample_tag)).assertIsDisplayed()
+        compose.onNodeWithContentDescription(string(R.string.more_actions)).assertExists()
+
+        texts = listOf(text)
+        compose.onNodeWithText(string(R.string.sample_tag)).assertDoesNotExist()
+    }
+
+    @Test
     fun `readings can be deleted only when deleting is offered`() {
         val reading = ReadingRecord(1, text.id, text.title, 0, ReadingResult(3, 3, 60_000, emptyList(), emptyList()))
         var deleteOffered by mutableStateOf(true)

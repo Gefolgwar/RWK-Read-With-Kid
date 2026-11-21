@@ -30,10 +30,10 @@ All four together are the product's position (confirmed as essential by the owne
 
 The v1.1 flow is one simple path with a minimum of buttons:
 
-Text list → "+" → paste or type a text (language detected automatically, switchable uk/de) → Save → tap the text → the language model downloads automatically with progress (first use of a language only) → Start → child reads aloud with the current word highlighted → result.
+Text list → "+" → paste or type a text (language detected automatically, switchable uk/de) → Save → tap the text → the language model downloads automatically with progress (first use of a language only) → Start → child reads aloud with the current line banded → result.
 
 - The child holds the phone and reads alone; the parent sets up before and reviews after.
-- During reading: the current word is highlighted, read words are marked, long text auto-scrolls to keep the current line visible, Pause/Continue and Done are available; tapping a word speaks it (pronunciation help).
+- During reading: the current line is banded, read words are marked (the current word itself is not, so a misheard word never holds the child up), long text auto-scrolls to keep the current line visible, Pause/Continue and Done are available; tapping a word speaks it (pronunciation help).
 - Reading pauses automatically when the app goes to the background.
 - Child profiles (#35): each child has a profile with only a name, and each text belongs to exactly one child. The active child is shown top right as a round avatar with the first letter of the name and the name next to it; the app reopens with the child who was active last. Everything stays on the one library screen: there is no separate parent area, child start screen, onboarding or text assignment.
 - Parent mode and child mode (#35), shown by a lock icon on the library screen: in child mode nothing can be added, edited, deleted or configured; unlocking needs a simple adult question.
@@ -67,7 +67,7 @@ Text list → "+" → paste or type a text (language detected automatically, swi
 ## Evidence on Hand
 
 - No testimonials, user numbers, reviews, press or study results exist. Testing with real children (#25) and closed Play testing (#26) are still pending. Do not invent any of these.
-- No sample texts ship with the app; do not add copyrighted texts (modern Fibel/textbooks, Sukhomlynskyi and similar are prohibited).
+- Two short sample texts ship with the app (one Ukrainian, one German, written for it), added on install, marked as examples and deletable; do not add copyrighted texts (modern Fibel/textbooks, Sukhomlynskyi and similar are prohibited).
 - Owner feedback after phone testing of v1: the split interface (parent zone, lock, onboarding, profiles) was too complicated, which led to the v1.1 simplification (#28).
 
 ## Product Principles
