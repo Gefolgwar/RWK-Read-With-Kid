@@ -617,6 +617,42 @@ class ReadingSessionViewModelTest {
     }
 
     @Test
+    fun `grammar mode moves the grammar on as soon as a partial result reaches the next sentence`() {
+        engine = FakeVoskEngine()
+        val grammarVm = ReadingSessionViewModel({ engine }, RecognitionMode.GRAMMAR_CONSTRAINED) { nowMs }
+        engine.simulateModelLoaded()
+        grammarVm.updateText("Мама мила раму. Тато читав книжку. Кіт спав.")
+        grammarVm.start()
+
+        engine.simulatePartial("мама мила")
+        assertEquals(0, engine.grammarUpdateCount)
+        engine.simulatePartial("мама мила раму тато")
+        assertEquals(1, engine.grammarUpdateCount)
+        assertEquals(listOf("тато", "читав", "книжку", "кіт", "спав", "[unk]"), engine.lastGrammar)
+        // The final result of the same speech does not ask for the same grammar again
+        engine.simulateFinal("мама мила раму тато")
+        assertEquals(1, engine.grammarUpdateCount)
+    }
+
+    @Test
+    fun `the recognition mode chosen applies from the next reading`() {
+        vm.setRecognitionMode(RecognitionMode.GRAMMAR_CONSTRAINED)
+        vm.updateText(text)
+        vm.start()
+        assertEquals(RecognitionMode.GRAMMAR_CONSTRAINED, engine.lastMode)
+
+        // Not while reading
+        vm.setRecognitionMode(RecognitionMode.FULL)
+        vm.pause()
+        vm.resume()
+        assertEquals(RecognitionMode.GRAMMAR_CONSTRAINED, engine.lastMode)
+
+        vm.leave()
+        vm.start()
+        assertEquals(RecognitionMode.FULL, engine.lastMode)
+    }
+
+    @Test
     fun `full mode never sends grammar`() {
         vm.updateText(text)
         vm.start()

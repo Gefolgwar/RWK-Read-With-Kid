@@ -347,7 +347,7 @@ class ScreenshotsTest {
 
     @Test
     fun settings() = shot("7-settings") {
-        SettingsScreen(UiLanguage.SYSTEM, {}, syllableColors = true, {}, {}, {}, {}, it)
+        SettingsScreen(UiLanguage.SYSTEM, {}, syllableColors = true, {}, textWordsOnly = false, {}, {}, {}, {}, it)
     }
 
     @Test
@@ -451,7 +451,7 @@ class ScreenshotsTest {
 
     @Test
     fun settingsDark() = shot("d7-settings", dark = true) {
-        SettingsScreen(UiLanguage.SYSTEM, {}, syllableColors = true, {}, {}, {}, {}, it)
+        SettingsScreen(UiLanguage.SYSTEM, {}, syllableColors = true, {}, textWordsOnly = false, {}, {}, {}, {}, it)
     }
 
     @Test

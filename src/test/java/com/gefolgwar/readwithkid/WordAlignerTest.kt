@@ -335,6 +335,29 @@ class WordAlignerTest {
     }
 
     @Test
+    fun `speech outside the grammar is a wrong attempt shown as a question mark`() {
+        read("україна [unk]")
+        assertEquals(0, aligner.confirmedIndex)
+        assertEquals("?", aligner.misheard(1))
+        assertEquals("?", aligner.heard(1))
+    }
+
+    @Test
+    fun `speech outside the grammar does not stop reading`() {
+        read("україна [unk] суверенна і")
+        assertEquals(3, aligner.confirmedIndex)
+        assertEquals(setOf(1), aligner.skippedIndices)
+        assertEquals("?", aligner.misheard(1))
+    }
+
+    @Test
+    fun `a word read correctly after speech outside the grammar counts as read after a wrong attempt`() {
+        read("україна [unk] є")
+        assertEquals(1, aligner.confirmedIndex)
+        assertEquals(setOf(1), aligner.retriedIndices)
+    }
+
+    @Test
     fun `a far jump needs two following words of the text`() {
         // "незалежна" is 3 words ahead, but what follows does not continue the text there
         read("україна незалежна демократична правова")

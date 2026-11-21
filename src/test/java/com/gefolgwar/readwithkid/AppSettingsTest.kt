@@ -33,6 +33,13 @@ class AppSettingsTest {
     }
 
     @Test
+    fun `recognising only the words of the text is off until chosen`() {
+        assertFalse(AppSettings(context).textWordsOnly)
+        AppSettings(context).textWordsOnly = true
+        assertTrue(AppSettings(context).textWordsOnly)
+    }
+
+    @Test
     fun `reading text size is the usual one until chosen`() {
         assertEquals(30, AppSettings(context).readingTextSize)
         AppSettings(context).readingTextSize = 38

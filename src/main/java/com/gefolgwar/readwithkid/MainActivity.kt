@@ -103,10 +103,12 @@ class MainActivity : ComponentActivity() {
         // The app gets the keyboard's and system bars' insets itself (needed to know when the keyboard is open),
         // and the status bar icons follow the light or dark theme.
         enableEdgeToEdge()
+        vm.setRecognitionMode(recognitionMode(settings.textWordsOnly))
 
         setContent {
             var syllableColors by remember { mutableStateOf(settings.syllableColors) }
             var readingTextSize by remember { mutableIntStateOf(settings.readingTextSize) }
+            var textWordsOnly by remember { mutableStateOf(settings.textWordsOnly) }
             ReadWithKidTheme {
                 ReadWithKidApp(
                     vm = vm,
@@ -128,11 +130,20 @@ class MainActivity : ComponentActivity() {
                     onReadingTextSizeChange = {
                         settings.readingTextSize = it
                         readingTextSize = it
+                    },
+                    textWordsOnly = textWordsOnly,
+                    onTextWordsOnlyChange = {
+                        settings.textWordsOnly = it
+                        textWordsOnly = it
+                        vm.setRecognitionMode(recognitionMode(it))
                     }
                 )
             }
         }
     }
+
+    private fun recognitionMode(textWordsOnly: Boolean) =
+        if (textWordsOnly) RecognitionMode.GRAMMAR_CONSTRAINED else RecognitionMode.FULL
 
     override fun onStop() {
         super.onStop()
@@ -152,7 +163,9 @@ fun ReadWithKidApp(
     syllableColors: Boolean,
     onSyllableColorsChange: (Boolean) -> Unit,
     readingTextSize: Int,
-    onReadingTextSizeChange: (Int) -> Unit
+    onReadingTextSizeChange: (Int) -> Unit,
+    textWordsOnly: Boolean,
+    onTextWordsOnlyChange: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
     val state by vm.uiState.collectAsState()
@@ -266,6 +279,8 @@ fun ReadWithKidApp(
                     onLanguageChange = { if (it != uiLanguage) onUiLanguageChange(it) },
                     syllableColors = syllableColors,
                     onSyllableColorsChange = onSyllableColorsChange,
+                    textWordsOnly = textWordsOnly,
+                    onTextWordsOnlyChange = onTextWordsOnlyChange,
                     onPrivacy = { showPrivacy = true },
                     onLicenses = { showLicenses = true },
                     onBack = libraryVm::closeSettings,

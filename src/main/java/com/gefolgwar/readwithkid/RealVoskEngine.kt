@@ -106,7 +106,13 @@ class RealVoskEngine(private val modelDir: File) : VoskEngine {
             var lastPartial = ""
             while (isRecording) {
                 takePendingRecognizer()?.let { next ->
-                    recognizer?.close()
+                    // What the old grammar has heard so far is passed on, so speech is not lost with the swap.
+                    recognizer?.let { old ->
+                        val result = old.finalResult
+                        lastPartial = ""
+                        postToListener { it.onResult(result) }
+                        old.close()
+                    }
                     recognizer = next
                 }
                 if (isPaused) {

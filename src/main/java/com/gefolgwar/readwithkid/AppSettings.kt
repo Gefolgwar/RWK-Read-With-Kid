@@ -45,7 +45,13 @@ class AppSettings(context: Context) : LibrarySession {
         get() = prefs.getInt(KEY_READING_TEXT_SIZE, DEFAULT_READING_TEXT_SIZE)
         set(value) = prefs.edit { putInt(KEY_READING_TEXT_SIZE, value) }
 
+    /** Whether speech is recognised only as the words of the text (see [RecognitionMode.GRAMMAR_CONSTRAINED]); off until chosen. */
+    var textWordsOnly: Boolean
+        get() = prefs.getBoolean(KEY_TEXT_WORDS_ONLY, false)
+        set(value) = prefs.edit { putBoolean(KEY_TEXT_WORDS_ONLY, value) }
+
     private companion object {
+        const val KEY_TEXT_WORDS_ONLY = "text_words_only"
         const val KEY_READING_TEXT_SIZE = "reading_text_size"
         const val KEY_UI_LANGUAGE = "ui_language"
         const val KEY_SYLLABLE_COLORS = "syllable_colors"

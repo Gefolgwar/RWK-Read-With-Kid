@@ -44,6 +44,8 @@ fun SettingsScreen(
     onLanguageChange: (UiLanguage) -> Unit,
     syllableColors: Boolean,
     onSyllableColorsChange: (Boolean) -> Unit,
+    textWordsOnly: Boolean,
+    onTextWordsOnlyChange: (Boolean) -> Unit,
     onPrivacy: () -> Unit,
     onLicenses: () -> Unit,
     onBack: () -> Unit,
@@ -98,6 +100,28 @@ fun SettingsScreen(
                     }
                     Spacer(Modifier.width(16.dp))
                     Switch(checked = syllableColors, onCheckedChange = null)
+                }
+            }
+            Spacer(Modifier.height(24.dp))
+            Card(colors = cardColors(), shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .toggleable(textWordsOnly, role = Role.Switch, onValueChange = onTextWordsOnlyChange)
+                        .padding(16.dp)
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.text_words_only_title), style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            stringResource(R.string.text_words_only_hint),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(16.dp))
+                    Switch(checked = textWordsOnly, onCheckedChange = null)
                 }
             }
             Spacer(Modifier.height(24.dp))

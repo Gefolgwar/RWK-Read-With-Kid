@@ -89,7 +89,7 @@ data class ReadingUiState(
  */
 class ReadingSessionViewModel(
     private val createEngine: (TextLanguage) -> VoskEngine,
-    private val mode: RecognitionMode = RecognitionMode.FULL,
+    mode: RecognitionMode = RecognitionMode.FULL,
     private val modelInstalled: (TextLanguage) -> Flow<Boolean> = { flowOf(true) },
     private val startModelDownload: (TextLanguage) -> Unit = {},
     private val readings: ReadingRepository? = null,
@@ -103,6 +103,10 @@ class ReadingSessionViewModel(
 
     /** The saved text being read; null for a text that is not saved, and then nothing is saved. */
     private var textReading: TextReading? = null
+    /** How speech is recognised from the next reading on, see [setRecognitionMode]. */
+    private var chosenMode = mode
+    /** How speech is recognised in this reading. */
+    private var mode = mode
     private var aligner = WordAligner(emptyList())
     private var currentSentenceIdx = 0
     private var activeSinceMs = 0L
@@ -175,9 +179,18 @@ class ReadingSessionViewModel(
         }
     }
 
+    /**
+     * [RecognitionMode.GRAMMAR_CONSTRAINED] recognises only the words of the text around the child's place, so fewer
+     * words read correctly are taken for mistakes; [RecognitionMode.FULL] recognises any word. Applies from the next reading.
+     */
+    fun setRecognitionMode(mode: RecognitionMode) {
+        chosenMode = mode
+    }
+
     fun start() {
         val state = _uiState.value
         if (state.sessionState != SessionState.READY || state.text.words.isEmpty()) return
+        mode = chosenMode
         val words = state.text.words
         // Words the model cannot recognise are not the child's errors
         val unknown = words.indices.filterTo(mutableSetOf()) { !engine.knowsWord(vocabularySpelling(words[it])) }
@@ -369,6 +382,7 @@ class ReadingSessionViewModel(
         }
         aligner.processPartial(words)
         publishProgress()
+        checkSentenceBoundary()
     }
 
     private fun handleFinal(json: String) {
@@ -413,21 +427,28 @@ class ReadingSessionViewModel(
         }
     }
 
+    /**
+     * Moves the grammar on once the child reads into the next sentence, also in a partial result, so reading on
+     * without a pause does not run out of the grammar. Only forward: a revised partial result does not move it back.
+     */
     private fun checkSentenceBoundary() {
         if (mode != RecognitionMode.GRAMMAR_CONSTRAINED) return
-        val sentence = sentenceOfConfirmedWord()
-        if (sentence != currentSentenceIdx) {
+        val sentence = sentenceOf(maxOf(aligner.confirmedIndex, aligner.tentativeIndex))
+        if (sentence > currentSentenceIdx) {
             currentSentenceIdx = sentence
             engine.updateGrammar(buildGrammar(sentence))
         }
     }
 
-    private fun sentenceOfConfirmedWord(): Int {
+    private fun sentenceOfConfirmedWord(): Int = sentenceOf(aligner.confirmedIndex)
+
+    /** The sentence of the word at [index]; the first one before any word is read. */
+    private fun sentenceOf(index: Int): Int {
         val sentences = _uiState.value.text.sentences
         var wordCount = 0
         for ((i, sentence) in sentences.withIndex()) {
             wordCount += sentence.size
-            if (aligner.confirmedIndex < wordCount) return i
+            if (index < wordCount) return i
         }
         return sentences.lastIndex
     }

@@ -147,6 +147,8 @@
     <string name="ui_language_system">Мова телефона</string>
     <string name="syllable_colors_title">Склади кольорами</string>
     <string name="syllable_colors_hint">Під час читання склади кожного слова чергують синій і червоний колір.</string>
+    <string name="text_words_only_title">Розпізнавати лише слова тексту</string>
+    <string name="text_words_only_hint">Правильно прочитані слова рідше вважаються помилками, але неправильне читання, схоже на слово з тексту, може залишитися непоміченим. Діє з наступного читання.</string>
     <string name="syllable_preview_word">Лисичка</string>
 
     <string name="privacy_title">Політика конфіденційності</string>

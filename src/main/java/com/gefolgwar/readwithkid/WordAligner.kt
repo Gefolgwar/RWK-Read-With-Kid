@@ -123,8 +123,8 @@ class WordAligner(private val words: List<String>, unknownIndices: Set<Int> = em
         val k = known.binarySearch(index)
         val next = k >= 0 && k == confirmed.pointer + 1
         if (k !in confirmed.skipped && !next) return false
-        val heardTokens = recognizedWords.filter { TextPreparation.normalize(it).isNotEmpty() }
-        val tokens = heardTokens.map(TextPreparation::normalize)
+        val heardTokens = shown(recognizedWords)
+        val tokens = heardTokens.map(::comparable)
         val target = normalizedWords[k]
         for (i in tokens.indices) {
             val pieces = glue(tokens, i, target)
@@ -159,8 +159,8 @@ class WordAligner(private val words: List<String>, unknownIndices: Set<Int> = em
 
     private fun advance(from: Progress, recognizedWords: List<String>): Progress {
         // As the model spelled them, to show what was heard
-        val heardTokens = from.pending + recognizedWords.filter { TextPreparation.normalize(it).isNotEmpty() }
-        val tokens = heardTokens.map(TextPreparation::normalize)
+        val heardTokens = from.pending + shown(recognizedWords)
+        val tokens = heardTokens.map(::comparable)
         val p = from.copy().apply { pending = emptyList() }
         var i = 0
         while (i < tokens.size) {
@@ -219,6 +219,17 @@ class WordAligner(private val words: List<String>, unknownIndices: Set<Int> = em
         return p
     }
 
+    /**
+     * The recognised words as shown to the parent: speech the model could not take for a word of its grammar is "?",
+     * and words without letters or digits are left out.
+     */
+    private fun shown(recognizedWords: List<String>) = recognizedWords.mapNotNull { word ->
+        if (word == OUTSIDE_GRAMMAR) OUTSIDE_GRAMMAR_SHOWN else word.takeIf { TextPreparation.normalize(it).isNotEmpty() }
+    }
+
+    /** A shown word as compared with the text; "?" matches no word. */
+    private fun comparable(token: String) = if (token == OUTSIDE_GRAMMAR_SHOWN) token else TextPreparation.normalize(token)
+
     /** How many words heard after a word [distance] words ahead of the expected one confirm a jump to it. */
     private fun confirmationsFor(distance: Int) = when {
         distance == 1 -> 0
@@ -259,5 +270,9 @@ class WordAligner(private val words: List<String>, unknownIndices: Set<Int> = em
          * rest of a line; such a jump is confirmed by the next two words.
          */
         const val MAX_JUMP = 10
+
+        /** What the model says, with a grammar, for speech that is none of its words: a wrong attempt. */
+        const val OUTSIDE_GRAMMAR = "[unk]"
+        const val OUTSIDE_GRAMMAR_SHOWN = "?"
     }
 }

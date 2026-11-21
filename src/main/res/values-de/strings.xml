@@ -143,6 +143,8 @@
     <string name="ui_language_system">Sprache des Telefons</string>
     <string name="syllable_colors_title">Silben in Farbe</string>
     <string name="syllable_colors_hint">Beim Lesen wechseln die Silben jedes Wortes zwischen Blau und Rot.</string>
+    <string name="text_words_only_title">Nur Wörter des Textes erkennen</string>
+    <string name="text_words_only_hint">Richtig gelesene Wörter werden seltener für Fehler gehalten, aber ein Lesefehler, der wie ein Wort des Textes klingt, kann übersehen werden. Gilt ab dem nächsten Lesen.</string>
     <string name="syllable_preview_word">Schmetterling</string>
 
     <string name="privacy_title">Datenschutzerklärung</string>

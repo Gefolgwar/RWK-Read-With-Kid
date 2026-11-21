@@ -47,6 +47,7 @@ Text list → "+" → paste or type a text (language detected automatically, swi
 - Speech recognition: Vosk, offline, Full recognition mode by default. One model per language, delivered as on-demand Play asset packs (`model_uk`, `model_de`); the model is removed together with the app. Ukrainian model size (small 436 MB vs nano 133 MB) is still being decided (#33).
 - Pronunciation help uses Android TextToSpeech in the text's locale; hidden if no voice for the language exists.
 - Optional coloured syllables in the reading text.
+- Optional recognition of only the words of the text (Vosk grammar around the current sentence): fewer correct words taken for mistakes, at the risk of missing a misreading that sounds like a word of the text; off by default while it is being tried out.
 - Storage: Room, local only.
 - Removed in v1.1 and not to be reintroduced without a decision: parent zone, onboarding, text assignment, separate language-models screen, .txt import, sentence/word split preview, separate title field (title is generated from the first words).
 - Child profiles and the parental lock were also removed in v1.1; #35 is the decision that deliberately brings them back, in the simpler form above (on the one library screen, texts belong to one child, no assignments).
