@@ -335,11 +335,9 @@ class WordAlignerTest {
     }
 
     @Test
-    fun `speech outside the grammar is a wrong attempt shown as a question mark`() {
+    fun `speech outside the grammar is not taken for the next word`() {
         read("україна [unk]")
         assertEquals(0, aligner.confirmedIndex)
-        assertEquals("?", aligner.misheard(1))
-        assertEquals("?", aligner.heard(1))
     }
 
     @Test
@@ -347,7 +345,6 @@ class WordAlignerTest {
         read("україна [unk] суверенна і")
         assertEquals(3, aligner.confirmedIndex)
         assertEquals(setOf(1), aligner.skippedIndices)
-        assertEquals("?", aligner.misheard(1))
     }
 
     @Test
@@ -510,160 +507,131 @@ class WordAlignerTest {
         assertEquals(setOf(3), aligner.retriedIndices)
     }
 
-    // --- what was heard, and reading a skipped word again ---
+
+    // --- uncertain words: the model was not sure what it heard in their place ---
+
+    /** Reads [final], the model unsure of the recognised words at [unsure]. */
+    private fun readUnsure(final: String, vararg unsure: Int) = aligner.processFinal(final.split(" "), unsure.toSet())
 
     @Test
-    fun `a read word was heard as itself, also when read by syllables`() {
-        read("укра їна є")
-        assertEquals("україна", aligner.heard(0))
-        assertEquals("є", aligner.heard(1))
-    }
-
-    @Test
-    fun `a misread word was heard as what was said in its place`() {
-        read("україна є сувора і")
-        assertEquals(WordStatus.SKIPPED, aligner.getWordStatus(2))
-        assertEquals("сувора", aligner.heard(2))
-    }
-
-    @Test
-    fun `a silently skipped word was heard as nothing`() {
-        read("україна суверенна")
-        assertEquals(WordStatus.SKIPPED, aligner.getWordStatus(1))
-        assertEquals("", aligner.heard(1))
-    }
-
-    // --- what was heard, shown over a misread word while reading ---
-
-    @Test
-    fun `a wrong attempt at the next word is shown over it at once`() {
-        read("україна є сувора")
-        assertEquals(WordStatus.UNREAD, aligner.getWordStatus(2))
-        assertEquals("сувора", aligner.misheard(2))
-    }
-
-    @Test
-    fun `a wrong attempt in a partial result is shown over the word too`() {
-        aligner.processPartial(listOf("україна", "є", "сувора"))
-        assertEquals("сувора", aligner.misheard(2))
-    }
-
-    @Test
-    fun `a self-corrected word shows nothing over it`() {
-        read("україна є сувора", "суверенна")
-        assertNull(aligner.misheard(2))
-    }
-
-    @Test
-    fun `a misread word passed over keeps what was heard over it`() {
-        read("україна є сувора і")
-        assertEquals("сувора", aligner.misheard(2))
-    }
-
-    @Test
-    fun `read, silently skipped and unread words show nothing over them`() {
-        read("україна суверенна")
-        assertNull(aligner.misheard(0))
-        assertNull(aligner.misheard(1))
-        assertNull(aligner.misheard(3))
-    }
-
-    @Test
-    fun `words not reached yet and words the model cannot recognise have nothing heard`() {
-        val aligner = WordAligner(kolobok, kolobokUnknown)
-        aligner.processFinal(listOf("баба", "за", "місила", "тісто"))
-        assertNull(aligner.heard(1))
-        assertNull(aligner.heard(5))
-        // The next word, not attempted yet
-        assertEquals("", aligner.heard(3))
-    }
-
-    @Test
-    fun `a further attempt replaces the wrong one instead of being added to it`() {
-        read("україна є сувора", "сові")
-        assertEquals("сові", aligner.misheard(2))
-        assertEquals("сові", aligner.heard(2))
-        aligner.processPartial(listOf("сира"))
-        assertEquals("сира", aligner.misheard(2))
-    }
-
-    @Test
-    fun `the next word was heard as its latest wrong attempt`() {
-        read("україна є сувора")
-        assertEquals("сувора", aligner.heard(2))
-    }
-
-    @Test
-    fun `the next word read again correctly counts as read after a wrong attempt`() {
-        read("україна є сувора")
-        assertTrue(aligner.retry(2, listOf("суверенна"), final = true))
-        assertEquals(WordStatus.CONFIRMED, aligner.getWordStatus(2))
-        assertEquals(setOf(2), aligner.retriedIndices)
+    fun `a word passed over where the model was unsure of what it heard is uncertain, not an error`() {
+        readUnsure("україна є сувора і", 2)
+        assertEquals(setOf(2), aligner.uncertainIndices)
         assertEquals(emptySet<Int>(), aligner.skippedIndices)
-        assertEquals(2, aligner.confirmedIndex)
-    }
-
-    @Test
-    fun `a wrong attempt at the next word read again keeps it the next word`() {
-        read("україна є")
-        assertFalse(aligner.retry(2, listOf("сові"), final = true))
-        assertEquals("сові", aligner.misheard(2))
-        assertEquals(WordStatus.UNREAD, aligner.getWordStatus(2))
-        read("суверенна")
-        assertEquals(setOf(2), aligner.retriedIndices)
-    }
-
-    @Test
-    fun `a word further ahead cannot be read again`() {
-        read("україна є")
-        assertFalse(aligner.retry(4, listOf("незалежна"), final = true))
-        assertEquals(WordStatus.UNREAD, aligner.getWordStatus(4))
-    }
-
-    @Test
-    fun `what was heard keeps the model's spelling`() {
-        val aligner = WordAligner(listOf("schöne", "Straße", "heute", "ist"))
-        aligner.processFinal(listOf("schöne", "strasse", "hoite", "ist"))
-        assertEquals("schöne", aligner.heard(0))
-        assertEquals("strasse", aligner.heard(1))
-        assertEquals("hoite", aligner.heard(2))
-    }
-
-    @Test
-    fun `a skipped word read again correctly counts as read after a wrong attempt`() {
-        read("україна є сувора і")
-        assertTrue(aligner.retry(2, listOf("суверенна"), final = true))
-        assertEquals(WordStatus.CONFIRMED, aligner.getWordStatus(2))
-        assertEquals("суверенна", aligner.heard(2))
-        assertEquals(4, aligner.matchedCount)
-        assertEquals(emptySet<Int>(), aligner.skippedIndices)
-        assertEquals(setOf(2), aligner.retriedIndices)
-        // Reading goes on from where it was
+        assertEquals(3, aligner.matchedCount)
         assertEquals(3, aligner.confirmedIndex)
     }
 
     @Test
-    fun `a skipped word read again by syllables is recognised on a partial result`() {
+    fun `a word passed over where the model was sure of a wrong word is misread`() {
+        readUnsure("україна є сувора і", 0)
+        assertEquals(setOf(2), aligner.skippedIndices)
+        assertEquals(emptySet<Int>(), aligner.uncertainIndices)
+    }
+
+    @Test
+    fun `a word skipped in silence is misread`() {
+        read("україна суверенна")
+        assertEquals(setOf(1), aligner.skippedIndices)
+        assertEquals(emptySet<Int>(), aligner.uncertainIndices)
+    }
+
+    @Test
+    fun `the latest attempt at a word decides whether it is uncertain`() {
+        readUnsure("україна є сувора", 2)
+        read("сові і")
+        assertEquals(setOf(2), aligner.skippedIndices)
+        assertEquals(emptySet<Int>(), aligner.uncertainIndices)
+
+        aligner.reset()
+        read("україна є сові")
+        readUnsure("сувора і", 0)
+        assertEquals(setOf(2), aligner.uncertainIndices)
+    }
+
+    @Test
+    fun `an unsure wrong attempt then the word read is a self-correction`() {
+        readUnsure("україна є сувора суверенна", 2)
+        assertEquals(emptySet<Int>(), aligner.uncertainIndices)
+        assertEquals(setOf(2), aligner.retriedIndices)
+    }
+
+    @Test
+    fun `a partial result is not unsure, and its final decides`() {
+        aligner.processPartial(listOf("україна", "є", "сувора", "і"))
+        aligner.processFinal(listOf("україна", "є", "сувора", "і"), setOf(2))
+        assertEquals(setOf(2), aligner.uncertainIndices)
+    }
+
+    // --- reading words again after the text ---
+
+    @Test
+    fun `misread, skipped and uncertain words are read again after the text, in text order`() {
+        read("україна суверенна")
+        readUnsure("і незалежна сові соціальна", 2)
+        assertEquals(listOf(1, 5), aligner.reviewIndices)
+        assertEquals(setOf(1), aligner.skippedIndices)
+        assertEquals(setOf(5), aligner.uncertainIndices)
+    }
+
+    @Test
+    fun `a misread word read correctly after the text is corrected and still an error of the reading`() {
         read("україна є сувора і")
-        assertTrue(aligner.retry(2, listOf("су", "ве", "рен", "на"), final = false))
+        assertEquals(ReviewOutcome.READ, aligner.review(2, listOf("суверенна"), final = true))
+        assertEquals(setOf(2), aligner.correctedIndices)
+        assertEquals(emptySet<Int>(), aligner.skippedIndices)
+        assertEquals(3, aligner.matchedCount)
+    }
+
+    @Test
+    fun `an uncertain word read correctly after the text counts as read`() {
+        readUnsure("україна є сувора і", 2)
+        assertEquals(ReviewOutcome.READ, aligner.review(2, listOf("суверенна"), final = false))
+        assertEquals(emptySet<Int>(), aligner.uncertainIndices)
+        assertEquals(emptySet<Int>(), aligner.correctedIndices)
+        assertEquals(4, aligner.matchedCount)
         assertEquals(WordStatus.CONFIRMED, aligner.getWordStatus(2))
     }
 
     @Test
-    fun `a wrong attempt at a skipped word is heard once the result is final`() {
-        read("україна є сувора і")
-        assertFalse(aligner.retry(2, listOf("сові"), final = false))
-        assertEquals("сувора", aligner.heard(2))
-        assertFalse(aligner.retry(2, listOf("соверенна"), final = true))
-        assertEquals("соверенна", aligner.heard(2))
-        assertEquals(WordStatus.SKIPPED, aligner.getWordStatus(2))
-        assertEquals(setOf(2), aligner.skippedIndices)
+    fun `an uncertain word misread again after the text stays uncertain`() {
+        readUnsure("україна є сувора і", 2)
+        assertEquals(ReviewOutcome.WRONG, aligner.review(2, listOf("сові"), final = true))
+        assertEquals(setOf(2), aligner.uncertainIndices)
+        assertEquals(3, aligner.matchedCount)
     }
 
     @Test
-    fun `a word read correctly cannot be read again`() {
-        read("україна є")
-        assertFalse(aligner.retry(1, listOf("є"), final = true))
-        assertEquals(emptySet<Int>(), aligner.retriedIndices)
+    fun `a word read again by syllables with pauses waits for the rest of it`() {
+        read("україна є сувора і")
+        assertEquals(ReviewOutcome.LISTENING, aligner.review(2, listOf("су", "ве"), final = true))
+        assertEquals(ReviewOutcome.LISTENING, aligner.review(2, listOf("рен"), final = false))
+        assertEquals(ReviewOutcome.READ, aligner.review(2, listOf("рен", "на"), final = true))
+        assertEquals(setOf(2), aligner.correctedIndices)
+    }
+
+    @Test
+    fun `a wrong word read again is wrong on the final result only`() {
+        read("україна є сувора і")
+        assertEquals(ReviewOutcome.LISTENING, aligner.review(2, listOf("сові"), final = false))
+        assertEquals(ReviewOutcome.WRONG, aligner.review(2, listOf("сові"), final = true))
+        assertEquals(ReviewOutcome.WRONG, aligner.review(2, listOf("[unk]"), final = true))
+        assertEquals(setOf(2), aligner.skippedIndices)
+        // A new attempt starts afresh: earlier syllables are not glued to it
+        assertEquals(ReviewOutcome.READ, aligner.review(2, listOf("суверенна"), final = true))
+    }
+
+    @Test
+    fun `the word is found among other speech`() {
+        read("україна є сувора і")
+        assertEquals(ReviewOutcome.READ, aligner.review(2, listOf("е", "суверенна"), final = true))
+    }
+
+    @Test
+    fun `only a word to read again can be read again`() {
+        read("україна є сувора і")
+        assertEquals(ReviewOutcome.WRONG, aligner.review(1, listOf("є"), final = true))
+        assertEquals(ReviewOutcome.WRONG, aligner.review(5, listOf("демократична"), final = true))
+        assertEquals(emptySet<Int>(), aligner.correctedIndices)
     }
 }

@@ -72,9 +72,9 @@ class RealVoskEngine(private val modelDir: File) : VoskEngine {
         }
         recognizer?.close()
         recognizer = if (mode == RecognitionMode.GRAMMAR_CONSTRAINED && grammar != null) {
-            Recognizer(m, SAMPLE_RATE, JSONArray(grammar).toString())
+            Recognizer(m, SAMPLE_RATE, JSONArray(grammar).toString()).withConfidence()
         } else {
-            Recognizer(m, SAMPLE_RATE)
+            Recognizer(m, SAMPLE_RATE).withConfidence()
         }
 
         val bufferSize = AudioRecord.getMinBufferSize(
@@ -147,7 +147,7 @@ class RealVoskEngine(private val modelDir: File) : VoskEngine {
         val m = model ?: return
         val requestedFor = synchronized(lock) { session }
         worker.execute {
-            val next = Recognizer(m, SAMPLE_RATE, JSONArray(grammar).toString())
+            val next = Recognizer(m, SAMPLE_RATE, JSONArray(grammar).toString()).withConfidence()
             synchronized(lock) {
                 if (session == requestedFor) {
                     pendingRecognizer?.close()
@@ -195,6 +195,9 @@ class RealVoskEngine(private val modelDir: File) : VoskEngine {
     override fun setListener(listener: VoskEngineListener) {
         _listener = listener
     }
+
+    /** Final results also list each word with the model's confidence in it ("result": [{"word", "conf", …}]). */
+    private fun Recognizer.withConfidence() = apply { setWords(true) }
 
     private fun takePendingRecognizer(): Recognizer? = synchronized(lock) {
         pendingRecognizer.also { pendingRecognizer = null }

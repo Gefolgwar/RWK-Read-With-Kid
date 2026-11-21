@@ -69,7 +69,7 @@ abstract class TextDao : TextRepository {
 
 @Database(
     entities = [Child::class, SavedText::class, ReadingRecord::class],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 @TypeConverters(WordListConverter::class)
@@ -89,7 +89,7 @@ abstract class AppDatabase : RoomDatabase() {
         /** [withSamples]: a new database also gets the [SampleTexts] for its first child. */
         fun build(context: Context, name: String, withSamples: Boolean = false): AppDatabase =
             Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, name)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                 .addCallback(object : Callback() {
                     // A new library starts with one child who has no name yet.
                     override fun onCreate(db: SupportSQLiteDatabase) {
@@ -209,6 +209,14 @@ abstract class AppDatabase : RoomDatabase() {
         private val MIGRATION_7_8 = object : Migration(7, 8) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE `texts` ADD COLUMN `sample` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        /** Adds the words corrected after the text and the uncertain words; earlier readings had none. */
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `readings` ADD COLUMN `correctedWords` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `readings` ADD COLUMN `uncertainWords` TEXT NOT NULL DEFAULT ''")
             }
         }
     }

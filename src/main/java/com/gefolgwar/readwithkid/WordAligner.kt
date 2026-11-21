@@ -6,6 +6,10 @@ package com.gefolgwar.readwithkid
  *
  * Words at [unknownIndices] are missing from the speech model's vocabulary and cannot be recognised: such a word
  * is passed once the next known word is read (or with the last known word) and counts neither as read nor as skipped.
+ *
+ * A word passed over where the model was not sure of what it heard in its place is uncertain: the model could not
+ * check it, so it is neither read nor an error. After the text the child reads skipped and uncertain words again,
+ * see [review].
  */
 class WordAligner(private val words: List<String>, unknownIndices: Set<Int> = emptySet()) {
 
@@ -22,31 +26,40 @@ class WordAligner(private val words: List<String>, unknownIndices: Set<Int> = em
         val retried: MutableSet<Int> = mutableSetOf(),
         /** The next expected word already got a wrong attempt. */
         var wrongAttempt: Boolean = false,
-        /** What the model heard in place of a word, as it spelled it: the word itself once read, else the latest wrong attempt. */
-        val heard: MutableMap<Int, String> = mutableMapOf(),
-        /** Trailing recognised words, as heard, that need more speech to resolve: unfinished syllables or an unconfirmed jump. */
-        var pending: List<String> = emptyList()
+        /** Words whose latest wrong attempt the model was not sure of; passed over, they are uncertain. */
+        val unsure: MutableSet<Int> = mutableSetOf(),
+        /** Skipped words the child read correctly after the text; they stay errors of the reading. */
+        val corrected: MutableSet<Int> = mutableSetOf(),
+        /** Trailing recognised words that need more speech to resolve: unfinished syllables or an unconfirmed jump. */
+        var pending: List<Token> = emptyList()
     ) {
         fun copy() = Progress(
-            pointer, matched.toMutableSet(), skipped.toMutableSet(), retried.toMutableSet(), wrongAttempt, heard.toMutableMap(), pending
+            pointer, matched.toMutableSet(), skipped.toMutableSet(), retried.toMutableSet(), wrongAttempt,
+            unsure.toMutableSet(), corrected.toMutableSet(), pending
         )
 
-        /** Reads word [index], heard as [heardAs]; words between the pointer and [index] are skipped. */
-        fun readTo(index: Int, heardAs: String) {
+        /** Reads word [index]; words between the pointer and [index] are skipped. */
+        fun readTo(index: Int) {
             if (wrongAttempt && index == pointer + 1) retried += index
             matched += index
             skipped += (pointer + 1 until index)
+            unsure -= index
             wrongAttempt = false
-            heard[index] = heardAs
             pointer = index
         }
     }
+
+    /** A recognised word as compared with the text, and whether the model was sure of it. */
+    private class Token(val text: String, val sure: Boolean)
 
     /** Indices of the known words in [words]; only these are followed. */
     private val known = words.indices.filter { it !in unknownIndices }
     private val normalizedWords = known.map { TextPreparation.normalize(words[it]) }
     private var confirmed = Progress()
     private var tentative: Progress? = null
+    /** The word being read again after the text, and its first syllables heard so far. */
+    private var reviewed = -1
+    private var reviewHeard: List<String> = emptyList()
 
     val confirmedIndex: Int
         get() = passedTo(confirmed.pointer)
@@ -62,19 +75,33 @@ class WordAligner(private val words: List<String>, unknownIndices: Set<Int> = em
     val matchedCount: Int
         get() = confirmed.matched.size
 
+    /** Words misread or skipped and not corrected after the text; without uncertain words. */
     val skippedIndices: Set<Int>
-        get() = confirmed.skipped.mapTo(mutableSetOf()) { known[it] }
+        get() = (confirmed.skipped - confirmed.unsure - confirmed.corrected).mapTo(mutableSetOf()) { known[it] }
+
+    /** Words passed over where the model was not sure what it heard in their place: neither read nor an error. */
+    val uncertainIndices: Set<Int>
+        get() = confirmed.skipped.intersect(confirmed.unsure).mapTo(mutableSetOf()) { known[it] }
+
+    /** Misread or skipped words the child read correctly after the text; they still count as errors of the reading. */
+    val correctedIndices: Set<Int>
+        get() = confirmed.corrected.mapTo(mutableSetOf()) { known[it] }
+
+    /** Words to read again after the text: misread, skipped and uncertain ones, in text order. */
+    val reviewIndices: List<Int>
+        get() = confirmed.skipped.sorted().map { known[it] }
 
     /** Words read correctly after one or more wrong attempts (self-correction). */
     val retriedIndices: Set<Int>
         get() = confirmed.retried.mapTo(mutableSetOf()) { known[it] }
 
     fun processPartial(recognizedWords: List<String>) {
-        tentative = advance(confirmed, recognizedWords)
+        tentative = advance(confirmed, tokens(recognizedWords))
     }
 
-    fun processFinal(recognizedWords: List<String>) {
-        confirmed = advance(confirmed, recognizedWords)
+    /** [unsure]: indices into [recognizedWords] of the words the model was not sure of. */
+    fun processFinal(recognizedWords: List<String>, unsure: Set<Int> = emptySet()) {
+        confirmed = advance(confirmed, tokens(recognizedWords, unsure))
         tentative = null
     }
 
@@ -87,63 +114,48 @@ class WordAligner(private val words: List<String>, unknownIndices: Set<Int> = em
     fun reset() {
         confirmed = Progress()
         tentative = null
+        reviewed = -1
+        reviewHeard = emptyList()
     }
 
     /**
-     * What the model heard in place of a read or skipped word, or the latest wrong attempt at the next word, as it
-     * spelled it; "" when nothing was heard. Null for a word further ahead and for a word the model cannot recognise.
+     * The child reads word [index], one of [reviewIndices], again after the text. [ReviewOutcome.READ] once
+     * [recognizedWords] hold the word, whole or by syllables: an uncertain word then counts as read, a misread or
+     * skipped word as corrected. A final result holding only the word's first syllables waits for the rest of it, as
+     * a partial result does ([ReviewOutcome.LISTENING]); any other final result is [ReviewOutcome.WRONG].
      */
-    fun heard(index: Int): String? {
+    fun review(index: Int, recognizedWords: List<String>, final: Boolean): ReviewOutcome {
         val k = known.binarySearch(index)
-        if (k < 0) return null
-        if (k in confirmed.matched || k in confirmed.skipped) return confirmed.heard[k].orEmpty()
-        val latest = tentative ?: confirmed
-        return if (k == latest.pointer + 1) latest.heard[k].orEmpty() else null
-    }
-
-    /**
-     * What the model heard in place of a misread word, to show over it while reading: the wrong attempts at the next
-     * word as soon as they are heard (also in a partial result), or what was heard in place of a word passed over.
-     * Null for a word read correctly (also after a self-correction), skipped in silence, or not reached yet.
-     */
-    fun misheard(index: Int): String? {
-        val k = known.binarySearch(index)
-        if (k < 0) return null
-        if (k in confirmed.skipped) return confirmed.heard[k]?.takeIf { it.isNotEmpty() }
-        val latest = tentative ?: confirmed
-        return latest.heard[k].takeIf { latest.wrongAttempt && k == latest.pointer + 1 }
-    }
-
-    /**
-     * The child reads skipped word [index], or the next word, again. True once [recognizedWords] hold the word, whole
-     * or by syllables: a skipped word then counts as read after a wrong attempt, the next word is read.
-     * Otherwise a [final] result is what was heard in its place, and the next word stays the next one.
-     */
-    fun retry(index: Int, recognizedWords: List<String>, final: Boolean): Boolean {
-        val k = known.binarySearch(index)
-        val next = k >= 0 && k == confirmed.pointer + 1
-        if (k !in confirmed.skipped && !next) return false
-        val heardTokens = shown(recognizedWords)
-        val tokens = heardTokens.map(::comparable)
+        if (k !in confirmed.skipped || k in confirmed.corrected) return ReviewOutcome.WRONG
+        if (k != reviewed) {
+            reviewed = k
+            reviewHeard = emptyList()
+        }
+        val tokens = reviewHeard + tokens(recognizedWords).map { it.text }
         val target = normalizedWords[k]
-        for (i in tokens.indices) {
+        val read = tokens.indices.any { i ->
             val pieces = glue(tokens, i, target)
-            if (pieces > 0 && tokens.subList(i, i + pieces).joinToString("") == target) {
-                val heardAs = heardTokens.subList(i, i + pieces).joinToString("")
-                if (next) confirmed.readTo(k, heardAs) else confirmed.apply {
+            pieces > 0 && tokens.subList(i, i + pieces).joinToString("") == target
+        }
+        if (read) {
+            reviewHeard = emptyList()
+            confirmed.apply {
+                if (k in unsure) {
                     matched += k
                     skipped -= k
-                    retried += k
-                    heard[k] = heardAs
-                }
-                return true
+                    unsure -= k
+                } else corrected += k
             }
+            return ReviewOutcome.READ
         }
-        if (final) confirmed.apply {
-            heard[k] = heardTokens.joinToString(" ")
-            wrongAttempt = wrongAttempt || next
+        if (!final) return ReviewOutcome.LISTENING
+        // Read by syllables with a pause: the rest of the word is still to come
+        if (tokens.isNotEmpty() && glue(tokens, 0, target) == tokens.size) {
+            reviewHeard = tokens
+            return ReviewOutcome.LISTENING
         }
-        return false
+        reviewHeard = emptyList()
+        return ReviewOutcome.WRONG
     }
 
     fun getWordStatus(index: Int): WordStatus {
@@ -157,10 +169,9 @@ class WordAligner(private val words: List<String>, unknownIndices: Set<Int> = em
         }
     }
 
-    private fun advance(from: Progress, recognizedWords: List<String>): Progress {
-        // As the model spelled them, to show what was heard
-        val heardTokens = from.pending + shown(recognizedWords)
-        val tokens = heardTokens.map(::comparable)
+    private fun advance(from: Progress, recognized: List<Token>): Progress {
+        val heard = from.pending + recognized
+        val tokens = heard.map { it.text }
         val p = from.copy().apply { pending = emptyList() }
         var i = 0
         while (i < tokens.size) {
@@ -173,9 +184,8 @@ class WordAligner(private val words: List<String>, unknownIndices: Set<Int> = em
             val pieces = glue(tokens, i, target)
             if (pieces > 0) {
                 when {
-                    tokens.subList(i, i + pieces).joinToString("") == target ->
-                        p.readTo(expected, heardTokens.subList(i, i + pieces).joinToString(""))
-                    i + pieces == tokens.size -> return p.apply { pending = heardTokens.subList(i, tokens.size) }
+                    tokens.subList(i, i + pieces).joinToString("") == target -> p.readTo(expected)
+                    i + pieces == tokens.size -> return p.apply { pending = heard.subList(i, tokens.size) }
                     else -> Unit // a partial word before the whole one — not an error
                 }
                 i += pieces
@@ -202,17 +212,17 @@ class WordAligner(private val words: List<String>, unknownIndices: Set<Int> = em
                 agrees && heardAfter >= needed
             }
             if (jump != null) {
-                p.readTo(jump, heardTokens[i])
+                p.readTo(jump)
                 i++
                 continue
             }
-            if (mayConfirm) return p.apply { pending = heardTokens.subList(i, tokens.size) }
+            if (mayConfirm) return p.apply { pending = heard.subList(i, tokens.size) }
 
             // Right after an unknown word the model says something else in its place: not a wrong attempt.
-            // Only the latest attempt is kept: further attempts at the word are not added to the wrong one.
+            // Only the latest attempt decides whether the model was sure the word was misread.
             if (!followsUnknown(expected)) {
                 p.wrongAttempt = true
-                p.heard[expected] = heardTokens[i]
+                if (heard[i].sure) p.unsure -= expected else p.unsure += expected
             }
             i++
         }
@@ -220,15 +230,14 @@ class WordAligner(private val words: List<String>, unknownIndices: Set<Int> = em
     }
 
     /**
-     * The recognised words as shown to the parent: speech the model could not take for a word of its grammar is "?",
-     * and words without letters or digits are left out.
+     * The recognised words as compared with the text, sure unless their index is in [unsure]: speech the model could
+     * not take for a word of its grammar matches no word, and words without letters or digits are left out.
      */
-    private fun shown(recognizedWords: List<String>) = recognizedWords.mapNotNull { word ->
-        if (word == OUTSIDE_GRAMMAR) OUTSIDE_GRAMMAR_SHOWN else word.takeIf { TextPreparation.normalize(it).isNotEmpty() }
-    }
-
-    /** A shown word as compared with the text; "?" matches no word. */
-    private fun comparable(token: String) = if (token == OUTSIDE_GRAMMAR_SHOWN) token else TextPreparation.normalize(token)
+    private fun tokens(recognizedWords: List<String>, unsure: Set<Int> = emptySet()) =
+        recognizedWords.mapIndexedNotNull { i, word ->
+            val text = if (word == OUTSIDE_GRAMMAR) word else TextPreparation.normalize(word)
+            if (text.isEmpty()) null else Token(text, i !in unsure)
+        }
 
     /** How many words heard after a word [distance] words ahead of the expected one confirm a jump to it. */
     private fun confirmationsFor(distance: Int) = when {
@@ -273,6 +282,15 @@ class WordAligner(private val words: List<String>, unknownIndices: Set<Int> = em
 
         /** What the model says, with a grammar, for speech that is none of its words: a wrong attempt. */
         const val OUTSIDE_GRAMMAR = "[unk]"
-        const val OUTSIDE_GRAMMAR_SHOWN = "?"
     }
+}
+
+/** How reading a word again after the text went, see [WordAligner.review]. */
+enum class ReviewOutcome {
+    /** The word was read correctly. */
+    READ,
+    /** Nothing decided yet: more speech is awaited. */
+    LISTENING,
+    /** The word was misread again. */
+    WRONG
 }

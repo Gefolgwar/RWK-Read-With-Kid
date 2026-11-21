@@ -13,6 +13,8 @@ enum class SessionState {
     READY,
     READING,
     PAUSED,
+    /** The text is read; the child reads misread, skipped and uncertain words again. */
+    REVIEWING,
     FINISHED
 }
 

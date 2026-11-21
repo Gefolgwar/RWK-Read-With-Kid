@@ -19,16 +19,24 @@ import org.json.JSONObject
 import java.text.Normalizer
 import kotlin.math.roundToInt
 
+/** How the text was read the first time; reading words again after the text does not change it, except as noted. */
 data class ReadingResult(
+    /** Words that count: without words the model cannot recognise or could not check ([uncertainWords]). */
     val totalWords: Int,
+    /** Words read correctly, also uncertain words the child then read correctly after the text. */
     val correctWords: Int,
-    /** Reading time without pauses. */
+    /** Reading time without pauses, and without reading words again after the text. */
     val durationMs: Long,
+    /** Words misread or skipped and not corrected after the text. */
     val skippedWords: List<String>,
     /** Words read correctly after one or more wrong attempts. */
     val retriedWords: List<String>,
     /** Words the child tapped to hear them said. */
-    @ColumnInfo(defaultValue = "") val helpedWords: List<String> = emptyList()
+    @ColumnInfo(defaultValue = "") val helpedWords: List<String> = emptyList(),
+    /** Words misread or skipped that the child read correctly after the text; they still count as errors. */
+    @ColumnInfo(defaultValue = "") val correctedWords: List<String> = emptyList(),
+    /** Words the model was not sure of, also after the text: neither read nor errors. */
+    @ColumnInfo(defaultValue = "") val uncertainWords: List<String> = emptyList()
 ) {
     /** Share of correctly read words, 0..1. */
     val accuracy: Float
@@ -51,13 +59,23 @@ data class ReadingResult(
     }
 }
 
-/** A read or misread word the child tapped: what the speech model [heard] in its place, "" for nothing. */
-data class WordCheck(
-    val index: Int,
-    val heard: String,
-    /** The child is reading the misread word again. */
-    val retrying: Boolean = false
-)
+/** After the text, the child reads the misread, skipped and uncertain words again, one at a time. */
+data class Review(
+    /** Indices of the words to read again, in text order. */
+    val words: List<Int>,
+    /** Position in [words] of the word being read now. */
+    val position: Int = 0,
+    /** Positions in [words] of the words read correctly. */
+    val read: Set<Int> = emptySet(),
+    /** Wrong attempts at the word being read now. */
+    val wrongAttempts: Int = 0,
+    /** The microphone is off, e.g. while the app is in the background. */
+    val paused: Boolean = false
+) {
+    /** Index in the text of the word being read now. */
+    val wordIndex: Int
+        get() = words[position]
+}
 
 data class ReadingUiState(
     val sessionState: SessionState = SessionState.LOADING_MODEL,
@@ -68,18 +86,13 @@ data class ReadingUiState(
     val wordStatuses: List<WordStatus> = emptyList(),
     /** Word the child is expected to read next, or -1. */
     val currentWordIndex: Int = -1,
-    /** Misread words, by index, with what the speech model heard in their place; shown over them while reading. */
-    val misheard: Map<Int, String> = emptyMap(),
     val result: ReadingResult? = null,
     val recognitionError: Boolean = false,
     /** Whether the child can tap a word to hear it: the phone has a voice for the language. */
     val helpAvailable: Boolean = false,
-    /** The word tapped during reading, or null. */
-    val wordCheck: WordCheck? = null
-) {
-    /** A misread word, or the word being read now, can be read again. */
-    fun canRetry(index: Int) = wordStatuses.getOrNull(index) == WordStatus.SKIPPED || index == currentWordIndex
-}
+    /** Reading words again after the text, while [SessionState.REVIEWING]. */
+    val review: Review? = null
+)
 
 /**
  * Each text language has its own engine, created by [createEngine], and its own model, see [modelInstalled].
@@ -115,8 +128,6 @@ class ReadingSessionViewModel(
     private val helpedIndices = mutableSetOf<Int>()
     /** Words asked to be said and not finished yet; the microphone is deaf meanwhile. */
     private var wordsBeingSaid = 0
-    /** The misread word being read again, or null; meanwhile what the microphone hears is taken for it. */
-    private var retryIndex: Int? = null
 
     private val listener = object : VoskEngineListener {
         override fun onPartialResult(text: String) = handlePartial(text)
@@ -197,46 +208,102 @@ class ReadingSessionViewModel(
         aligner = WordAligner(words.map { it.normalized }, unknown)
         elapsedMs = 0L
         helpedIndices.clear()
-        retryIndex = null
-        _uiState.update { it.copy(sessionState = SessionState.READING, result = null, recognitionError = false, wordCheck = null) }
+        _uiState.update { it.copy(sessionState = SessionState.READING, result = null, recognitionError = false, review = null) }
         publishProgress()
         startEngine()
     }
 
     /** Stops the microphone; also used when the app goes to the background. */
     fun pause() {
-        if (_uiState.value.sessionState != SessionState.READING) return
-        stopRetry()
-        stopEngine()
-        aligner.commitTentative()
-        publishProgress()
-        _uiState.update { it.copy(sessionState = SessionState.PAUSED) }
+        when (_uiState.value.sessionState) {
+            SessionState.READING -> {
+                stopEngine()
+                aligner.commitTentative()
+                publishProgress()
+                _uiState.update { it.copy(sessionState = SessionState.PAUSED) }
+            }
+            SessionState.REVIEWING -> {
+                val review = _uiState.value.review ?: return
+                if (review.paused) return
+                engine.stop()
+                _uiState.update { it.copy(review = review.copy(paused = true)) }
+            }
+            else -> Unit
+        }
     }
 
     fun resume() {
-        if (_uiState.value.sessionState != SessionState.PAUSED) return
-        _uiState.update { it.copy(sessionState = SessionState.READING) }
-        startEngine()
+        when (_uiState.value.sessionState) {
+            SessionState.PAUSED -> {
+                _uiState.update { it.copy(sessionState = SessionState.READING) }
+                startEngine()
+            }
+            SessionState.REVIEWING -> {
+                val review = _uiState.value.review ?: return
+                if (!review.paused) return
+                _uiState.update { it.copy(review = review.copy(paused = false)) }
+                startReviewWord()
+            }
+            else -> Unit
+        }
     }
 
+    /**
+     * The child has read to the end, or stops early. Misread, skipped and uncertain words are then read again one at a
+     * time, see [Review]; without any, the result is shown at once.
+     */
     fun finish() {
         val state = _uiState.value.sessionState
         if (state != SessionState.READING && state != SessionState.PAUSED) return
-        stopRetry()
         if (state == SessionState.READING) stopEngine()
         aligner.commitTentative()
         publishProgress()
+        val words = aligner.reviewIndices
+        if (words.isEmpty()) {
+            complete()
+        } else {
+            _uiState.update { it.copy(sessionState = SessionState.REVIEWING, review = Review(words)) }
+            startReviewWord()
+        }
+    }
+
+    /** Goes on to the next word to read again, leaving the current one as it is; the result after the last one. */
+    fun nextReviewWord() {
+        if (_uiState.value.sessionState != SessionState.REVIEWING) return
+        val review = _uiState.value.review ?: return
+        if (!review.paused) engine.stop()
+        val next = review.position + 1
+        if (next == review.words.size) {
+            complete()
+            return
+        }
+        _uiState.update { it.copy(review = review.copy(position = next, wrongAttempts = 0, paused = false)) }
+        startReviewWord()
+    }
+
+    /** Stops reading words again, leaving the rest as they are, and shows the result. */
+    fun finishReview() {
+        if (_uiState.value.sessionState != SessionState.REVIEWING) return
+        if (_uiState.value.review?.paused == false) engine.stop()
+        complete()
+    }
+
+    /** Shows the result of the reading and saves it for a saved text. */
+    private fun complete() {
         val words = _uiState.value.text.words
-        fun displayOf(indices: Set<Int>) = indices.sorted().map { bare(words[it]) }
+        fun displayOf(indices: Collection<Int>) = indices.sorted().map { bare(words[it]) }
+        val uncertain = aligner.uncertainIndices
         val result = ReadingResult(
-            totalWords = aligner.knownCount,
+            totalWords = aligner.knownCount - uncertain.size,
             correctWords = aligner.matchedCount,
             durationMs = elapsedMs,
             skippedWords = displayOf(aligner.skippedIndices),
             retriedWords = displayOf(aligner.retriedIndices),
-            helpedWords = displayOf(helpedIndices)
+            helpedWords = displayOf(helpedIndices),
+            correctedWords = displayOf(aligner.correctedIndices),
+            uncertainWords = displayOf(uncertain)
         )
-        _uiState.update { it.copy(sessionState = SessionState.FINISHED, result = result) }
+        _uiState.update { it.copy(sessionState = SessionState.FINISHED, result = result, review = null) }
         val reading = textReading ?: return
         val record = ReadingRecord(
             textId = reading.textId,
@@ -251,12 +318,11 @@ class ReadingSessionViewModel(
     fun leave() {
         val state = _uiState.value.sessionState
         if (state != SessionState.READING && state != SessionState.PAUSED) return
-        stopRetry()
         if (state == SessionState.READING) stopEngine()
-        _uiState.update { it.copy(sessionState = SessionState.READY, wordCheck = null) }
+        _uiState.update { it.copy(sessionState = SessionState.READY) }
     }
 
-    /** Says the word at [index] for the child during reading; it is listed in the result. */
+    /** Says the word at [index] for the child during reading, also while reading words again; it is listed in the result. */
     fun sayWord(index: Int) {
         val state = _uiState.value
         val helper = pronunciation
@@ -270,78 +336,52 @@ class ReadingSessionViewModel(
         }
     }
 
-    /** Shows what the model heard in place of the word at [index] during reading, also the current word; nothing for a word further ahead. */
-    fun checkWord(index: Int) {
-        if (!isActive()) return
-        if (retryIndex != null) endRetry()
-        val heard = aligner.heard(index)
-        _uiState.update { it.copy(wordCheck = heard?.let { WordCheck(index, it) }) }
-    }
-
-    fun closeWordCheck() {
-        if (retryIndex != null) endRetry()
-        _uiState.update { it.copy(wordCheck = null) }
-    }
-
-    /**
-     * The child reads the tapped misread word, or the current word, again: what the microphone hears next is taken
-     * for that word until it is read correctly or the speech ends. Then reading the text goes on from where it was.
-     */
-    fun retryWord() {
-        val state = _uiState.value
-        val check = state.wordCheck ?: return
-        if (!isActive() || check.retrying || !state.canRetry(check.index)) return
-        // The microphone starts afresh, so speech heard before is not taken for the word.
-        if (_uiState.value.sessionState == SessionState.READING) stopEngine()
-        aligner.commitTentative()
-        publishProgress()
-        retryIndex = check.index
-        _uiState.update { it.copy(sessionState = SessionState.READING, wordCheck = check.copy(retrying = true)) }
-        startEngine()
-    }
-
     fun closeResult() {
         if (_uiState.value.sessionState != SessionState.FINISHED) return
         _uiState.update { it.copy(sessionState = SessionState.READY, result = null) }
     }
 
-    /** The word being read again has been heard: it is green when read correctly, else shows what was heard. */
-    private fun retryHeard() {
-        publishProgress()
-        _uiState.update { s -> s.copy(wordCheck = s.wordCheck?.let { it.copy(heard = aligner.heard(it.index).orEmpty()) }) }
-        endRetry()
-    }
-
-    /** Stops reading the word again; the microphone starts afresh, so the rest of that speech is not taken for the text. */
-    private fun endRetry() {
-        stopRetry()
-        if (_uiState.value.sessionState == SessionState.READING) {
-            stopEngine()
-            startEngine()
-        }
-    }
-
-    private fun stopRetry() {
-        retryIndex = null
-        _uiState.update { s -> s.copy(wordCheck = s.wordCheck?.copy(retrying = false)) }
-    }
-
     private fun isActive(): Boolean {
         val state = _uiState.value.sessionState
-        return state == SessionState.READING || state == SessionState.PAUSED
+        return state == SessionState.READING || state == SessionState.PAUSED || state == SessionState.REVIEWING
     }
 
     private fun startEngine() {
         activeSinceMs = clockMs()
         if (mode == RecognitionMode.GRAMMAR_CONSTRAINED) {
             currentSentenceIdx = sentenceOfConfirmedWord()
-            val retrying = retryIndex?.let { spelling(_uiState.value.text.words[it]) }
-            engine.start(mode, buildGrammar(currentSentenceIdx) + listOfNotNull(retrying))
+            engine.start(mode, buildGrammar(currentSentenceIdx))
         } else {
             engine.start(mode)
         }
         // Resumed while a word is still being said
         if (wordsBeingSaid > 0) engine.pause(true)
+    }
+
+    /**
+     * Listens afresh for the word being read again, so earlier speech is not taken for it. Only that word is
+     * recognised, so the model checks it alone; any other speech is outside the grammar, a wrong attempt.
+     */
+    private fun startReviewWord() {
+        val review = _uiState.value.review ?: return
+        val word = _uiState.value.text.words[review.wordIndex]
+        engine.start(RecognitionMode.GRAMMAR_CONSTRAINED, listOf(spelling(word), "[unk]"))
+        if (wordsBeingSaid > 0) engine.pause(true)
+    }
+
+    /** The word being read again was heard: read, the next word follows; after [REVIEW_ATTEMPTS] wrong attempts too. */
+    private fun reviewHeard(words: List<String>, final: Boolean) {
+        val review = _uiState.value.review?.takeIf { !it.paused } ?: return
+        when (aligner.review(review.wordIndex, words, final)) {
+            ReviewOutcome.READ -> {
+                _uiState.update { it.copy(review = review.copy(read = review.read + review.position)) }
+                nextReviewWord()
+            }
+            ReviewOutcome.WRONG ->
+                if (review.wrongAttempts + 1 >= REVIEW_ATTEMPTS) nextReviewWord()
+                else _uiState.update { it.copy(review = review.copy(wrongAttempts = review.wrongAttempts + 1)) }
+            ReviewOutcome.LISTENING -> Unit
+        }
     }
 
     /** The word without surrounding punctuation, e.g. "раму." -> "раму". */
@@ -371,13 +411,13 @@ class ReadingSessionViewModel(
     }
 
     private fun handlePartial(json: String) {
-        if (_uiState.value.sessionState != SessionState.READING) return
+        val state = _uiState.value.sessionState
+        if (state != SessionState.READING && state != SessionState.REVIEWING) return
         val text = extractVoskText(json, "partial")
         if (text.isBlank()) return
         val words = text.split(" ").filter { it.isNotBlank() }
-        val retrying = retryIndex
-        if (retrying != null) {
-            if (aligner.retry(retrying, words, final = false)) retryHeard()
+        if (state == SessionState.REVIEWING) {
+            reviewHeard(words, final = false)
             return
         }
         aligner.processPartial(words)
@@ -386,17 +426,15 @@ class ReadingSessionViewModel(
     }
 
     private fun handleFinal(json: String) {
-        if (_uiState.value.sessionState != SessionState.READING) return
-        val text = extractVoskText(json, "text")
-        if (text.isBlank()) return
-        val words = text.split(" ").filter { it.isNotBlank() }
-        val retrying = retryIndex
-        if (retrying != null) {
-            aligner.retry(retrying, words, final = true)
-            retryHeard()
+        val state = _uiState.value.sessionState
+        if (state != SessionState.READING && state != SessionState.REVIEWING) return
+        val (words, unsure) = finalWords(json)
+        if (words.isEmpty()) return
+        if (state == SessionState.REVIEWING) {
+            reviewHeard(words, final = true)
             return
         }
-        aligner.processFinal(words)
+        aligner.processFinal(words, unsure)
         publishProgress()
         if (aligner.confirmedIndex == _uiState.value.text.words.lastIndex) {
             finish()
@@ -413,6 +451,8 @@ class ReadingSessionViewModel(
                 engine.stop()
                 _uiState.update { it.copy(sessionState = SessionState.READY, recognitionError = true) }
             }
+            // The text is read: its result is shown, without the words not read again yet
+            SessionState.REVIEWING -> finishReview()
             else -> Unit
         }
     }
@@ -421,10 +461,7 @@ class ReadingSessionViewModel(
         val count = _uiState.value.text.words.size
         val statuses = List(count) { aligner.getWordStatus(it) }
         val next = maxOf(aligner.confirmedIndex, aligner.tentativeIndex) + 1
-        val misheard = (0 until count).mapNotNull { i -> aligner.misheard(i)?.let { i to it } }.toMap()
-        _uiState.update {
-            it.copy(wordStatuses = statuses, currentWordIndex = if (next < count) next else -1, misheard = misheard)
-        }
+        _uiState.update { it.copy(wordStatuses = statuses, currentWordIndex = if (next < count) next else -1) }
     }
 
     /**
@@ -473,6 +510,12 @@ class ReadingSessionViewModel(
         private val STRESS_MARKS = Regex("\\p{Mn}")
         private val APOSTROPHES = Regex("[ʼ’‘`]")
 
+        /** Below this confidence the model is not sure of a recognised word. A first guess, to be tuned on children's reading. */
+        const val UNSURE_CONFIDENCE = 0.7
+
+        /** Wrong attempts at a word read again after the text before the next word follows. */
+        const val REVIEW_ATTEMPTS = 2
+
         fun factory(
             modelInstalled: (TextLanguage) -> Flow<Boolean> = { flowOf(true) },
             startModelDownload: (TextLanguage) -> Unit = {},
@@ -495,6 +538,23 @@ class ReadingSessionViewModel(
             JSONObject(json).optString(key, "")
         } catch (e: JSONException) {
             ""
+        }
+
+        /**
+         * The words of a final result, and the indices of those the model was not sure of: below [UNSURE_CONFIDENCE].
+         * Without the words' confidence (no "result" list) the model counts as sure of every word.
+         */
+        fun finalWords(json: String): Pair<List<String>, Set<Int>> = try {
+            val result = JSONObject(json).optJSONArray("result")
+            if (result == null) {
+                extractVoskText(json, "text").split(" ").filter { it.isNotBlank() } to emptySet()
+            } else {
+                val words = (0 until result.length()).map { result.getJSONObject(it) }
+                words.map { it.optString("word") } to
+                    words.indices.filterTo(mutableSetOf()) { words[it].optDouble("conf", 1.0) < UNSURE_CONFIDENCE }
+            }
+        } catch (e: JSONException) {
+            emptyList<String>() to emptySet()
         }
     }
 }

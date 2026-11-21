@@ -205,18 +205,26 @@ fun ReadWithKidApp(
         when {
             state.sessionState == SessionState.FINISHED && result != null ->
                 ResultScreen(result, title, Magnets.forText(readingId), onClose = vm::closeResult, modifier = modifier)
+            state.sessionState == SessionState.REVIEWING && state.review != null ->
+                ReviewScreen(
+                    state.review,
+                    state.text.words,
+                    state.language,
+                    syllableColors = syllableColors,
+                    helpAvailable = state.helpAvailable,
+                    onWordTap = vm::sayWord,
+                    onNext = vm::nextReviewWord,
+                    onResume = vm::resume,
+                    onFinish = vm::finishReview,
+                    modifier = modifier
+                )
             state.sessionState == SessionState.READING || state.sessionState == SessionState.PAUSED ->
                 ReadingScreen(
                     state,
                     title,
                     Magnets.forText(readingId),
                     syllableColors = syllableColors,
-                    onWordTap = {
-                        vm.sayWord(it)
-                        vm.checkWord(it)
-                    },
-                    onRetryWord = vm::retryWord,
-                    onCloseWordCheck = vm::closeWordCheck,
+                    onWordTap = vm::sayWord,
                     onPause = vm::pause,
                     onResume = vm::resume,
                     onFinish = vm::finish,
@@ -490,8 +498,6 @@ fun ReadingScreen(
     magnet: Magnet,
     syllableColors: Boolean,
     onWordTap: (Int) -> Unit,
-    onRetryWord: () -> Unit,
-    onCloseWordCheck: () -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
     onFinish: () -> Unit,
@@ -548,7 +554,7 @@ fun ReadingScreen(
         buildAnnotatedString {
             words.forEachIndexed { index, word ->
                 starts[index] = length
-                // Tapping a word says it, when the phone has a voice for the language, and shows what was heard in its place
+                // Tapping a word says it, when the phone has a voice for the language
                 withLink(LinkAnnotation.Clickable("word$index", noLinkStyle) { wordTap(index) }) {
                     // With coloured syllables the letters' colour shows the syllables; progress is drawn behind them.
                     if (syllableColors) {
@@ -624,32 +630,15 @@ fun ReadingScreen(
                     .verticalScroll(scroll)
                     .padding(horizontal = 20.dp, vertical = 24.dp)
             ) {
-                // Inside the scroll, so the tapped word's popup stays over the word
-                Box {
-                    // Andika comes from the theme's typography.
-                    Text(
-                        text = annotated,
-                        style = readingTextStyle(textSize),
-                        onTextLayout = { layout = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .readingProgress(boxes, state.wordStatuses, state.currentWordIndex, state.misheard, fontSize)
-                    )
-                    val check = state.wordCheck
-                    val wordBounds = check?.takeIf { it.index in wordStarts.indices }?.let {
-                        val start = wordStarts[it.index]
-                        layout?.getPathForRange(start, start + words[it.index].display.length)?.getBounds()
-                    }
-                    if (check != null && wordBounds != null) {
-                        WordCheckPopup(
-                            check,
-                            wordBounds,
-                            canRetry = state.canRetry(check.index),
-                            onRetry = onRetryWord,
-                            onClose = onCloseWordCheck
-                        )
-                    }
-                }
+                // Andika comes from the theme's typography.
+                Text(
+                    text = annotated,
+                    style = readingTextStyle(textSize),
+                    onTextLayout = { layout = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .readingProgress(boxes, state.wordStatuses, state.currentWordIndex, fontSize)
+                )
             }
         }
         Spacer(Modifier.height(16.dp))
@@ -686,7 +675,7 @@ fun ReadingScreen(
 
 /**
  * What to do on the reading screen, each point next to the mark it explains, as the child sees it on the page:
- * read aloud, green and dashed orange lines, tapping a word, Pause and Done.
+ * read aloud, the green line, tapping a word to hear it, Pause and Done.
  */
 @Composable
 private fun ReadingGuideDialog(helpAvailable: Boolean, onClose: () -> Unit) {
@@ -700,9 +689,10 @@ private fun ReadingGuideDialog(helpAvailable: Boolean, onClose: () -> Unit) {
                     Icon(Icons.Default.Mic, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 }
                 GuideRow(stringResource(R.string.reading_guide_read)) { GuideLine(Magnets.Green.face) }
-                GuideRow(stringResource(R.string.reading_guide_skipped)) { GuideLine(Magnets.Orange.face, dashed = true) }
-                GuideRow(stringResource(if (helpAvailable) R.string.reading_guide_tap_hear else R.string.reading_guide_tap)) {
-                    Icon(Icons.Default.TouchApp, contentDescription = null)
+                if (helpAvailable) {
+                    GuideRow(stringResource(R.string.reading_guide_tap_hear)) {
+                        Icon(Icons.Default.TouchApp, contentDescription = null)
+                    }
                 }
                 GuideRow(stringResource(R.string.reading_guide_buttons, stringResource(R.string.pause), stringResource(R.string.finish))) {
                     Icon(Icons.Default.Check, contentDescription = null)
@@ -727,13 +717,13 @@ private fun GuideRow(text: String, mark: @Composable () -> Unit) {
 
 /** A short sample of the line drawn under read words, as on the page. */
 @Composable
-private fun GuideLine(color: Color, dashed: Boolean = false) {
+private fun GuideLine(color: Color) {
     Canvas(Modifier.size(32.dp, 8.dp)) {
-        drawProgressLine(color, WordBox(0f, size.width, 0f, 0), size.height / 2, dashed)
+        drawProgressLine(color, WordBox(0f, size.width, 0f, 0), size.height / 2)
     }
 }
 
-/** The reading text at [textSize] sp; the line height keeps the 30/60 proportion, so the band, the magnet and what was heard over a word fit. */
+/** The reading text at [textSize] sp; the line height keeps the 30/60 proportion, so the band and the magnet fit. */
 @Composable
 private fun readingTextStyle(textSize: Int): TextStyle =
     MaterialTheme.typography.bodyLarge.copy(fontSize = textSize.sp, lineHeight = textSize.sp * (60f / 30f))
@@ -752,23 +742,17 @@ private fun TextSizeButtons(textSize: Int, onTextSizeChange: (Int) -> Unit) {
 }
 
 /**
- * Read words underlined in green, skipped ones in dashed orange and the current line banded.
- * Over a [misheard] word, in small orange letters between the lines, is what the speech model heard in its place.
+ * Read words underlined in green and the current line banded. Misread and skipped words look unread, so the child
+ * reads on; they are read again after the text.
  */
 @Composable
 private fun Modifier.readingProgress(
     boxes: List<WordBox>,
     statuses: List<WordStatus>,
     current: Int,
-    misheard: Map<Int, String>,
     fontSize: TextUnit
 ): Modifier {
     val band = MaterialTheme.colorScheme.primaryContainer
-    val measurer = rememberTextMeasurer()
-    val heardStyle = MaterialTheme.typography.bodyLarge.copy(
-        fontSize = fontSize * 0.6f,
-        color = if (LocalDarkDoor.current) Magnets.Orange.face else Magnets.Orange.edge
-    )
     val target = boxes.getOrNull(current)
     return drawBehind {
         val font = fontSize.toPx()
@@ -786,84 +770,21 @@ private fun Modifier.readingProgress(
             when (statuses.getOrElse(i) { WordStatus.UNREAD }) {
                 WordStatus.CONFIRMED -> drawProgressLine(Magnets.Green.face, box, y)
                 WordStatus.TENTATIVE -> drawProgressLine(Magnets.Green.face.copy(alpha = 0.4f), box, y)
-                WordStatus.SKIPPED -> drawProgressLine(Magnets.Orange.face, box, y, dashed = true)
-                WordStatus.UNREAD -> Unit
+                WordStatus.SKIPPED, WordStatus.UNREAD -> Unit
             }
-        }
-        // Over the current word too, so it shows a wrong attempt at once
-        misheard.forEach { (i, heard) ->
-            val box = boxes.getOrNull(i) ?: return@forEach
-            val label = measurer.measure(heard, heardStyle)
-            val x = (box.left + box.right) / 2 - label.size.width / 2
-            drawText(
-                label,
-                topLeft = Offset(
-                    x.coerceIn(0f, maxOf(0f, size.width - label.size.width)),
-                    box.baseline - font * 1.0f - label.firstBaseline
-                )
-            )
         }
     }
 }
 
-private fun DrawScope.drawProgressLine(color: Color, box: WordBox, y: Float, dashed: Boolean = false) {
+private fun DrawScope.drawProgressLine(color: Color, box: WordBox, y: Float) {
     val stroke = 4.dp.toPx()
     drawLine(
         color,
         Offset(box.left + stroke / 2, y),
         Offset(box.right - stroke / 2, y),
         strokeWidth = stroke,
-        cap = StrokeCap.Round,
-        pathEffect = if (dashed) PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 7.dp.toPx())) else null
+        cap = StrokeCap.Round
     )
-}
-
-/** Above the tapped word: what the speech model heard in its place, and for a misread or the current word the button to read it again. */
-@Composable
-private fun WordCheckPopup(check: WordCheck, word: Rect, canRetry: Boolean, onRetry: () -> Unit, onClose: () -> Unit) {
-    val position = remember(word) { OverWord(word) }
-    Popup(popupPositionProvider = position, onDismissRequest = onClose) {
-        Surface(
-            shape = MaterialTheme.shapes.large,
-            color = MaterialTheme.colorScheme.surfaceContainerLowest,
-            shadowElevation = 8.dp
-        ) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    if (check.heard.isEmpty()) stringResource(R.string.word_heard_nothing)
-                    else stringResource(R.string.word_heard, check.heard),
-                    style = MaterialTheme.typography.titleLarge
-                )
-                when {
-                    check.retrying -> Row(verticalAlignment = Alignment.CenterVertically) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 3.dp)
-                        Spacer(Modifier.width(12.dp))
-                        Text(stringResource(R.string.word_retry_listening), style = MaterialTheme.typography.titleLarge)
-                    }
-                    canRetry -> ChildButton(Icons.Default.Mic, stringResource(R.string.word_retry), onClick = onRetry)
-                }
-            }
-        }
-    }
-}
-
-/** Places a popup centred over [word], given in the anchor's coordinates, or under it without room above; inside the window. */
-private class OverWord(private val word: Rect) : PopupPositionProvider {
-    override fun calculatePosition(
-        anchorBounds: IntRect,
-        windowSize: IntSize,
-        layoutDirection: LayoutDirection,
-        popupContentSize: IntSize
-    ): IntOffset {
-        val x = anchorBounds.left + word.center.x.roundToInt() - popupContentSize.width / 2
-        val above = anchorBounds.top + word.top.roundToInt() - popupContentSize.height
-        val y = if (above >= 0) above else anchorBounds.top + word.bottom.roundToInt()
-        return IntOffset(x.coerceIn(0, maxOf(0, windowSize.width - popupContentSize.width)), y)
-    }
 }
 
 /** Scroll position that shows the line starting at [lineTop] a third of the way down a [viewportHeight] tall text. */

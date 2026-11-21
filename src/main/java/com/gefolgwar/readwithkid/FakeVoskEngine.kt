@@ -60,8 +60,14 @@ class FakeVoskEngine : VoskEngine {
         _listener?.onPartialResult("""{"partial":"$text"}""")
     }
 
-    fun simulateFinal(text: String) {
-        _listener?.onResult("""{"text":"$text"}""")
+    /** A final result; with [confidences], one per word, it also lists each word with the model's confidence in it. */
+    fun simulateFinal(text: String, confidences: List<Double>? = null) {
+        if (confidences == null) {
+            _listener?.onResult("""{"text":"$text"}""")
+            return
+        }
+        val words = text.split(" ").zip(confidences).joinToString(",") { (word, conf) -> """{"conf":$conf,"word":"$word"}""" }
+        _listener?.onResult("""{"result":[$words],"text":"$text"}""")
     }
 
     fun simulateError(message: String) {
