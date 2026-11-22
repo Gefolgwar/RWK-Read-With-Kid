@@ -255,7 +255,7 @@ Saturated plastic on cool enamel: the ground and ink stay quiet so the magnets c
 - **Magnet Green Edge** (magnet-green-edge): the M3 `secondary` and `tertiary` roles. Bright Magnet Green (magnet-green) is the underline of a confirmed word while reading; at 40% opacity it marks a tentatively heard word.
 
 ### Tertiary
-- **Magnet Orange** (magnet-orange): the dashed underline of a skipped word. Its container (magnet-orange-container) backs the hard-to-recognise hint in the editor and the skipped-word tiles on the result, with magnet-orange-edge for the hint's icon.
+- **Magnet Orange** (magnet-orange): the dot of a word left misread after the text. Its container (magnet-orange-container) backs the hard-to-recognise hint in the editor and the skipped-word tiles on the result, with magnet-orange-edge for the hint's icon.
 
 ### The text magnets
 - **Magnet Red, Blue, Green, Orange, Purple**, each a face over its edge, are the five colours a text can own. `Magnets.forText(id)` picks one by `id mod 5`, so texts added one after another get different colours and a text keeps its colour forever.
@@ -329,7 +329,7 @@ Magnets are the one place depth is drawn on purpose. A magnet letter is drawn tw
 
 ## Shapes
 
-Rounded and chunky throughout: the M3 shape scale is raised to 8 / 12 / 16 / 24 / 32dp (xs, sm, md, lg, xl). Cards, the reading page, the text field and popups use lg (24dp). Child buttons use xl (32dp), which at 72dp tall reads as a fat pill. Parent Material buttons keep their default full pill. Result word tiles use sm (12dp); the editor hint uses md (16dp). The reading band rounds at 14dp. Reading-progress underlines are 4dp strokes with round caps; the skipped mark is dashed 8 on 7dp.
+Rounded and chunky throughout: the M3 shape scale is raised to 8 / 12 / 16 / 24 / 32dp (xs, sm, md, lg, xl). Cards, the reading page, the text field and popups use lg (24dp). Child buttons use xl (32dp), which at 72dp tall reads as a fat pill. Parent Material buttons keep their default full pill. Result word tiles use sm (12dp); the editor hint uses md (16dp). The reading band rounds at 14dp. Reading-progress underlines are 4dp strokes with round caps.
 
 ## Components
 
@@ -366,10 +366,13 @@ The library row: the text's magnet letter centred in a 52dp slot, 12dp gap, titl
 The system's signature glyph: a letter or digit from the title, uppercase, Andika Bold, drawn as a magnet in its text's colour (face over edge, shadow, gloss). Decoration only; hidden from TalkBack. The empty library shows three of them (red, blue, green) at 72sp above the empty-state line.
 
 ### Reading page and the current-word magnet
-The reading text sits on a white lg card at 30/60. Progress is drawn behind the words so lines never reflow: the current line is banded in magnet-blue-container like a reading ruler (14dp corners, overhanging the text by 12dp each side); confirmed words get a solid 4dp Magnet Green underline, tentative ones the same at 40%, skipped ones a dashed Magnet Orange underline. Over a misread word, in the gap above it at 60% of the text size, is what the speech model heard in its place, in magnet-orange-edge (magnet-orange on the dark page); it appears as soon as a wrong attempt is heard, also over the current word, and goes once the child corrects the word. The current word itself is not marked: speech recognition sometimes mishears a word read correctly, and a marker waiting on it would stop the child. Tapping a word speaks it and opens the word-check popup; a misread word and the current word also offer Read again.
+The reading text sits on a white lg card at 30/60. Progress is drawn behind the words so lines never reflow: the current line is banded in magnet-blue-container like a reading ruler (14dp corners, overhanging the text by 12dp each side); confirmed words get a solid 4dp Magnet Green underline, tentative ones the same at 40%. Misread and skipped words are not marked and nothing shows what the model heard: a mark would make the child stop and repeat the word, and speech recognition sometimes mishears a word read correctly. The current word itself is not marked either, for the same reason. Tapping a word speaks it.
+
+### Reading words again
+After the text, the misread, skipped and uncertain words come back one at a time on the same white lg card: the word alone in the reading font at 56sp (coloured syllables when they are on), a dot per word above the card (Magnet Green once read, Magnet Orange when left misread, larger magnet-blue for the current one, outline for the rest), and a Mic icon with "Read the word", or "Once more" after a wrong attempt. Next is a tonal ChildButton; while paused it becomes Continue. Tapping the word speaks it.
 
 ### Result
-Earned stars (72dp, glossy yellow magnets) pop in one after another; unearned ones stay as hairline outlines. A praise line in Headline Medium follows, then a white card of labelled rows (label in Body Large, figure in Headline Small with tabular figures, minimum 64dp) whose numbers count up in place. Word lists follow as tiles in the reading font at 22sp on the pale container of the colour that marked them while reading: orange for skipped, yellow for retried, blue for helped.
+Earned stars (72dp, glossy yellow magnets) pop in one after another; unearned ones stay as hairline outlines. A praise line in Headline Medium follows, then a white card of labelled rows (label in Body Large, figure in Headline Small with tabular figures, minimum 64dp) whose numbers count up in place. Word lists follow as tiles in the reading font at 22sp on a pale container: orange for skipped, green for corrected after the text, purple for uncertain (the phone could not check), yellow for retried, blue for helped.
 
 ### Motion
 Motion is limited to the reading moment: the tile spring, the stars' pop, the count-up and the auto-scroll. With the system's Remove animations setting on, every one of them cuts to its end state. Motion has been verified only in JVM renders, not on hardware.
@@ -391,5 +394,5 @@ Motion is limited to the reading moment: the tile spring, the stars' pop, the co
 - **Don't** add pastel mascot cards, storybook serif type or clinical dashboard chrome.
 - **Don't** give cards, buttons or fields the magnet edge, offset shadow or gloss; that treatment is for magnets only.
 - **Don't** introduce a second typeface.
-- **Don't** mark reading progress with colour alone; skipped words also differ by their dashed stroke.
+- **Don't** mark a misread word while the child reads; it is read again after the text.
 - **Don't** derive dark colours by inverting tokens; the dark door has its own scheme (AppDarkColors) and every new colour needs both values.

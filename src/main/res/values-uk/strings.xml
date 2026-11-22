@@ -71,16 +71,10 @@
     <string name="reading_help_hint">Натисни на слово, щоб почути його</string>
     <string name="text_smaller">Менші літери</string>
     <string name="text_bigger">Більші літери</string>
-    <string name="word_heard">Почуто: %1$s</string>
-    <string name="word_heard_nothing">Нічого не почуто</string>
-    <string name="word_retry">Повторити</string>
-    <string name="word_retry_listening">Читай слово…</string>
     <string name="reading_guide_title">Як читати</string>
     <string name="reading_guide_read_aloud">Читай текст уголос, слово за словом.</string>
     <string name="reading_guide_read">Прочитані слова підкреслюються зеленим.</string>
-    <string name="reading_guide_skipped">Пропущені слова підкреслюються помаранчевим пунктиром.</string>
-    <string name="reading_guide_tap_hear">Натисни на слово, щоб почути його і побачити, що почув телефон.</string>
-    <string name="reading_guide_tap">Натисни на слово, щоб побачити, що почув телефон.</string>
+    <string name="reading_guide_tap_hear">Натисни на слово, щоб почути його.</string>
     <string name="reading_guide_buttons">«%1$s» — щоб відпочити, «%2$s» — коли дочитаєш до кінця.</string>
     <string name="reading_guide_close">Зрозуміло</string>
 
@@ -96,6 +90,13 @@
     <string name="result_skipped">Пропущені слова</string>
     <string name="result_retried">Слова з кількома спробами</string>
     <string name="result_helped">Слова з підказкою вимови</string>
+    <string name="result_corrected">Прочитані правильно після тексту</string>
+    <string name="result_uncertain">Телефон не зміг перевірити</string>
+    <string name="review_title">Прочитаймо ці слова ще раз</string>
+    <string name="review_read">Читай слово</string>
+    <string name="review_again">Ще раз</string>
+    <string name="review_next">Далі</string>
+    <string name="review_progress">Слово %1$d з %2$d</string>
     <string name="result_back">До тексту</string>
 
     <string name="history_title">Попередні спроби</string>

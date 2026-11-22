@@ -43,10 +43,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
@@ -61,21 +59,13 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.drawText
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntRect
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupPositionProvider
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
@@ -199,15 +189,16 @@ fun ReadWithKidApp(
             .imePadding()
             .padding(16.dp)
         val result = state.result
+        val review = state.review
         val editor = library.editor
         val history = library.history
         val title = readingTitle
         when {
             state.sessionState == SessionState.FINISHED && result != null ->
                 ResultScreen(result, title, Magnets.forText(readingId), onClose = vm::closeResult, modifier = modifier)
-            state.sessionState == SessionState.REVIEWING && state.review != null ->
+            state.sessionState == SessionState.REVIEWING && review != null ->
                 ReviewScreen(
-                    state.review,
+                    review,
                     state.text.words,
                     state.language,
                     syllableColors = syllableColors,
@@ -841,6 +832,8 @@ fun ResultScreen(
                 modifier = Modifier.padding(start = 4.dp, top = 12.dp)
             )
             WordList(stringResource(R.string.result_skipped), result.skippedWords, Magnets.Orange)
+            WordList(stringResource(R.string.result_corrected), result.correctedWords, Magnets.Green)
+            WordList(stringResource(R.string.result_uncertain), result.uncertainWords, Magnets.Purple)
             WordList(stringResource(R.string.result_retried), result.retriedWords, Magnets.Yellow)
             WordList(stringResource(R.string.result_helped), result.helpedWords, Magnets.Blue)
             Spacer(Modifier.height(8.dp))

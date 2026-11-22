@@ -38,8 +38,6 @@ class ReadingScreenTest {
                 Magnets.forText(1),
                 syllableColors = false,
                 onWordTap = {},
-                onRetryWord = {},
-                onCloseWordCheck = {},
                 onPause = { events += "pause" },
                 onResume = { events += "resume" },
                 onFinish = {},

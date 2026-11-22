@@ -71,16 +71,10 @@
     <string name="reading_help_hint">Tippe auf ein Wort, um es zu hören</string>
     <string name="text_smaller">Kleinere Schrift</string>
     <string name="text_bigger">Größere Schrift</string>
-    <string name="word_heard">Gehört: %1$s</string>
-    <string name="word_heard_nothing">Nichts gehört</string>
-    <string name="word_retry">Nochmal</string>
-    <string name="word_retry_listening">Lies das Wort…</string>
     <string name="reading_guide_title">So wird gelesen</string>
     <string name="reading_guide_read_aloud">Lies den Text laut vor, Wort für Wort.</string>
     <string name="reading_guide_read">Gelesene Wörter werden grün unterstrichen.</string>
-    <string name="reading_guide_skipped">Übersprungene Wörter werden orange gestrichelt unterstrichen.</string>
-    <string name="reading_guide_tap_hear">Tippe auf ein Wort, um es zu hören und zu sehen, was das Handy gehört hat.</string>
-    <string name="reading_guide_tap">Tippe auf ein Wort, um zu sehen, was das Handy gehört hat.</string>
+    <string name="reading_guide_tap_hear">Tippe auf ein Wort, um es zu hören.</string>
     <string name="reading_guide_buttons">„%1$s“ für eine Pause, „%2$s“, wenn du bis zum Ende gelesen hast.</string>
     <string name="reading_guide_close">Alles klar</string>
 
@@ -96,6 +90,13 @@
     <string name="result_skipped">Ausgelassene Wörter</string>
     <string name="result_retried">Wörter mit mehreren Versuchen</string>
     <string name="result_helped">Wörter mit Aussprachehilfe</string>
+    <string name="result_corrected">Nach dem Text richtig gelesen</string>
+    <string name="result_uncertain">Das Handy konnte es nicht prüfen</string>
+    <string name="review_title">Lies diese Wörter noch einmal</string>
+    <string name="review_read">Lies das Wort</string>
+    <string name="review_again">Noch einmal</string>
+    <string name="review_next">Nächstes</string>
+    <string name="review_progress">Wort %1$d von %2$d</string>
     <string name="result_back">Zurück zum Text</string>
 
     <string name="history_title">Bisherige Versuche</string>

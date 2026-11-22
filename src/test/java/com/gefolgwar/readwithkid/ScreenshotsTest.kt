@@ -69,7 +69,18 @@ class ScreenshotsTest {
         durationMs = 52_000,
         skippedWords = listOf("стежці"),
         retriedWords = listOf("поділитися", "сестричко"),
-        helpedWords = listOf("пирогом")
+        helpedWords = listOf("пирогом"),
+        correctedWords = listOf("червоне"),
+        uncertainWords = listOf("бабусі")
+    )
+
+    /** After the text: the first of three words was read again correctly, the second one gets a wrong attempt. */
+    private val review = Review(listOf(4, 11, 20), position = 1, read = setOf(0), wrongAttempts = 1)
+
+    @Composable
+    private fun reviewScreen(modifier: Modifier) = ReviewScreen(
+        review, TextPreparation.prepare(story).words, TextLanguage.UK, syllableColors = true, helpAvailable = true,
+        {}, {}, {}, {}, modifier
     )
 
     /** [dark] null follows the system setting, as the app does. */
@@ -110,8 +121,6 @@ class ScreenshotsTest {
             text = prepared,
             wordStatuses = statuses,
             currentWordIndex = 11,
-            // "червоне" was misread and passed over; the current word has just got a wrong attempt
-            misheard = mapOf(4 to "чорне", 11 to "подивитися"),
             helpAvailable = true
         )
     }
@@ -251,21 +260,27 @@ class ScreenshotsTest {
 
     @Test
     fun readingScreen() = shot("4-reading") {
-        ReadingScreen(reading(), texts[0].title, Magnets.forText(1), syllableColors = false, {}, {}, {}, {}, {}, {}, {}, it)
+        ReadingScreen(reading(), texts[0].title, Magnets.forText(1), syllableColors = false, {}, {}, {}, {}, {}, it)
     }
 
     @Test
     fun readingSyllables() = shot("4b-reading-syllables") {
-        ReadingScreen(reading(SessionState.PAUSED), texts[0].title, Magnets.forText(1), syllableColors = true, {}, {}, {}, {}, {}, {}, {}, it)
+        ReadingScreen(reading(SessionState.PAUSED), texts[0].title, Magnets.forText(1), syllableColors = true, {}, {}, {}, {}, {}, it)
     }
 
     @Test
     fun readingBiggestText() = shot("4c-reading-biggest-text") {
         ReadingScreen(
-            reading(), texts[0].title, Magnets.forText(1), syllableColors = false, {}, {}, {}, {}, {}, {}, {}, it,
+            reading(), texts[0].title, Magnets.forText(1), syllableColors = false, {}, {}, {}, {}, {}, it,
             textSize = ReadingTextSizes.last()
         )
     }
+
+    @Test
+    fun reviewWords() = shot("4e-review-words") { reviewScreen(it) }
+
+    @Test
+    fun reviewWordsDark() = shot("d4e-review-words", dark = true) { reviewScreen(it) }
 
     @Test
     fun resultScreen() = shot("5-result") {
@@ -310,7 +325,7 @@ class ScreenshotsTest {
     private fun guideShot(name: String, dark: Boolean) {
         compose.setContent {
             ReadWithKidTheme(dark = dark) {
-                ReadingScreen(reading(), texts[0].title, Magnets.forText(1), syllableColors = false, {}, {}, {}, {}, {}, {}, {})
+                ReadingScreen(reading(), texts[0].title, Magnets.forText(1), syllableColors = false, {}, {}, {}, {}, {})
             }
         }
         compose.onNodeWithContentDescription(compose.activity.getString(R.string.reading_guide_title)).performClick()
@@ -335,7 +350,7 @@ class ScreenshotsTest {
     @Test
     @Config(qualifiers = "de-w412dp-h915dp-xhdpi", fontScale = 1.3f)
     fun readingGermanLargeFont() = shot("8-reading-de-font130") {
-        ReadingScreen(reading(SessionState.PAUSED), texts[0].title, Magnets.forText(1), syllableColors = false, {}, {}, {}, {}, {}, {}, {}, it)
+        ReadingScreen(reading(SessionState.PAUSED), texts[0].title, Magnets.forText(1), syllableColors = false, {}, {}, {}, {}, {}, it)
     }
 
     @Test
@@ -436,12 +451,12 @@ class ScreenshotsTest {
 
     @Test
     fun readingDark() = shot("d4-reading", dark = true) {
-        ReadingScreen(reading(), texts[0].title, Magnets.forText(1), syllableColors = false, {}, {}, {}, {}, {}, {}, {}, it)
+        ReadingScreen(reading(), texts[0].title, Magnets.forText(1), syllableColors = false, {}, {}, {}, {}, {}, it)
     }
 
     @Test
     fun readingSyllablesDark() = shot("d4b-reading-syllables", dark = true) {
-        ReadingScreen(reading(SessionState.PAUSED), texts[0].title, Magnets.forText(1), syllableColors = true, {}, {}, {}, {}, {}, {}, {}, it)
+        ReadingScreen(reading(SessionState.PAUSED), texts[0].title, Magnets.forText(1), syllableColors = true, {}, {}, {}, {}, {}, it)
     }
 
     @Test

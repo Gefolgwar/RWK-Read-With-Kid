@@ -24,16 +24,17 @@ All four together are the product's position (confirmed as essential by the owne
 1. **The parent's own texts.** Any text: a school assignment page, a favourite fairy tale, a teacher's exercise. No fixed content catalogue.
 2. **Private and offline.** Speech recognition runs on the device (Vosk). Audio is processed as a stream and is never stored or transmitted. No accounts, no ads, no tracking, no server; texts and results stay on the phone.
 3. **Ukrainian and German.** Both reading languages, language detected from the text's alphabet and switchable; interface in Ukrainian, German and English.
-4. **Tolerant of how children actually read.** Repetitions, reading by syllables, self-corrections and pauses are not counted as errors; skipped words are noted and the reading moves on; words the speech model does not know are not counted as the child's errors.
+4. **Tolerant of how children actually read.** Repetitions, reading by syllables, self-corrections and pauses are not counted as errors; skipped words are noted and the reading moves on; words the speech model does not know are not counted as the child's errors; a word the model was not sure of (low confidence in what it heard in its place) is "uncertain": neither read nor an error.
 
 ## Operating Context
 
 The v1.1 flow is one simple path with a minimum of buttons:
 
-Text list → "+" → paste or type a text (language detected automatically, switchable uk/de) → Save → tap the text → the language model downloads automatically with progress (first use of a language only) → Start → child reads aloud with the current line banded → result.
+Text list → "+" → paste or type a text (language detected automatically, switchable uk/de) → Save → tap the text → the language model downloads automatically with progress (first use of a language only) → Start → child reads aloud with the current line banded → child reads the misread and uncertain words again → result.
 
 - The child holds the phone and reads alone; the parent sets up before and reviews after.
-- During reading: the current line is banded, read words are marked (the current word itself is not, so a misheard word never holds the child up), long text auto-scrolls to keep the current line visible, Pause/Continue and Done are available; tapping a word speaks it (pronunciation help).
+- During reading: the current line is banded, read words are marked (the current word itself is not, so a misheard word never holds the child up), long text auto-scrolls to keep the current line visible, Pause/Continue and Done are available; tapping a word speaks it (pronunciation help). A misread or skipped word shows nothing while reading (it looks unread), so the child reads on instead of repeating it.
+- After the text: the misread, skipped and uncertain words are read again one at a time, the model listening for that word alone (two attempts, Next skips, back shows the result). Accuracy and WCPM stay those of the first reading: a corrected word is still an error, listed as corrected; an uncertain word read correctly counts as read, otherwise it stays out of the count.
 - Reading pauses automatically when the app goes to the background.
 - Child profiles (#35): each child has a profile with only a name, and each text belongs to exactly one child. The active child is shown top right as a round avatar with the first letter of the name and the name next to it; the app reopens with the child who was active last. Everything stays on the one library screen: there is no separate parent area, child start screen, onboarding or text assignment.
 - Parent mode and child mode (#35), shown by a lock icon on the library screen: in child mode nothing can be added, edited, deleted or configured; unlocking needs a simple adult question.
