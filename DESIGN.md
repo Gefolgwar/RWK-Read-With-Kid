@@ -199,11 +199,6 @@ components:
     textColor: "{colors.blue-black-ink}"
     rounded: "{rounded.magnet-tile}"
     padding: "0 7px"
-  word-tile-skipped:
-    backgroundColor: "{colors.magnet-orange-container}"
-    textColor: "{colors.blue-black-ink}"
-    rounded: "{rounded.sm}"
-    padding: "8px 14px"
   word-tile-retried:
     backgroundColor: "{colors.magnet-yellow-container}"
     textColor: "{colors.blue-black-ink}"
@@ -249,16 +244,17 @@ The app follows the system theme. The dark door is the same world at night: dark
 Saturated plastic on cool enamel: the ground and ink stay quiet so the magnets carry all the colour.
 
 ### Primary
-- **Magnet Blue** (magnet-blue): every primary action (Start, Done, Back to text, Save, the Add text FAB), the M3 `primary` role. Its pale container (magnet-blue-container) is the reading ruler band and the "helped" word tile; ink on that container is ink-on-blue-container.
+- **Magnet Blue** (magnet-blue): every primary action (Start, Done, Back to text, Save, the Add text FAB), the M3 `primary` role. Its pale container (magnet-blue-container) is the band of the sentence to read and the "helped" word tile; ink on that container is ink-on-blue-container. Bright Magnet Blue underlines the words read so far in the sentence being read; at 40% opacity it marks a tentatively heard word.
 
 ### Secondary
-- **Magnet Green Edge** (magnet-green-edge): the M3 `secondary` and `tertiary` roles. Bright Magnet Green (magnet-green) is the underline of a confirmed word while reading; at 40% opacity it marks a tentatively heard word.
+- **Magnet Green Edge** (magnet-green-edge): the M3 `secondary` and `tertiary` roles. Bright Magnet Green (magnet-green) underlines a word read correctly in a read sentence; its pale container tints a read sentence, on the page and on the result.
 
 ### Tertiary
-- **Magnet Orange** (magnet-orange): the dot of a word left misread after the text. Its container (magnet-orange-container) backs the hard-to-recognise hint in the editor and the skipped-word tiles on the result, with magnet-orange-edge for the hint's icon.
+- **Magnet Orange** (magnet-orange): its container (magnet-orange-container) backs the hard-to-recognise hint in the editor, with magnet-orange-edge for the hint's icon.
 
 ### The text magnets
 - **Magnet Red, Blue, Green, Orange, Purple**, each a face over its edge, are the five colours a text can own. `Magnets.forText(id)` picks one by `id mod 5`, so texts added one after another get different colours and a text keeps its colour forever.
+- **Magnet Red** also marks mistakes: its face underlines a misread or skipped word in a read sentence, and its pale container tints a sentence read with too many mistakes. What the phone heard in place of a misread word is written above it in the M3 error colour.
 - **Magnet Yellow** (magnet-yellow over magnet-yellow-edge) is not in that set. It is the current-word tile and the earned reward stars; its pale container tints the retried-word tiles on the result.
 - **Syllable colours**: when coloured syllables are on, syllables alternate magnet-blue-edge and magnet-red-edge, starting each word with blue; the edges are dark enough to read on the band.
 
@@ -366,13 +362,10 @@ The library row: the text's magnet letter centred in a 52dp slot, 12dp gap, titl
 The system's signature glyph: a letter or digit from the title, uppercase, Andika Bold, drawn as a magnet in its text's colour (face over edge, shadow, gloss). Decoration only; hidden from TalkBack. The empty library shows three of them (red, blue, green) at 72sp above the empty-state line.
 
 ### Reading page and the current-word magnet
-The reading text sits on a white lg card at 30/60. Progress is drawn behind the words so lines never reflow: the current line is banded in magnet-blue-container like a reading ruler (14dp corners, overhanging the text by 12dp each side); confirmed words get a solid 4dp Magnet Green underline, tentative ones the same at 40%. Misread and skipped words are not marked and nothing shows what the model heard: a mark would make the child stop and repeat the word, and speech recognition sometimes mishears a word read correctly. The current word itself is not marked either, for the same reason. Tapping a word speaks it.
-
-### Reading words again
-After the text, the misread, skipped and uncertain words come back one at a time on the same white lg card: the word alone in the reading font at 56sp (coloured syllables when they are on), a dot per word above the card (Magnet Green once read, Magnet Orange when left misread, larger magnet-blue for the current one, outline for the rest), and a Mic icon with "Read the word", or "Once more" after a wrong attempt. Next is a tonal ChildButton; while paused it becomes Continue. Tapping the word speaks it.
+The reading text sits on a white lg card at 30/60. The child reads sentence by sentence. Progress is drawn behind the words so lines never reflow, each sentence tinted on each of its lines (14dp corners, 3dp beyond its words): the sentence to read is banded in magnet-blue-container, and the words read so far in it get a solid 4dp Magnet Blue underline, tentative ones the same at 40%. A misread or skipped word in it is not marked and nothing shows what the model heard: a mark would make the child stop and repeat the word, and speech recognition sometimes mishears a word read correctly. The current word itself is not marked either, for the same reason. Once a sentence is read it turns green (magnet-green-container), or red (magnet-red-container) when more than half of its words were misread or skipped; its words get a Magnet Green or Magnet Red underline, and what the phone heard sits above a misread word. Tapping a word of the sentence to read speaks it; tapping another sentence chooses it, also a red one to read it again.
 
 ### Result
-Earned stars (72dp, glossy yellow magnets) pop in one after another; unearned ones stay as hairline outlines. A praise line in Headline Medium follows, then a white card of labelled rows (label in Body Large, figure in Headline Small with tabular figures, minimum 64dp) whose numbers count up in place. Word lists follow as tiles in the reading font at 22sp on a pale container: orange for skipped, green for corrected after the text, purple for uncertain (the phone could not check), yellow for retried, blue for helped.
+Earned stars (72dp, glossy yellow magnets) pop in one after another; unearned ones stay as hairline outlines. A praise line in Headline Medium follows, then a white card of labelled rows (label in Body Large, figure in Headline Small with tabular figures, minimum 64dp) whose numbers count up in place. The sentences with mistakes follow, each as the child first read it on its own md card tinted green or red as on the page: its words in the reading font at 22sp, misread and skipped ones in the error colour and underlined, with what the phone heard above them in Body Medium. Word lists follow as tiles in the reading font at 22sp on a pale container: green for corrected when the sentence was read again, purple for uncertain (the phone could not check), yellow for retried, blue for helped.
 
 ### Motion
 Motion is limited to the reading moment: the tile spring, the stars' pop, the count-up and the auto-scroll. With the system's Remove animations setting on, every one of them cuts to its end state. Motion has been verified only in JVM renders, not on hardware.
@@ -394,5 +387,5 @@ Motion is limited to the reading moment: the tile spring, the stars' pop, the co
 - **Don't** add pastel mascot cards, storybook serif type or clinical dashboard chrome.
 - **Don't** give cards, buttons or fields the magnet edge, offset shadow or gloss; that treatment is for magnets only.
 - **Don't** introduce a second typeface.
-- **Don't** mark a misread word while the child reads; it is read again after the text.
+- **Don't** mark a misread word while its sentence is being read; mistakes show once the sentence is read.
 - **Don't** derive dark colours by inverting tokens; the dark door has its own scheme (AppDarkColors) and every new colour needs both values.

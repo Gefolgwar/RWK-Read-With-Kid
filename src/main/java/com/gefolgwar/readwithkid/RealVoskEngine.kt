@@ -25,14 +25,9 @@ class RealVoskEngine(private val modelDir: File) : VoskEngine {
     @Volatile private var released = false
     private val mainHandler = Handler(Looper.getMainLooper())
 
-    // Single background thread for model loading, grammar recognizer creation and model release,
+    // Single background thread for model loading and model release,
     // so these never run on the main thread and never overlap.
     private val worker = Executors.newSingleThreadExecutor()
-
-    // Guards [session] and [pendingRecognizer]: a grammar recognizer built for an old session is discarded.
-    private val lock = Any()
-    private var session = 0
-    private var pendingRecognizer: Recognizer? = null
 
     override fun loadModel() {
         worker.execute {
@@ -65,11 +60,6 @@ class RealVoskEngine(private val modelDir: File) : VoskEngine {
             return
         }
 
-        synchronized(lock) {
-            session++
-            pendingRecognizer?.close()
-            pendingRecognizer = null
-        }
         recognizer?.close()
         recognizer = if (mode == RecognitionMode.GRAMMAR_CONSTRAINED && grammar != null) {
             Recognizer(m, SAMPLE_RATE, JSONArray(grammar).toString()).withConfidence()
@@ -105,16 +95,6 @@ class RealVoskEngine(private val modelDir: File) : VoskEngine {
             // The model repeats the same partial result while it hears nothing new; only a change is passed on.
             var lastPartial = ""
             while (isRecording) {
-                takePendingRecognizer()?.let { next ->
-                    // What the old grammar has heard so far is passed on, so speech is not lost with the swap.
-                    recognizer?.let { old ->
-                        val result = old.finalResult
-                        lastPartial = ""
-                        postToListener { it.onResult(result) }
-                        old.close()
-                    }
-                    recognizer = next
-                }
                 if (isPaused) {
                     Thread.sleep(50)
                     continue
@@ -143,22 +123,6 @@ class RealVoskEngine(private val modelDir: File) : VoskEngine {
         }.apply { start() }
     }
 
-    override fun updateGrammar(grammar: List<String>) {
-        val m = model ?: return
-        val requestedFor = synchronized(lock) { session }
-        worker.execute {
-            val next = Recognizer(m, SAMPLE_RATE, JSONArray(grammar).toString()).withConfidence()
-            synchronized(lock) {
-                if (session == requestedFor) {
-                    pendingRecognizer?.close()
-                    pendingRecognizer = next
-                } else {
-                    next.close()
-                }
-            }
-        }
-    }
-
     override fun stop() {
         isRecording = false
         recordingThread?.join(1000)
@@ -166,11 +130,6 @@ class RealVoskEngine(private val modelDir: File) : VoskEngine {
         audioRecord?.stop()
         audioRecord?.release()
         audioRecord = null
-        synchronized(lock) {
-            session++
-            pendingRecognizer?.close()
-            pendingRecognizer = null
-        }
         recognizer?.close()
         recognizer = null
     }
@@ -184,7 +143,7 @@ class RealVoskEngine(private val modelDir: File) : VoskEngine {
         stop()
         mainHandler.removeCallbacksAndMessages(null)
         _listener = null
-        // Queued after any in-flight load or grammar build, so the model is never closed while in use.
+        // Queued after any in-flight load, so the model is never closed while in use.
         worker.execute {
             model?.close()
             model = null
@@ -199,9 +158,6 @@ class RealVoskEngine(private val modelDir: File) : VoskEngine {
     /** Final results also list each word with the model's confidence in it ("result": [{"word", "conf", …}]). */
     private fun Recognizer.withConfidence() = apply { setWords(true) }
 
-    private fun takePendingRecognizer(): Recognizer? = synchronized(lock) {
-        pendingRecognizer.also { pendingRecognizer = null }
-    }
 
     private fun postToListener(action: (VoskEngineListener) -> Unit) {
         mainHandler.post {

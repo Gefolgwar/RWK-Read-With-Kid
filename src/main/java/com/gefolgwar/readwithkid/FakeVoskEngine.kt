@@ -11,7 +11,6 @@ class FakeVoskEngine : VoskEngine {
     var startCount = 0
     var stopCount = 0
     var loadCount = 0
-    var grammarUpdateCount = 0
     /** Words missing from the model's vocabulary. */
     var unknownWords: Set<String> = emptySet()
 
@@ -27,11 +26,6 @@ class FakeVoskEngine : VoskEngine {
         started = true
         paused = false // as RealVoskEngine
         startCount++
-    }
-
-    override fun updateGrammar(grammar: List<String>) {
-        lastGrammar = grammar
-        grammarUpdateCount++
     }
 
     override fun stop() {

@@ -7,6 +7,8 @@ data class Word(val display: String, val normalized: String)
 
 data class PreparedText(val sentences: List<List<Word>>) {
     val words: List<Word> = sentences.flatten()
+    /** The sentence of each of the [words]. */
+    val sentenceOf: List<Int> = sentences.flatMapIndexed { i, sentence -> List(sentence.size) { i } }
 }
 
 /** Parts of a text that speech recognition handles poorly; parents should write them out as words. */

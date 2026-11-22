@@ -68,13 +68,15 @@
     <string name="leave_reading_message">Прогрес цього читання буде втрачено. Воно не з’явиться в попередніх спробах.</string>
     <string name="leave_reading">Вийти</string>
     <string name="keep_reading">Читати далі</string>
-    <string name="reading_help_hint">Натисни на слово, щоб почути його</string>
+    <string name="reading_help_hint">Натисни на слово синього речення, щоб почути його</string>
     <string name="text_smaller">Менші літери</string>
     <string name="text_bigger">Більші літери</string>
     <string name="reading_guide_title">Як читати</string>
     <string name="reading_guide_read_aloud">Читай текст уголос, слово за словом.</string>
-    <string name="reading_guide_read">Прочитані слова підкреслюються зеленим.</string>
-    <string name="reading_guide_tap_hear">Натисни на слово, щоб почути його.</string>
+    <string name="reading_guide_read">Прочитане речення стає зеленим.</string>
+    <string name="reading_guide_errors">Речення з багатьма помилками стає червоним: натисни на нього, щоб прочитати ще раз.</string>
+    <string name="reading_guide_choose">Натисни на інше речення, щоб читати його.</string>
+    <string name="reading_guide_tap_hear">Натисни на слово синього речення, щоб почути його.</string>
     <string name="reading_guide_buttons">«%1$s» — щоб відпочити, «%2$s» — коли дочитаєш до кінця.</string>
     <string name="reading_guide_close">Зрозуміло</string>
 
@@ -87,16 +89,11 @@
     <string name="result_duration">Тривалість</string>
     <string name="result_percent">%1$d %%</string>
     <string name="result_words">Правильно прочитано: %1$d з %2$d слів</string>
-    <string name="result_skipped">Пропущені слова</string>
+    <string name="result_sentences">Речення з помилками</string>
     <string name="result_retried">Слова з кількома спробами</string>
     <string name="result_helped">Слова з підказкою вимови</string>
-    <string name="result_corrected">Прочитані правильно після тексту</string>
+    <string name="result_corrected">Прочитані правильно, коли речення перечитали</string>
     <string name="result_uncertain">Телефон не зміг перевірити</string>
-    <string name="review_title">Прочитаймо ці слова ще раз</string>
-    <string name="review_read">Читай слово</string>
-    <string name="review_again">Ще раз</string>
-    <string name="review_next">Далі</string>
-    <string name="review_progress">Слово %1$d з %2$d</string>
     <string name="result_back">До тексту</string>
 
     <string name="history_title">Попередні спроби</string>

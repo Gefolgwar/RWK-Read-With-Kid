@@ -25,6 +25,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Mic
@@ -59,7 +60,10 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
@@ -189,33 +193,19 @@ fun ReadWithKidApp(
             .imePadding()
             .padding(16.dp)
         val result = state.result
-        val review = state.review
         val editor = library.editor
         val history = library.history
         val title = readingTitle
         when {
             state.sessionState == SessionState.FINISHED && result != null ->
                 ResultScreen(result, title, Magnets.forText(readingId), onClose = vm::closeResult, modifier = modifier)
-            state.sessionState == SessionState.REVIEWING && review != null ->
-                ReviewScreen(
-                    review,
-                    state.text.words,
-                    state.language,
-                    syllableColors = syllableColors,
-                    helpAvailable = state.helpAvailable,
-                    onWordTap = vm::sayWord,
-                    onNext = vm::nextReviewWord,
-                    onResume = vm::resume,
-                    onFinish = vm::finishReview,
-                    modifier = modifier
-                )
             state.sessionState == SessionState.READING || state.sessionState == SessionState.PAUSED ->
                 ReadingScreen(
                     state,
                     title,
                     Magnets.forText(readingId),
                     syllableColors = syllableColors,
-                    onWordTap = vm::sayWord,
+                    onWordTap = vm::tapWord,
                     onPause = vm::pause,
                     onResume = vm::resume,
                     onFinish = vm::finish,
@@ -545,7 +535,8 @@ fun ReadingScreen(
         buildAnnotatedString {
             words.forEachIndexed { index, word ->
                 starts[index] = length
-                // Tapping a word says it, when the phone has a voice for the language
+                // Tapping a word of the sentence to read says it, when the phone has a voice for the language;
+                // a word of another sentence chooses that sentence
                 withLink(LinkAnnotation.Clickable("word$index", noLinkStyle) { wordTap(index) }) {
                     // With coloured syllables the letters' colour shows the syllables; progress is drawn behind them.
                     if (syllableColors) {
@@ -628,7 +619,7 @@ fun ReadingScreen(
                     onTextLayout = { layout = it },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .readingProgress(boxes, state.wordStatuses, state.currentWordIndex, fontSize)
+                        .readingProgress(boxes, state, fontSize)
                 )
             }
         }
@@ -666,7 +657,7 @@ fun ReadingScreen(
 
 /**
  * What to do on the reading screen, each point next to the mark it explains, as the child sees it on the page:
- * read aloud, the green line, tapping a word to hear it, Pause and Done.
+ * read aloud, green and red sentences, tapping a sentence to read it, tapping a word to hear it, Pause and Done.
  */
 @Composable
 private fun ReadingGuideDialog(helpAvailable: Boolean, onClose: () -> Unit) {
@@ -679,10 +670,14 @@ private fun ReadingGuideDialog(helpAvailable: Boolean, onClose: () -> Unit) {
                 GuideRow(stringResource(R.string.reading_guide_read_aloud)) {
                     Icon(Icons.Default.Mic, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 }
-                GuideRow(stringResource(R.string.reading_guide_read)) { GuideLine(Magnets.Green.face) }
+                GuideRow(stringResource(R.string.reading_guide_read)) { GuideSentence(Magnets.Green.container) }
+                GuideRow(stringResource(R.string.reading_guide_errors)) { GuideSentence(Magnets.Red.container) }
+                GuideRow(stringResource(R.string.reading_guide_choose)) {
+                    Icon(Icons.Default.TouchApp, contentDescription = null)
+                }
                 if (helpAvailable) {
                     GuideRow(stringResource(R.string.reading_guide_tap_hear)) {
-                        Icon(Icons.Default.TouchApp, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null)
                     }
                 }
                 GuideRow(stringResource(R.string.reading_guide_buttons, stringResource(R.string.pause), stringResource(R.string.finish))) {
@@ -706,11 +701,11 @@ private fun GuideRow(text: String, mark: @Composable () -> Unit) {
     }
 }
 
-/** A short sample of the line drawn under read words, as on the page. */
+/** A short sample of the tint of a read sentence, as on the page. */
 @Composable
-private fun GuideLine(color: Color) {
-    Canvas(Modifier.size(32.dp, 8.dp)) {
-        drawProgressLine(color, WordBox(0f, size.width, 0f, 0), size.height / 2)
+private fun GuideSentence(color: Color) {
+    Canvas(Modifier.size(32.dp, 20.dp)) {
+        drawRoundRect(color, cornerRadius = CornerRadius(8.dp.toPx()))
     }
 }
 
@@ -732,37 +727,65 @@ private fun TextSizeButtons(textSize: Int, onTextSizeChange: (Int) -> Unit) {
     }
 }
 
+/** Where a sentence runs on one line of the laid-out reading text. */
+private data class SentenceStretch(val sentence: Int, val left: Float, val right: Float, val baseline: Float)
+
 /**
- * Read words underlined in green and the current line banded. Misread and skipped words look unread, so the child
- * reads on; they are read again after the text.
+ * The sentence to read banded, like a reading ruler; read sentences tinted green, or red with too many mistakes.
+ * In a read sentence words read correctly are underlined in green and misread or skipped ones in red, with what the
+ * phone heard in place of a misread word above it. In the sentence being read, read words are underlined in blue
+ * only, so a misread word looks unread and the child reads on.
  */
 @Composable
-private fun Modifier.readingProgress(
-    boxes: List<WordBox>,
-    statuses: List<WordStatus>,
-    current: Int,
-    fontSize: TextUnit
-): Modifier {
+private fun Modifier.readingProgress(boxes: List<WordBox>, state: ReadingUiState, fontSize: TextUnit): Modifier {
     val band = MaterialTheme.colorScheme.primaryContainer
-    val target = boxes.getOrNull(current)
+    val readTint = Magnets.Green.container
+    val errorsTint = Magnets.Red.container
+    val measurer = rememberTextMeasurer()
+    val heardStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = fontSize * 0.45f, color = MaterialTheme.colorScheme.error)
+    val sentenceOf = state.text.sentenceOf
+    val stretches = remember(boxes, sentenceOf) {
+        boxes.indices.groupBy { sentenceOf[it] to boxes[it].line }.map { (key, words) ->
+            SentenceStretch(key.first, words.minOf { boxes[it].left }, words.maxOf { boxes[it].right }, boxes[words.first()].baseline)
+        }
+    }
     return drawBehind {
         val font = fontSize.toPx()
-        if (target != null) {
-            // The line being read, like a reading ruler across the page
+        val pad = 3.dp.toPx()
+        stretches.forEach { stretch ->
+            val tint = when {
+                stretch.sentence == state.currentSentence -> band
+                else -> when (state.sentenceStatuses.getOrNull(stretch.sentence)) {
+                    SentenceStatus.READ -> readTint
+                    SentenceStatus.TOO_MANY_ERRORS -> errorsTint
+                    else -> return@forEach
+                }
+            }
             drawRoundRect(
-                band,
-                topLeft = Offset(-12.dp.toPx(), target.baseline - font * 1.05f),
-                size = Size(size.width + 24.dp.toPx(), font * 1.5f),
+                tint,
+                topLeft = Offset(stretch.left - pad, stretch.baseline - font * 1.05f),
+                size = Size(stretch.right - stretch.left + 2 * pad, font * 1.5f),
                 cornerRadius = CornerRadius(14.dp.toPx())
             )
         }
         boxes.forEachIndexed { i, box ->
             val y = box.baseline + font * 0.28f
-            when (statuses.getOrElse(i) { WordStatus.UNREAD }) {
-                WordStatus.CONFIRMED -> drawProgressLine(Magnets.Green.face, box, y)
-                WordStatus.TENTATIVE -> drawProgressLine(Magnets.Green.face.copy(alpha = 0.4f), box, y)
-                WordStatus.SKIPPED, WordStatus.UNREAD -> Unit
+            when (state.wordStatuses.getOrElse(i) { WordStatus.UNREAD }) {
+                WordStatus.CONFIRMED -> drawProgressLine(Magnets.Blue.face, box, y)
+                WordStatus.TENTATIVE -> drawProgressLine(Magnets.Blue.face.copy(alpha = 0.4f), box, y)
+                WordStatus.READ -> drawProgressLine(Magnets.Green.face, box, y)
+                WordStatus.MISREAD -> drawProgressLine(Magnets.Red.face, box, y)
+                WordStatus.UNCHECKED, WordStatus.UNREAD -> Unit
             }
+        }
+        state.heard.forEach { (i, heard) ->
+            val box = boxes.getOrNull(i) ?: return@forEach
+            val label = measurer.measure(heard, heardStyle)
+            drawText(
+                label,
+                // Resting on the top of its word's tint, so it reads with its own line
+                topLeft = Offset((box.left + box.right - label.size.width) / 2, box.baseline - font * 0.9f - label.size.height)
+            )
         }
     }
 }
@@ -831,7 +854,7 @@ fun ResultScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 4.dp, top = 12.dp)
             )
-            WordList(stringResource(R.string.result_skipped), result.skippedWords, Magnets.Orange)
+            ErrorSentences(result.errorSentences)
             WordList(stringResource(R.string.result_corrected), result.correctedWords, Magnets.Green)
             WordList(stringResource(R.string.result_uncertain), result.uncertainWords, Magnets.Purple)
             WordList(stringResource(R.string.result_retried), result.retriedWords, Magnets.Yellow)
@@ -916,6 +939,52 @@ private fun ResultRow(label: String, value: Int, format: @Composable (Int) -> St
             format(shown.value.roundToInt()),
             style = MaterialTheme.typography.headlineSmall.merge(TabularNumbers)
         )
+    }
+}
+
+/**
+ * The sentences with mistakes as the child read them the first time, tinted like on the page: each word in the reading
+ * font, misread and skipped ones in red with what the phone heard in their place above them.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ErrorSentences(sentences: List<ReadSentence>) {
+    if (sentences.isEmpty()) return
+    Spacer(Modifier.height(24.dp))
+    Text(stringResource(R.string.result_sentences), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 4.dp))
+    sentences.forEach { sentence ->
+        Spacer(Modifier.height(8.dp))
+        Surface(
+            color = if (sentence.tooManyErrors) Magnets.Red.container else Magnets.Green.container,
+            shape = MaterialTheme.shapes.medium,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+            ) {
+                val heardShown = sentence.words.any { it.heard.isNotEmpty() }
+                sentence.words.forEach { word ->
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        // A line for what was heard over every word, so the words of a sentence stay on one baseline
+                        if (heardShown) {
+                            Text(word.heard, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                        }
+                        Text(
+                            word.text,
+                            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 22.sp),
+                            color = when (word.status) {
+                                WordStatus.MISREAD -> MaterialTheme.colorScheme.error
+                                WordStatus.UNCHECKED -> MaterialTheme.colorScheme.onSurfaceVariant
+                                else -> MaterialTheme.colorScheme.onSurface
+                            },
+                            textDecoration = if (word.status == WordStatus.MISREAD) TextDecoration.Underline else null
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

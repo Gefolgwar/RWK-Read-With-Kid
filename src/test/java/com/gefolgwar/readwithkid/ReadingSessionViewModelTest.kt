@@ -255,7 +255,8 @@ class ReadingSessionViewModelTest {
 
         nowMs = 4_000
         engine.simulateFinal("мама мила раму")
-        assertEquals(WordStatus.CONFIRMED, state.wordStatuses[2])
+        // The first sentence is read
+        assertEquals(WordStatus.READ, state.wordStatuses[2])
         assertEquals(3, state.currentWordIndex)
         assertEquals(SessionState.READING, state.sessionState)
 
@@ -278,14 +279,13 @@ class ReadingSessionViewModelTest {
         vm.updateText(text)
         vm.start()
         engine.simulateFinal("мама мила тато") // "раму." skipped
-        assertEquals(WordStatus.SKIPPED, state.wordStatuses[2])
+        assertEquals(WordStatus.MISREAD, state.wordStatuses[2])
         assertEquals(WordStatus.CONFIRMED, state.wordStatuses[3])
         assertEquals(4, state.currentWordIndex)
 
         nowMs = 30_000
         engine.simulateFinal("читав книжку")
-        assertEquals(SessionState.REVIEWING, state.sessionState)
-        vm.finishReview()
+        assertEquals(SessionState.FINISHED, state.sessionState)
 
         val result = state.result!!
         assertEquals(5, result.correctWords)
@@ -337,7 +337,7 @@ class ReadingSessionViewModelTest {
         vm.updateText(kolobokText)
         vm.start()
         engine.simulateFinal("баба за місила тісто") // the model hears something else in place of "замісила"
-        assertEquals(WordStatus.CONFIRMED, state.wordStatuses[1])
+        assertEquals(WordStatus.UNCHECKED, state.wordStatuses[1])
         engine.simulateFinal("колобок вистиг на вікні")
 
         assertEquals(SessionState.FINISHED, state.sessionState)
@@ -355,7 +355,6 @@ class ReadingSessionViewModelTest {
         vm.updateText(kolobokText)
         vm.start()
         engine.simulateFinal("баба колобок на вікні") // "тісто." skipped
-        vm.finishReview()
 
         val result = state.result!!
         assertEquals(4, result.correctWords)
@@ -394,9 +393,6 @@ class ReadingSessionViewModelTest {
         engine.simulateFinal("мама мила тато читала") // "раму." skipped, wrong attempt at "читав"
         nowMs = 30_000
         engine.simulateFinal("читав книжку")
-        // Saved once the words are read again
-        assertTrue(readings.all.isEmpty())
-        vm.finishReview()
 
         val saved = readings.all.single()
         assertEquals(3L, saved.textId)
@@ -477,7 +473,7 @@ class ReadingSessionViewModelTest {
 
         vm.resume()
         engine.simulateFinal("раму")
-        assertEquals(WordStatus.CONFIRMED, state.wordStatuses[2])
+        assertEquals(WordStatus.READ, state.wordStatuses[2])
     }
 
     @Test
@@ -519,7 +515,8 @@ class ReadingSessionViewModelTest {
         assertFalse(engine.started)
         val result = state.result!!
         assertEquals(3, result.correctWords)
-        assertEquals(0.5f, result.accuracy, 0.0001f)
+        // The sentence not read counts in nothing
+        assertEquals(1f, result.accuracy, 0.0001f)
         assertEquals(30, result.wordsCorrectPerMinute)
         assertEquals(6_000L, result.durationMs)
     }
@@ -596,38 +593,18 @@ class ReadingSessionViewModelTest {
     // --- grammar fallback mode ---
 
     @Test
-    fun `grammar mode updates grammar at sentence boundary without restarting audio`() {
+    fun `grammar mode recognises every word of the text once, so the child can read on anywhere`() {
         engine = FakeVoskEngine()
         val grammarVm = ReadingSessionViewModel({ engine }, RecognitionMode.GRAMMAR_CONSTRAINED) { nowMs }
         engine.simulateModelLoaded()
-        grammarVm.updateText("Мама мила раму. Тато читав книжку. Кіт спав.")
+        grammarVm.updateText("Мама мила раму. Тато мила книжку. Кіт спав.")
         grammarVm.start()
-        assertEquals(listOf("мама", "мила", "раму", "тато", "читав", "книжку", "[unk]"), engine.lastGrammar)
+        assertEquals(listOf("мама", "мила", "раму", "тато", "книжку", "кіт", "спав", "[unk]"), engine.lastGrammar)
 
         engine.simulateFinal("мама мила раму тато")
 
-        assertEquals(1, engine.grammarUpdateCount)
         assertEquals(1, engine.startCount)
         assertEquals(0, engine.stopCount)
-        assertEquals(listOf("тато", "читав", "книжку", "кіт", "спав", "[unk]"), engine.lastGrammar)
-    }
-
-    @Test
-    fun `grammar mode moves the grammar on as soon as a partial result reaches the next sentence`() {
-        engine = FakeVoskEngine()
-        val grammarVm = ReadingSessionViewModel({ engine }, RecognitionMode.GRAMMAR_CONSTRAINED) { nowMs }
-        engine.simulateModelLoaded()
-        grammarVm.updateText("Мама мила раму. Тато читав книжку. Кіт спав.")
-        grammarVm.start()
-
-        engine.simulatePartial("мама мила")
-        assertEquals(0, engine.grammarUpdateCount)
-        engine.simulatePartial("мама мила раму тато")
-        assertEquals(1, engine.grammarUpdateCount)
-        assertEquals(listOf("тато", "читав", "книжку", "кіт", "спав", "[unk]"), engine.lastGrammar)
-        // The final result of the same speech does not ask for the same grammar again
-        engine.simulateFinal("мама мила раму тато")
-        assertEquals(1, engine.grammarUpdateCount)
     }
 
     @Test
@@ -654,7 +631,6 @@ class ReadingSessionViewModelTest {
         vm.start()
         engine.simulateFinal("мама мила раму тато")
         assertNull(engine.lastGrammar)
-        assertEquals(0, engine.grammarUpdateCount)
     }
 
     // --- Vosk JSON ---
@@ -750,7 +726,6 @@ class ReadingSessionViewModelTest {
         de.simulateFinal("die die katze lauft läuft ü ber die strasse") // repeat, skip "kleine", self-correction, syllables, ss
         nowMs = 30_000
         de.simulateFinal("sie heisst mimi")
-        freshVm.finishReview()
 
         val s = freshVm.uiState.value
         assertEquals(SessionState.FINISHED, s.sessionState)
@@ -939,7 +914,6 @@ class ReadingSessionViewModelTest {
         vm.start()
         engine.simulateFinal("мама мила рама тато", listOf(1.0, 1.0, 0.4, 1.0))
         engine.simulateFinal("читав книжку")
-        vm.finishReview()
 
         val result = state.result!!
         assertEquals(5, result.totalWords)
@@ -949,186 +923,151 @@ class ReadingSessionViewModelTest {
         assertEquals(emptyList<String>(), result.skippedWords)
     }
 
-    // --- reading words again after the text ---
+    // --- reading by sentences ---
 
-    /** "раму." (2) is misread as "рама" and "книжку." (5) not read; the child taps Done. */
-    private fun readWithMisreadWord() {
+    @Test
+    fun `a read sentence shows how its words were read and what the model heard in place of a misread word`() {
         vm.updateText(text)
         vm.start()
-        engine.simulateFinal("мама мила рама тато читав")
-        vm.finish()
+        engine.simulateFinal("мама мила рама")
+        // Nothing shows while the sentence is being read
+        assertEquals(WordStatus.UNREAD, state.wordStatuses[2])
+        assertEquals(emptyMap<Int, String>(), state.heard)
+        assertEquals(listOf(SentenceStatus.UNREAD, SentenceStatus.UNREAD), state.sentenceStatuses)
+
+        engine.simulateFinal("тато")
+        assertEquals(listOf(SentenceStatus.READ, SentenceStatus.UNREAD), state.sentenceStatuses)
+        assertEquals(WordStatus.READ, state.wordStatuses[1])
+        assertEquals(WordStatus.MISREAD, state.wordStatuses[2])
+        assertEquals(mapOf(2 to "рама"), state.heard)
+        assertEquals(1, state.currentSentence)
     }
 
     @Test
-    fun `after the text the misread words are read again one at a time, the model listening for that word only`() {
-        readWithMisreadWord()
-        assertEquals(SessionState.REVIEWING, state.sessionState)
-        assertEquals(Review(listOf(2)), state.review)
-        assertNull(state.result)
-        assertEquals(RecognitionMode.GRAMMAR_CONSTRAINED, engine.lastMode)
-        assertEquals(listOf("раму", "[unk]"), engine.lastGrammar)
-        assertTrue(engine.started)
-    }
-
-    /** "раму." (2) is misread as "рама", "читав" (4) skipped; the text is read to the end. */
-    private fun readWithTwoReviewWords() {
+    fun `tapping a word of another sentence chooses it, the microphone listening afresh`() {
         vm.updateText(text)
         vm.start()
-        engine.simulateFinal("мама мила рама тато книжку")
-    }
-
-    @Test
-    fun `a word read correctly goes on to the next one, which the microphone listens for afresh`() {
-        readWithTwoReviewWords()
-        assertEquals(Review(listOf(2, 4)), state.review)
+        assertEquals(0, state.currentSentence)
         val starts = engine.startCount
-        engine.simulatePartial("раму")
-        assertEquals(Review(listOf(2, 4), position = 1, read = setOf(0)), state.review)
+        vm.tapWord(4)
+        assertEquals(1, state.currentSentence)
+        assertEquals(3, state.currentWordIndex)
         assertEquals(starts + 1, engine.startCount)
-        assertEquals(listOf("читав", "[unk]"), engine.lastGrammar)
+        assertTrue(engine.started)
+        assertEquals(SessionState.READING, state.sessionState)
     }
 
     @Test
-    fun `corrected words are listed and still count as errors of the reading`() {
-        readWithTwoReviewWords()
-        engine.simulatePartial("раму")
-        engine.simulateFinal("читав")
+    fun `tapping a word of the sentence to read says it`() {
+        val helper = FakePronunciationHelper(TextLanguage.UK)
+        vm = helpVm(helper)
+        vm.updateText(text)
+        vm.start()
+        vm.tapWord(1)
+        assertEquals(listOf("мила" to TextLanguage.UK), helper.said)
+        assertEquals(0, state.currentSentence)
+    }
 
-        assertEquals(SessionState.FINISHED, state.sessionState)
+    @Test
+    fun `a sentence chosen while paused is read once reading goes on`() {
+        vm.updateText(text)
+        vm.start()
+        vm.pause()
+        vm.tapWord(3)
+        assertEquals(1, state.currentSentence)
         assertFalse(engine.started)
+        vm.resume()
+        engine.simulateFinal("тато читав книжку")
+        assertEquals(SentenceStatus.READ, state.sentenceStatuses[1])
+    }
+
+    @Test
+    fun `at the end of the text reading goes on with the first sentence not read`() {
+        vm.updateText(text)
+        vm.start()
+        vm.tapWord(3)
+        engine.simulateFinal("тато читав книжку")
+        assertEquals(SessionState.READING, state.sessionState)
+        assertEquals(0, state.currentSentence)
+        engine.simulateFinal("мама мила раму")
+        assertEquals(SessionState.FINISHED, state.sessionState)
+    }
+
+    @Test
+    fun `a sentence with too many errors is read again, the result keeping the first reading`() {
+        vm.updateText(text)
+        vm.start()
+        engine.simulateFinal("мама тато читав книжку") // "мила раму." skipped
+        assertEquals(listOf(SentenceStatus.TOO_MANY_ERRORS, SentenceStatus.READ), state.sentenceStatuses)
+        // Reading goes on with it
+        assertEquals(SessionState.READING, state.sessionState)
+        assertEquals(0, state.currentSentence)
+
+        engine.simulateFinal("мама мила раму")
+        assertEquals(SessionState.FINISHED, state.sessionState)
         val result = state.result!!
         assertEquals(6, result.totalWords)
         assertEquals(4, result.correctWords)
-        assertEquals(listOf("раму", "читав"), result.correctedWords)
+        assertEquals(listOf("мила", "раму"), result.correctedWords)
         assertEquals(emptyList<String>(), result.skippedWords)
+        assertEquals(
+            listOf(
+                ReadSentence(
+                    listOf(ReadWord("Мама", WordStatus.READ), ReadWord("мила", WordStatus.MISREAD), ReadWord("раму.", WordStatus.MISREAD)),
+                    tooManyErrors = true
+                )
+            ),
+            result.errorSentences
+        )
     }
 
     @Test
-    fun `an uncertain word read correctly after the text counts as read`() {
+    fun `the result lists the sentences with mistakes and what was heard`() {
         vm.updateText(text)
         vm.start()
-        engine.simulateFinal("мама мила рама тато читав книжку", listOf(1.0, 1.0, 0.4, 1.0, 1.0, 1.0))
-        assertEquals(Review(listOf(2)), state.review)
-        engine.simulateFinal("раму")
-
+        engine.simulateFinal("мама мила рама тато читав книжку")
         val result = state.result!!
-        assertEquals(6, result.totalWords)
-        assertEquals(6, result.correctWords)
-        assertEquals(emptyList<String>(), result.uncertainWords)
-        assertEquals(emptyList<String>(), result.correctedWords)
+        assertEquals(
+            listOf(
+                ReadSentence(
+                    listOf(ReadWord("Мама", WordStatus.READ), ReadWord("мила", WordStatus.READ), ReadWord("раму.", WordStatus.MISREAD, "рама")),
+                    tooManyErrors = false
+                )
+            ),
+            result.errorSentences
+        )
+        assertEquals(listOf("раму"), result.skippedWords)
     }
 
     @Test
-    fun `a wrong attempt asks once more, a second one goes on to the next word`() {
-        readWithTwoReviewWords()
-        engine.simulateFinal("рама")
-        assertEquals(Review(listOf(2, 4), wrongAttempts = 1), state.review)
-        engine.simulateFinal("рами")
-        assertEquals(Review(listOf(2, 4), position = 1), state.review)
-        engine.simulateFinal("[unk]")
-        engine.simulateFinal("[unk]")
-
-        val result = state.result!!
-        assertEquals(listOf("раму", "читав"), result.skippedWords)
-        assertEquals(emptyList<String>(), result.correctedWords)
-    }
-
-    @Test
-    fun `a word read by syllables with a pause is not a wrong attempt`() {
-        readWithTwoReviewWords()
-        engine.simulateFinal("ра")
-        assertEquals(0, state.review!!.wrongAttempts)
-        engine.simulateFinal("му")
-        assertEquals(setOf(0), state.review!!.read)
-    }
-
-    @Test
-    fun `next leaves the word as it is, and after the last word the result is shown`() {
-        readWithTwoReviewWords()
-        vm.nextReviewWord()
-        assertEquals(1, state.review!!.position)
-        vm.nextReviewWord()
-        assertEquals(SessionState.FINISHED, state.sessionState)
-        assertFalse(engine.started)
-        assertEquals(listOf("раму", "читав"), state.result!!.skippedWords)
-    }
-
-    @Test
-    fun `leaving the words read again shows the result and saves it once`() {
-        val readings = InMemoryReadingRepository()
-        vm = savingVm(readings, dateMs = 1)
-        vm.updateText(text, TextLanguage.UK, TextReading(textId = 3, textTitle = "Казка"))
-        vm.start()
-        engine.simulateFinal("мама мила рама тато книжку")
-        engine.simulateFinal("раму")
-        vm.finishReview()
-
-        assertEquals(SessionState.FINISHED, state.sessionState)
-        assertFalse(engine.started)
-        assertEquals(listOf("раму"), readings.all.single().result.correctedWords)
-        assertEquals(listOf("читав"), readings.all.single().result.skippedWords)
-    }
-
-    @Test
-    fun `reading words again is not counted in the duration`() {
+    fun `done leaves the sentence being read, and sentences not read count in nothing`() {
         vm.updateText(text)
         vm.start()
-        nowMs = 6_000
-        engine.simulateFinal("мама мила рама тато читав")
+        engine.simulateFinal("мама мила раму")
         vm.finish()
-        nowMs = 60_000
-        vm.finishReview()
-        assertEquals(6_000L, state.result!!.durationMs)
-    }
+        val result = state.result!!
+        assertEquals(3, result.totalWords)
+        assertEquals(3, result.correctWords)
+        assertEquals(emptyList<ReadSentence>(), result.errorSentences)
 
-    @Test
-    fun `pausing stops the microphone and resuming listens for the same word afresh`() {
-        readWithTwoReviewWords()
-        engine.simulateFinal("ра")
-        vm.pause()
-        assertTrue(state.review!!.paused)
-        assertFalse(engine.started)
-        // Results arriving after the microphone stopped are ignored
-        engine.simulateFinal("раму")
-        assertEquals(emptySet<Int>(), state.review!!.read)
-
-        vm.resume()
-        assertFalse(state.review!!.paused)
-        assertTrue(engine.started)
-        assertEquals(listOf("раму", "[unk]"), engine.lastGrammar)
-        engine.simulateFinal("раму")
-        assertEquals(setOf(0), state.review!!.read)
-    }
-
-    @Test
-    fun `a word read again can be said, and the microphone does not hear it`() {
-        val helper = FakePronunciationHelper(TextLanguage.UK)
-        vm = helpVm(helper)
-        readWithMisreadWord()
-        vm.sayWord(2)
-        assertEquals(listOf("раму" to TextLanguage.UK), helper.said)
-        assertTrue(engine.paused)
-        helper.finishSaying()
-        assertFalse(engine.paused)
-        vm.finishReview()
-        assertEquals(listOf("раму"), state.result!!.helpedWords)
-    }
-
-    @Test
-    fun `a recognition error while reading words again shows the result`() {
-        readWithMisreadWord()
-        engine.simulateError("AudioRecord init failed")
-        assertEquals(SessionState.FINISHED, state.sessionState)
-        assertNotNull(state.result)
-    }
-
-    @Test
-    fun `a new reading starts without words to read again`() {
-        readWithMisreadWord()
-        vm.finishReview()
         vm.closeResult()
         vm.start()
-        assertNull(state.review)
-        assertEquals(SessionState.READING, state.sessionState)
+        engine.simulateFinal("мама мила раму тато")
+        vm.finish()
+        assertEquals(6, state.result!!.totalWords)
+        assertEquals(listOf("читав", "книжку"), state.result!!.skippedWords)
+        assertTrue(state.result!!.errorSentences.single().tooManyErrors)
+    }
+
+    @Test
+    fun `a new reading starts with no sentence read`() {
+        vm.updateText(text)
+        vm.start()
+        engine.simulateFinal("мама мила раму тато")
+        vm.finish()
+        vm.closeResult()
+        vm.start()
+        assertEquals(listOf(SentenceStatus.UNREAD, SentenceStatus.UNREAD), state.sentenceStatuses)
+        assertEquals(0, state.currentSentence)
     }
 }

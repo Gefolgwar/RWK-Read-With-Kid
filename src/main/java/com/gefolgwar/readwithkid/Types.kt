@@ -13,16 +13,30 @@ enum class SessionState {
     READY,
     READING,
     PAUSED,
-    /** The text is read; the child reads misread, skipped and uncertain words again. */
-    REVIEWING,
     FINISHED
 }
 
 enum class WordStatus {
     UNREAD,
+    /** Read in the sentence being read, by a partial result that may still change. */
     TENTATIVE,
+    /** Read in the sentence being read. */
     CONFIRMED,
-    SKIPPED
+    /** Read correctly, in a read sentence. */
+    READ,
+    /** Misread or skipped, in a read sentence. */
+    MISREAD,
+    /** In a read sentence, a word the model could not check: unknown to it, or uncertain. */
+    UNCHECKED
+}
+
+/** How a sentence was read last. */
+enum class SentenceStatus {
+    UNREAD,
+    /** Read, with at most half of its words misread or skipped. */
+    READ,
+    /** Read with more than half of its words misread or skipped. */
+    TOO_MANY_ERRORS
 }
 
 /** Language of a text; chooses the speech model. Stored by name. */

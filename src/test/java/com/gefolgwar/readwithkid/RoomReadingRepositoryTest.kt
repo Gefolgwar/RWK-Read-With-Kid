@@ -40,7 +40,14 @@ class RoomReadingRepositoryTest {
     fun `readings of a text with their word lists survive reopening the database, newest first`() {
         val first = ReadingResult(
             6, 4, 30_000, listOf("раму", "будь-який"), listOf("читав"), listOf("книжку", "раму"),
-            correctedWords = listOf("мила"), uncertainWords = listOf("тато", "мама")
+            correctedWords = listOf("мила"), uncertainWords = listOf("тато", "мама"),
+            errorSentences = listOf(
+                ReadSentence(
+                    listOf(ReadWord("Мама", WordStatus.READ), ReadWord("мила", WordStatus.MISREAD, "сила \"так\""), ReadWord("раму.", WordStatus.UNCHECKED)),
+                    tooManyErrors = false
+                ),
+                ReadSentence(listOf(ReadWord("Тато", WordStatus.MISREAD)), tooManyErrors = true)
+            )
         )
         val second = ReadingResult(6, 6, 20_000, emptyList(), emptyList())
         val text = withDb { db ->
@@ -159,7 +166,7 @@ class RoomReadingRepositoryTest {
     }
 
     @Test
-    fun `a database from before reading words again is upgraded, its readings had none corrected or uncertain`() {
+    fun `a database from before corrected and uncertain words is upgraded, its readings had none, nor sentences with mistakes`() {
         // A database as version 8 of the app left it.
         context.openOrCreateDatabase(dbName, Context.MODE_PRIVATE, null).use { db ->
             db.execSQL("CREATE TABLE `children` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL)")

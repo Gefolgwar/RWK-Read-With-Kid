@@ -71,16 +71,26 @@ class ScreenshotsTest {
         retriedWords = listOf("поділитися", "сестричко"),
         helpedWords = listOf("пирогом"),
         correctedWords = listOf("червоне"),
-        uncertainWords = listOf("бабусі")
-    )
-
-    /** After the text: the first of three words was read again correctly, the second one gets a wrong attempt. */
-    private val review = Review(listOf(4, 11, 20), position = 1, read = setOf(0), wrongAttempts = 1)
-
-    @Composable
-    private fun reviewScreen(modifier: Modifier) = ReviewScreen(
-        review, TextPreparation.prepare(story).words, TextLanguage.UK, syllableColors = true, helpAvailable = true,
-        {}, {}, {}, {}, modifier
+        uncertainWords = listOf("бабусі"),
+        errorSentences = listOf(
+            ReadSentence(
+                "Лисичка знайшла на стежці червоне яблуко.".split(" ").mapIndexed { i, word ->
+                    if (i == 3) ReadWord(word, WordStatus.MISREAD, "стежки") else ReadWord(word, WordStatus.READ)
+                },
+                tooManyErrors = false
+            ),
+            ReadSentence(
+                "Вона понесла його додому, щоб поділитися з братиком.".split(" ").mapIndexed { i, word ->
+                    when (i) {
+                        3 -> ReadWord(word, WordStatus.MISREAD, "додом")
+                        in 4..6 -> ReadWord(word, WordStatus.MISREAD)
+                        2 -> ReadWord(word, WordStatus.MISREAD, "йо")
+                        else -> ReadWord(word, WordStatus.READ)
+                    }
+                },
+                tooManyErrors = true
+            )
+        )
     )
 
     /** [dark] null follows the system setting, as the app does. */
@@ -108,10 +118,13 @@ class ScreenshotsTest {
     private fun reading(state: SessionState = SessionState.READING): ReadingUiState {
         val prepared = TextPreparation.prepare(story)
         val count = prepared.words.size
+        // The first sentence read with a misread word, the second with too many mistakes, the third being read
         val statuses = List(count) { i ->
-            when {
-                i == 4 -> WordStatus.SKIPPED
-                i < 11 -> WordStatus.CONFIRMED
+            when (i) {
+                3, in 8..12 -> WordStatus.MISREAD
+                in 0..13 -> WordStatus.READ
+                14, 15 -> WordStatus.CONFIRMED
+                16 -> WordStatus.TENTATIVE
                 else -> WordStatus.UNREAD
             }
         }
@@ -120,7 +133,10 @@ class ScreenshotsTest {
             rawText = story,
             text = prepared,
             wordStatuses = statuses,
-            currentWordIndex = 11,
+            heard = mapOf(3 to "стежки", 8 to "йо", 9 to "додом"),
+            sentenceStatuses = listOf(SentenceStatus.READ, SentenceStatus.TOO_MANY_ERRORS, SentenceStatus.UNREAD, SentenceStatus.UNREAD),
+            currentWordIndex = 17,
+            currentSentence = 2,
             helpAvailable = true
         )
     }
@@ -275,12 +291,6 @@ class ScreenshotsTest {
             textSize = ReadingTextSizes.last()
         )
     }
-
-    @Test
-    fun reviewWords() = shot("4e-review-words") { reviewScreen(it) }
-
-    @Test
-    fun reviewWordsDark() = shot("d4e-review-words", dark = true) { reviewScreen(it) }
 
     @Test
     fun resultScreen() = shot("5-result") {

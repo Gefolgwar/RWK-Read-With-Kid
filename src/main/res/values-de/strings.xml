@@ -68,13 +68,15 @@
     <string name="leave_reading_message">Der Fortschritt geht verloren. Dieser Versuch erscheint nicht bei den bisherigen Versuchen.</string>
     <string name="leave_reading">Abbrechen</string>
     <string name="keep_reading">Weiterlesen</string>
-    <string name="reading_help_hint">Tippe auf ein Wort, um es zu hören</string>
+    <string name="reading_help_hint">Tippe auf ein Wort im blauen Satz, um es zu hören</string>
     <string name="text_smaller">Kleinere Schrift</string>
     <string name="text_bigger">Größere Schrift</string>
     <string name="reading_guide_title">So wird gelesen</string>
     <string name="reading_guide_read_aloud">Lies den Text laut vor, Wort für Wort.</string>
-    <string name="reading_guide_read">Gelesene Wörter werden grün unterstrichen.</string>
-    <string name="reading_guide_tap_hear">Tippe auf ein Wort, um es zu hören.</string>
+    <string name="reading_guide_read">Ein gelesener Satz wird grün.</string>
+    <string name="reading_guide_errors">Ein Satz mit vielen Fehlern wird rot: Tippe darauf, um ihn noch einmal zu lesen.</string>
+    <string name="reading_guide_choose">Tippe auf einen anderen Satz, um ihn zu lesen.</string>
+    <string name="reading_guide_tap_hear">Tippe auf ein Wort im blauen Satz, um es zu hören.</string>
     <string name="reading_guide_buttons">„%1$s“ für eine Pause, „%2$s“, wenn du bis zum Ende gelesen hast.</string>
     <string name="reading_guide_close">Alles klar</string>
 
@@ -87,16 +89,11 @@
     <string name="result_duration">Dauer</string>
     <string name="result_percent">%1$d %%</string>
     <string name="result_words">Richtig gelesen: %1$d von %2$d Wörtern</string>
-    <string name="result_skipped">Ausgelassene Wörter</string>
+    <string name="result_sentences">Sätze mit Fehlern</string>
     <string name="result_retried">Wörter mit mehreren Versuchen</string>
     <string name="result_helped">Wörter mit Aussprachehilfe</string>
-    <string name="result_corrected">Nach dem Text richtig gelesen</string>
+    <string name="result_corrected">Beim erneuten Lesen des Satzes richtig gelesen</string>
     <string name="result_uncertain">Das Handy konnte es nicht prüfen</string>
-    <string name="review_title">Lies diese Wörter noch einmal</string>
-    <string name="review_read">Lies das Wort</string>
-    <string name="review_again">Noch einmal</string>
-    <string name="review_next">Nächstes</string>
-    <string name="review_progress">Wort %1$d von %2$d</string>
     <string name="result_back">Zurück zum Text</string>
 
     <string name="history_title">Bisherige Versuche</string>

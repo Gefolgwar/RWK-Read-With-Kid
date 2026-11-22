@@ -10,6 +10,8 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.TypeConverter
 import kotlinx.coroutines.flow.Flow
+import org.json.JSONArray
+import org.json.JSONObject
 
 /** A saved text whose reading is saved when it is finished. */
 data class TextReading(val textId: Long, val textTitle: String)
@@ -66,4 +68,33 @@ class WordListConverter {
 
     @TypeConverter
     fun toWords(text: String): List<String> = if (text.isEmpty()) emptyList() else text.split("\n")
+}
+
+/** Sentences of a result are stored as JSON; no sentences as "". */
+class SentenceListConverter {
+    @TypeConverter
+    fun toText(sentences: List<ReadSentence>): String = if (sentences.isEmpty()) "" else JSONArray(
+        sentences.map { sentence ->
+            JSONObject()
+                .put("tooManyErrors", sentence.tooManyErrors)
+                .put("words", JSONArray(sentence.words.map { JSONObject().put("text", it.text).put("status", it.status.name).put("heard", it.heard) }))
+        }
+    ).toString()
+
+    @TypeConverter
+    fun toSentences(text: String): List<ReadSentence> {
+        if (text.isEmpty()) return emptyList()
+        val sentences = JSONArray(text)
+        return (0 until sentences.length()).map { i ->
+            val sentence = sentences.getJSONObject(i)
+            val words = sentence.getJSONArray("words")
+            ReadSentence(
+                (0 until words.length()).map { w ->
+                    val word = words.getJSONObject(w)
+                    ReadWord(word.getString("text"), WordStatus.valueOf(word.getString("status")), word.optString("heard"))
+                },
+                sentence.getBoolean("tooManyErrors")
+            )
+        }
+    }
 }

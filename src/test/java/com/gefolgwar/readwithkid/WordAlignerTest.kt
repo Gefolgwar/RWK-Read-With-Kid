@@ -284,7 +284,8 @@ class WordAlignerTest {
         assertEquals(3, aligner.confirmedIndex)
         assertEquals(3, aligner.matchedCount)
         assertEquals(setOf(1), aligner.skippedIndices)
-        assertEquals(WordStatus.SKIPPED, aligner.getWordStatus(1))
+        // While the sentence is being read a skipped word looks unread
+        assertEquals(WordStatus.UNREAD, aligner.getWordStatus(1))
         assertEquals(WordStatus.CONFIRMED, aligner.getWordStatus(2))
     }
 
@@ -465,8 +466,10 @@ class WordAlignerTest {
 
         aligner.processFinal(listOf("тісто", "колобок", "вистиг", "на", "вікні"))
         assertEquals(kolobok.lastIndex, aligner.confirmedIndex)
-        assertTrue(kolobok.indices.all { aligner.getWordStatus(it) == WordStatus.CONFIRMED })
-        assertEquals(5, aligner.knownCount)
+        // The sentence is read: the model could not check the unknown words
+        assertTrue(kolobok.indices.all {
+            aligner.getWordStatus(it) == if (it in kolobokUnknown) WordStatus.UNCHECKED else WordStatus.READ
+        })
         assertEquals(5, aligner.matchedCount)
         assertEquals(emptySet<Int>(), aligner.skippedIndices)
         assertEquals(emptySet<Int>(), aligner.retriedIndices)
@@ -486,8 +489,8 @@ class WordAlignerTest {
         aligner.processFinal(listOf("баба", "колобок", "на", "вікні")) // "тісто" skipped
         assertEquals(kolobok.lastIndex, aligner.confirmedIndex)
         assertEquals(setOf(2), aligner.skippedIndices)
-        assertEquals(WordStatus.SKIPPED, aligner.getWordStatus(2))
-        assertEquals(WordStatus.CONFIRMED, aligner.getWordStatus(1))
+        assertEquals(WordStatus.MISREAD, aligner.getWordStatus(2))
+        assertEquals(WordStatus.UNCHECKED, aligner.getWordStatus(1))
         assertEquals(4, aligner.matchedCount)
     }
 
@@ -496,8 +499,7 @@ class WordAlignerTest {
         val aligner = WordAligner(listOf("Колобок", "пирхав"), setOf(1))
         aligner.processFinal(listOf("колобок"))
         assertEquals(1, aligner.confirmedIndex)
-        assertEquals(WordStatus.CONFIRMED, aligner.getWordStatus(1))
-        assertEquals(1, aligner.knownCount)
+        assertEquals(WordStatus.UNCHECKED, aligner.getWordStatus(1))
     }
 
     @Test
@@ -563,75 +565,175 @@ class WordAlignerTest {
         assertEquals(setOf(2), aligner.uncertainIndices)
     }
 
-    // --- reading words again after the text ---
+    // --- reading by sentences ---
+
+    // Sentences: "мама"(0) "мила"(1) "раму"(2) | "тато"(3) "читає"(4) "книжку"(5) | "діти"(6) "грають"(7) "у"(8) "дворі"(9)
+    private val story = TextPreparation.prepare("Мама мила раму. Тато читає книжку. Діти грають у дворі.")
+
+    private fun storyAligner() = WordAligner(story.words.map { it.normalized }, emptySet(), story.sentenceOf)
+
+    private fun WordAligner.read(vararg finals: String) = apply { finals.forEach { processFinal(it.split(" ")) } }
 
     @Test
-    fun `misread, skipped and uncertain words are read again after the text, in text order`() {
-        read("україна суверенна")
-        readUnsure("і незалежна сові соціальна", 2)
-        assertEquals(listOf(1, 5), aligner.reviewIndices)
-        assertEquals(setOf(1), aligner.skippedIndices)
-        assertEquals(setOf(5), aligner.uncertainIndices)
+    fun `a sentence read to its last word is read, its words marked read or misread`() {
+        val aligner = storyAligner().read("мама мила рамою тато")
+        assertEquals(SentenceStatus.READ, aligner.sentenceStatus(0))
+        assertEquals(WordStatus.READ, aligner.getWordStatus(1))
+        assertEquals(WordStatus.MISREAD, aligner.getWordStatus(2))
+        assertEquals("рамою", aligner.heard(2))
+        assertEquals(null, aligner.heard(1))
+        // The next sentence is being read
+        assertEquals(SentenceStatus.UNREAD, aligner.sentenceStatus(1))
+        assertEquals(WordStatus.CONFIRMED, aligner.getWordStatus(3))
     }
 
     @Test
-    fun `a misread word read correctly after the text is corrected and still an error of the reading`() {
-        read("україна є сувора і")
-        assertEquals(ReviewOutcome.READ, aligner.review(2, listOf("суверенна"), final = true))
-        assertEquals(setOf(2), aligner.correctedIndices)
-        assertEquals(emptySet<Int>(), aligner.skippedIndices)
-        assertEquals(3, aligner.matchedCount)
+    fun `while a sentence is being read nothing shows its mistakes`() {
+        val aligner = storyAligner().read("мама мила рамою")
+        assertEquals(SentenceStatus.UNREAD, aligner.sentenceStatus(0))
+        assertEquals(WordStatus.CONFIRMED, aligner.getWordStatus(1))
+        assertEquals(WordStatus.UNREAD, aligner.getWordStatus(2))
+        assertEquals(null, aligner.heard(2))
     }
 
     @Test
-    fun `an uncertain word read correctly after the text counts as read`() {
-        readUnsure("україна є сувора і", 2)
-        assertEquals(ReviewOutcome.READ, aligner.review(2, listOf("суверенна"), final = false))
-        assertEquals(emptySet<Int>(), aligner.uncertainIndices)
-        assertEquals(emptySet<Int>(), aligner.correctedIndices)
-        assertEquals(4, aligner.matchedCount)
-        assertEquals(WordStatus.CONFIRMED, aligner.getWordStatus(2))
+    fun `a sentence with more than half of its words misread has too many errors`() {
+        val aligner = storyAligner().read("мама", "тато читає")
+        assertEquals(SentenceStatus.TOO_MANY_ERRORS, aligner.sentenceStatus(0))
+        assertEquals(mapOf(1 to "", 2 to ""), aligner.firstReadings.getValue(0).misread)
     }
 
     @Test
-    fun `an uncertain word misread again after the text stays uncertain`() {
-        readUnsure("україна є сувора і", 2)
-        assertEquals(ReviewOutcome.WRONG, aligner.review(2, listOf("сові"), final = true))
-        assertEquals(setOf(2), aligner.uncertainIndices)
-        assertEquals(3, aligner.matchedCount)
+    fun `a sentence with half of its words misread is read`() {
+        val aligner = storyAligner()
+        aligner.startAt(2)
+        aligner.read("діти грають")
+        aligner.stop()
+        assertEquals(setOf(8, 9), aligner.firstReadings.getValue(2).misread.keys)
+        assertEquals(SentenceStatus.READ, aligner.sentenceStatus(2))
     }
 
     @Test
-    fun `a word read again by syllables with pauses waits for the rest of it`() {
-        read("україна є сувора і")
-        assertEquals(ReviewOutcome.LISTENING, aligner.review(2, listOf("су", "ве"), final = true))
-        assertEquals(ReviewOutcome.LISTENING, aligner.review(2, listOf("рен"), final = false))
-        assertEquals(ReviewOutcome.READ, aligner.review(2, listOf("рен", "на"), final = true))
-        assertEquals(setOf(2), aligner.correctedIndices)
+    fun `what the model heard in place of a misread word is all of the attempt`() {
+        val aligner = storyAligner().read("мама ра мою раму")
+        assertEquals("ра мою", aligner.heard(1))
     }
 
     @Test
-    fun `a wrong word read again is wrong on the final result only`() {
-        read("україна є сувора і")
-        assertEquals(ReviewOutcome.LISTENING, aligner.review(2, listOf("сові"), final = false))
-        assertEquals(ReviewOutcome.WRONG, aligner.review(2, listOf("сові"), final = true))
-        assertEquals(ReviewOutcome.WRONG, aligner.review(2, listOf("[unk]"), final = true))
+    fun `reading on in another sentence follows the child, the rest of the sentence left is skipped`() {
+        val aligner = storyAligner().read("мама мила", "діти грають у")
+        assertEquals(8, aligner.confirmedIndex)
+        assertEquals(mapOf(2 to ""), aligner.firstReadings.getValue(0).misread)
+        assertEquals(SentenceStatus.READ, aligner.sentenceStatus(0))
+        // The sentence jumped over is not read, not skipped
+        assertEquals(SentenceStatus.UNREAD, aligner.sentenceStatus(1))
+        assertEquals(WordStatus.UNREAD, aligner.getWordStatus(4))
         assertEquals(setOf(2), aligner.skippedIndices)
-        // A new attempt starts afresh: earlier syllables are not glued to it
-        assertEquals(ReviewOutcome.READ, aligner.review(2, listOf("суверенна"), final = true))
     }
 
     @Test
-    fun `the word is found among other speech`() {
-        read("україна є сувора і")
-        assertEquals(ReviewOutcome.READ, aligner.review(2, listOf("е", "суверенна"), final = true))
+    fun `reading may start anywhere and go back to an earlier sentence`() {
+        val aligner = storyAligner().read("тато читає книжку", "мама мила раму")
+        assertEquals(SentenceStatus.READ, aligner.sentenceStatus(0))
+        assertEquals(SentenceStatus.READ, aligner.sentenceStatus(1))
+        assertEquals(SentenceStatus.UNREAD, aligner.sentenceStatus(2))
+        assertEquals(emptySet<Int>(), aligner.skippedIndices)
+        assertEquals(6, aligner.matchedCount)
     }
 
     @Test
-    fun `only a word to read again can be read again`() {
-        read("україна є сувора і")
-        assertEquals(ReviewOutcome.WRONG, aligner.review(1, listOf("є"), final = true))
-        assertEquals(ReviewOutcome.WRONG, aligner.review(5, listOf("демократична"), final = true))
-        assertEquals(emptySet<Int>(), aligner.correctedIndices)
+    fun `jumping to another sentence needs three words of it in a row`() {
+        val aligner = storyAligner().read("мама мила", "діти грають")
+        assertEquals(1, aligner.confirmedIndex)
+        aligner.read("у")
+        assertEquals(8, aligner.confirmedIndex)
+    }
+
+    @Test
+    fun `a chosen sentence is read from its first word`() {
+        val aligner = storyAligner()
+        aligner.startAt(1)
+        assertEquals(3, aligner.nextIndex)
+        aligner.read("тато читає книжку")
+        assertEquals(SentenceStatus.READ, aligner.sentenceStatus(1))
+        assertEquals(SentenceStatus.UNREAD, aligner.sentenceStatus(0))
+        assertEquals(6, aligner.nextIndex)
+    }
+
+    @Test
+    fun `choosing another sentence leaves the sentence being read`() {
+        val aligner = storyAligner().read("мама")
+        aligner.startAt(2)
+        assertEquals(SentenceStatus.TOO_MANY_ERRORS, aligner.sentenceStatus(0))
+        assertEquals(6, aligner.nextIndex)
+    }
+
+    @Test
+    fun `choosing a sentence accepts what a partial result heard before`() {
+        val aligner = storyAligner()
+        aligner.processPartial(listOf("мама", "мила", "раму"))
+        aligner.startAt(2)
+        assertEquals(SentenceStatus.READ, aligner.sentenceStatus(0))
+        assertEquals(emptySet<Int>(), aligner.skippedIndices)
+    }
+
+    @Test
+    fun `a sentence read again shows how it was read last, the first reading is kept`() {
+        val aligner = storyAligner().read("мама", "тато читає книжку")
+        assertEquals(SentenceStatus.TOO_MANY_ERRORS, aligner.sentenceStatus(0))
+
+        aligner.startAt(0)
+        // Its marks stay until the child reads it again
+        assertEquals(WordStatus.MISREAD, aligner.getWordStatus(1))
+        aligner.read("мама")
+        assertEquals(SentenceStatus.UNREAD, aligner.sentenceStatus(0))
+        assertEquals(WordStatus.UNREAD, aligner.getWordStatus(1))
+        aligner.read("мила раму")
+
+        assertEquals(SentenceStatus.READ, aligner.sentenceStatus(0))
+        assertEquals(WordStatus.READ, aligner.getWordStatus(1))
+        assertEquals(setOf(1, 2), aligner.firstReadings.getValue(0).misread.keys)
+        assertEquals(setOf(0), aligner.firstReadings.getValue(0).read)
+    }
+
+    @Test
+    fun `repeating the last words of a read sentence does not read it again`() {
+        val aligner = storyAligner().read("мама мила раму", "мила раму")
+        assertEquals(SentenceStatus.READ, aligner.sentenceStatus(0))
+        assertEquals(3, aligner.nextIndex)
+    }
+
+    @Test
+    fun `the sentence to read is the first one not read or read with too many errors`() {
+        val aligner = storyAligner()
+        assertEquals(0, aligner.sentenceToRead)
+        aligner.read("мама", "тато читає книжку")
+        assertEquals(0, aligner.sentenceToRead)
+        aligner.read("діти грають у дворі")
+        assertEquals(0, aligner.sentenceToRead)
+        aligner.startAt(0)
+        aligner.read("мама мила раму")
+        assertEquals(-1, aligner.sentenceToRead)
+    }
+
+    @Test
+    fun `stopping leaves the sentence being read`() {
+        val aligner = storyAligner().read("мама")
+        aligner.processPartial(listOf("мила"))
+        aligner.stop()
+        assertEquals(mapOf(2 to ""), aligner.firstReadings.getValue(0).misread)
+        assertEquals(setOf(0, 1), aligner.firstReadings.getValue(0).read)
+    }
+
+    @Test
+    fun `uncertain and self-corrected words of a sentence are kept with its first reading`() {
+        val aligner = storyAligner()
+        aligner.processFinal(listOf("мама", "сила", "мила", "рама", "тато"), unsure = setOf(3))
+        val reading = aligner.firstReadings.getValue(0)
+        assertEquals(setOf(1), reading.retried)
+        assertEquals(setOf(2), reading.uncertain)
+        assertEquals(emptyMap<Int, String>(), reading.misread)
+        assertEquals(WordStatus.UNCHECKED, aligner.getWordStatus(2))
+        assertEquals(null, aligner.heard(2))
     }
 }

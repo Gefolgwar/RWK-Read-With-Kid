@@ -15,8 +15,6 @@ interface VoskEngine {
      */
     fun knowsWord(word: String): Boolean
     fun start(mode: RecognitionMode, grammar: List<String>? = null)
-    /** Swaps the grammar of a running recognition session without stopping audio capture. */
-    fun updateGrammar(grammar: List<String>)
     fun stop()
     fun pause(paused: Boolean)
     fun release()
